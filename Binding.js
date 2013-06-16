@@ -1,20 +1,29 @@
 /*
  Binding
- (c) Sean Hogan, 2008,2012
+ (c) Sean Hogan, 2008,2012,2013
  All rights reserved.
 */
 
 /* NOTE
 Requires some features not implemented on older browsers:
-[].forEach - IE9+
 element.matchesSelector (or prefixed equivalent) - IE9+
-element.querySelector* - IE8+
+element.querySelectorAll - IE8+
 */
 
 if (!this.Meeko) this.Meeko = {};
 
 (function() {
-	
+
+var defaults = { // NOTE defaults also define the type of the associated config option
+	"log_level": "warn"
+}
+
+/*
+ ### Utility functions
+ */
+
+var words = function(text) { return text.split(/\s+/); }
+
 var each = (Object.keys) ? // TODO is this feature detection worth-while?
 function(object, fn) {
 	var keys = Object.keys(object);
@@ -39,64 +48,111 @@ function(dest, src) {
 	return dest;
 }
 
-var forEach = function(array, fn) { return [].forEach.call(array, fn); } 
+var some = function(a, fn, context) { 
+	for (var n=a.length, i=0; i<n; i++) {
+		if (fn.call(context, a[i], i, a)) return true; 
+	}
+	return false;
+}
+
+var forEach = function(a, fn, context) {
+	for (var n=a.length, i=0; i<n; i++) {
+		fn.call(context, a[i], i, a);
+	}
+}
 
 if (!Meeko.stuff) Meeko.stuff = {}
 extend(Meeko.stuff, {
 	forEach: forEach, each: each, extend: extend
 });
 
-var	$id = function(id, doc) { if (!doc) doc = document; return doc.getElementById(id); }
-var $ = function(selector, context) { if (!context) context = document; return context.querySelector(selector); }
-var $$ = function(selector, context) { if (!context) context = document; return [].slice.call(context.querySelectorAll(selector), 0); }
+/*
+ ### DOM utility functions
+ */
 
-if (!Meeko.DOM) Meeko.DOM = {}
-extend(Meeko.DOM, {
-	$id: $id, $: $, $$: $$
+var DOM = Meeko.DOM || (Meeko.DOM = {});
+
+// WARN getSpecificity is for selectors, **but not** for selector-chains
+DOM.getSpecificity = function(selector) { // NOTE this fn is small but extremely naive (and wrongly counts attrs and pseudo-attrs with element-type)
+	var idCount = selector.split('#').length - 1;
+	var classCount = selector.split('.').length - 1;
+	var typeCount =
+		selector.replace(/\*/g, '') // ignore universals
+		.replace(/[>+~]/g, ' ') // descendants don't matter
+		.replace(/:+|[#.\[\]]/g, ' ') // prepare to count pseudos and id, class, attr
+		.split(/\s+/).length - 1 - aCount - bCount; // and remove id and class counts
+	
+	return [idCount, classCount, typeCount];
+}
+
+DOM.cmpSpecificty = function(s1, s2) { // WARN no sanity checks
+	for (var n=s1.length, i=0; i<n; i++) {
+		var a = s1[i], b = s2[i];
+		if (a > b) return 1;
+		if (a < b) return -1;
+	}
+	return 0;
+}
+
+DOM.match$ = function(element, selector) { throw "match$ not supported"; } // NOTE fallback
+some(words('moz webkit ms o'), function(prefix) {
+	var method = prefix + "MatchesSelector";
+	if (document.body[method]) DOM.match$ = function(element, selector) { return element[method](selector); };
+	else return false;
+	return true;
 });
 
-if (!Meeko.logger) Meeko.logger = new function() {
+DOM.$$ = document.querySelectorAll ?
+function(selector, node) { if (!node) node = document; return [].slice.call(node.querySelectorAll(selector), 0); } :
+function(selector, node) { throw "$$ not supported"; };
 
-var levels = words("NONE ERROR WARN INFO DEBUG");
+DOM.$ = document.querySelector ?
+function(selector, node) { if (!node) node = document; return node.querySelector(selector); } :
+function(selector, node) { throw "$ not supported"; };
+
+DOM.$id = function(id, node) { // NOTE assumes node really is a Node in a Document
+	var doc;
+	if (!node) doc = document;
+	else if (node.nodeType === 9) doc = node;
+	else doc = node.ownerDocument;
+	var result = doc.getElementById(id);
+	if (!node || node == doc) return result;
+	if (DOM.contains(node, result)) return result;
+};
+
+DOM.contains =
+document.body.contains && function(node, otherNode) { return node !== otherNode && node.contains(otherNode); } ||
+document.body.compareDocumentPosition && function(node, otherNode) { return !!(node.compareDocumentPosition(otherNode) & 16); } ||
+function(node, otherNode) { throw "contains not supported"; };
+
+DOM.addEventListener = document.addEventListener ?
+function(node, type, listener, capture) { return node.addEventListener(type, listener, capture); } :
+function(node, type, listener, capture) { throw "addEventListener not supported"; };
+
+var logger = Meeko.logger || (Meeko.logger = new function() {
+
+var levels = this.levels = words("none error warn info debug");
 
 forEach(levels, function(name, num) {
 	
-this["LOG_"+name] = num;
-this[lc(name)] = function() { this._log({ level: num, message: arguments }); }
+levels[name] = num;
+this[name] = !window.console && function() {} ||
+	console[name] && function() { if (num <= this.LOG_LEVEL) console[name].apply(console, arguments); } ||
+	function() { if (num <= this.LOG_LEVEL) console.log.apply(console, arguments); }
 
 }, this);
 
-this._log = function(data) { 
-	if (data.level > this.LOG_LEVEL) return;
-	data.timeStamp = +(new Date);
-        data.message = [].join.call(data.message, " ");
-        if (this.write) this.write(data);
-}
+this.LOG_LEVEL = levels[defaults['log_level']]; // DEFAULT
 
-this.startTime = +(new Date), padding = "      ";
+}); // end logger defn
 
-this.write = (window.console) && function(data) { 
-	var offset = padding + (data.timeStamp - this.startTime), 
-		first = offset.length-padding.length-1,
-		offset = offset.substring(first);
-	console.log(offset+"ms " + levels[data.level]+": " + data.message); 
-}
-
-this.LOG_LEVEL = this.LOG_WARN; // DEFAULT
-
-} // end logger defn
-
-})();
 
 this.Meeko.xbl = (function() {
 
-var _ = Meeko.stuff, extend = _.extend, forEach = _.forEach;
-var DOM = Meeko.DOM, $id = DOM.$id, $ = DOM.$, $$ = DOM.$$;
-var logger = Meeko.logger;
+var xbl = {};
 
-var xbl = {}
-
-var activeListeners = {}
+var handlers = {};
+var activeListeners = {};
 
 var Binding = function() {
 	if (!(this instanceof Binding)) return new Binding();
@@ -107,7 +163,7 @@ var Binding = function() {
 Binding.create = function(prototype, handlers) {
 	var binding = new Binding();
 	binding.setImplementation(prototype || {});
-	if (handlers) handlers.forEach(function(handler) { binding.addHandler(handler); });
+	if (handlers) forEach(handlers, function(handler) { binding.addHandler(handler); });
 	return binding;
 }
 
@@ -119,24 +175,24 @@ setImplementation: function(prototype) {
 addHandler: function(handler) {
 	this.handlers.push(handler);
 	var type = handler.type
-	if (!activeListeners[type]) {
-		activeListeners[type] = [];
-		document.addEventListener(type, handleEvent, true);
+	if (!handlers[type]) {
+		handlers[type] = [];
+		DOM.addEventListener(document, type, handleEvent, true);
 	}
 },
 removeHandler: function(handler) {
 	this.handlers.splice(handlers.indexOf(handler), 1);
 },
 getBindingFor: function(element) {
-	return Element.getBinding(element, this, true);
+	return ElementXBL.getInterface(element, true).getBinding(this, true);
 },
 create: function(properties, handlers) { // inherit this.prototype, extend with prototype and copy this.handlers and handlers
 	var sub = new Binding();
 	var prototype = Object.create(this.prototype);
 	if (properties) extend(prototype, properties);
 	sub.setImplementation(prototype);
-	this.handlers.forEach(function(handler) { sub.addHandler(handler); });
-	if (handlers) handlers.forEach(function(handler) { sub.addHandler(handler); });
+	forEach(this.handlers, function(handler) { sub.addHandler(handler); });
+	if (handlers) forEach(handlers, function(handler) { sub.addHandler(handler); });
 	return sub;
 }
 
@@ -156,7 +212,7 @@ var ElementXBL = function(element) {
 extend(ElementXBL.prototype, {
 	
 addBinding: function(spec) {
-	if (this.xblImplementations.length >= 1) throw "Maximum of one binding per element";
+	if (this.xblImplementations.length >= 1) throw "Maximum of one binding per element"; // FIXME DOMError
 	var binding = Object.create(spec.prototype);
 	binding.specification = spec;
 	binding.context = Binding.IMMEDIATE_CONTEXT;
@@ -194,27 +250,6 @@ getInterface: function(element, bCreate) {
 }
 });
 
-var Element = xbl.Element = {}
-extend(Element, {
-	
-addBinding: function(element, spec) {
-	return ElementXBL.getInterface(element, true).addBinding(spec);
-},
-removeBinding: function(element, spec) {
-	return ElementXBL.getInterface(element, true).removeBinding(spec);
-},
-getBinding: function(element, spec, derived) {
-	return ElementXBL.getInterface(element, true).getBinding(spec, derived);
-}
-
-});
-
-var body = document.body;
-if (body.mozMatchesSelector) Element.matchesSelector = function(element, selector) { return element.mozMatchesSelector(selector); }
-if (body.webkitMatchesSelector) Element.matchesSelector = function(element, selector) { return element.webkitMatchesSelector(selector); }
-if (body.msMatchesSelector) Element.matchesSelector = function(element, selector) { return element.msMatchesSelector(selector); }
-if (body.oMatchesSelector) Element.matchesSelector = function(element, selector) { return element.oMatchesSelector(selector); }
-
 /*
  handleEvent() is designed to be attached as a listener on document.
  For each element on the event-path (between document and event target)
@@ -225,8 +260,8 @@ if (body.oMatchesSelector) Element.matchesSelector = function(element, selector)
 function handleEvent(event) {
 	var listeners = activeListeners[event.type];
 	if (listeners && listeners.length > 0) {
-		listeners.forEach(function(listener) {
-			listener.node.removeEventListener(event.type, listener.fn, listener.capture);
+		forEach(listeners, function(listener) {
+			listener.node.removeEventListener(event.type, listener.fn, false);
 		});
 	}
 	listeners = activeListeners[event.type] = [];
@@ -237,30 +272,40 @@ function handleEvent(event) {
 		if (!elementXBL) continue;
 		var bindings = elementXBL.xblImplementations;
 		if (!bindings || bindings.length <= 0) continue;
-		bindings.forEach(function(binding) { // there should be a maximum of one, but this creates a closure
-			binding.specification.handlers.forEach(function(handler) {
-				if (!matchesEvent(handler, event, true)) return;
+		forEach(bindings, function(binding) { // there should be a maximum of one, but this creates a closure
+			forEach(binding.specification.handlers, function(handler) {
+				if (!matchesEvent(handler, event, true)) return; // NOTE the phase check is below
+				var delegator = current;
 				var fn = function(e) {
 					if (handler.stopPropagation) e.stopPropagation();
 					if (handler.preventDefault) e.preventDefault();
-					if (handler.action) handler.action.call(binding, e);
+					if (handler.action) handler.action.call(binding, e, delegator);
 				}
-				if (current == target) {
+				
+				if (handler.delegator) {
+					var delegatorSelector = current.id + ' ' + handler.delegator; // FIXME doesn't assert current.id or that handler.delegator isn't a chain
+					for (var el=target; el!=current; el=el.parentNode) {
+						if (DOM.match$(el, delegatorSelector)) break;
+					}
+					if (el == current) return;
+					delegator = el;
+				}
+				if (delegator == target) {
 					if (phaseMatchesEvent(handler.eventPhase, { eventPhase: Event.AT_TARGET }))
-						listeners.push({ node: current, fn: fn, capture: false });
+						listeners.push({ node: current, fn: fn });
 				}
 				else {
 					if (phaseMatchesEvent(handler.eventPhase, { eventPhase: Event.CAPTURING_PHASE }))
-						listeners.push({ node: current, fn: fn, capture: true });
+						throw "Capturing not supported";
 					else if (phaseMatchesEvent(handler.eventPhase, { eventPhase: Event.BUBBLING_PHASE }))
-						listeners.push({ node: current, fn: fn, capture: false });
+						listeners.push({ node: current, fn: fn });
 				}
 			});
 		});
 	}
 	
-	listeners.forEach(function(listener) {
-		listener.node.addEventListener(event.type, listener.fn, listener.capture);
+	forEach(listeners, function(listener) {
+		DOM.addEventListener(listener.node, event.type, listener.fn, false); // NOTE only ever bubbling-phase
 	});
 	
 	return;
@@ -396,7 +441,6 @@ var matchesEvent = function(handler, event, ignorePhase) {
 	var xblMouseEvents = { click: true, dblclick: true, mousedown: true, mouseup: true, mouseover: true, mouseout: true, mousemove: true, mousewheel: true };
 	var xblKeyboardEvents = { keydown: true, keyup: true };
 	var xblTextEvents = { textInput: true };
-	var xblMutationEvents = { DOMAttrModified: true }; // TODO
 	var xblHTMLEvents = { load: true, unload: true, abort: true, error: true, select: true, change: true, submit: true, reset: true, resize: true, scroll: true };
 
 	if (event.type != handler.type) return false;
@@ -447,22 +491,6 @@ var matchesEvent = function(handler, event, ignorePhase) {
 	// TextEvents
 	if (evType in xblTextEvents) {
 		if (handler.text && handler.text != event.data) return false;
-	}
-
-	// MutationEvents
-	if (evType in xblMutationEvents) {
-		if (handler.attrName) {
-			// mutation attribute name
-			if (handler.attrName != event.attrName) return false;
-			// mutation type
-			if (handler.attrChange.length > 0 && handler.attrChange.indexOf(event.attrChange) < 0) return false;
-			// previous value
-			if (MutationEvent.MODIFICATION == event.attrChange || MutationEvent.REMOVAL == event.attrChange)
-				if (null != handler.prevValue && handler.prevValue != event.prevValue) return false;
-			// new value
-			if (MutationEvent.MODIFICATION == event.attrChange || MutationEvent.ADDITION == event.attrChange)
-				if (null != handler.newValue && handler.newValue != event.newValue) return false;
-		}
 	}
 		
 	// HTML events
@@ -544,7 +572,7 @@ var cssBindingRules = [];
 var enteringBindingRules = [];
 var leavingBindingRules = [];
 
-var addBinding = function(spec, element) {
+function addBindingToElement(spec, element) {
 	var elementXBL = ElementXBL.getInterface(element, true);
 	var firstBinding = elementXBL.xblImplementations[0];
 	if (firstBinding && firstBinding.context == Binding.CSS_CONTEXT) {
@@ -560,10 +588,10 @@ var addBinding = function(spec, element) {
 	if (binding.xblEnteredDocument) binding.xblEnteredDocument();
 }
 
-var applyBinding = function(spec, selector, root) {
+function applyBindingToTree(spec, selector, root) {
 	if (!root) root = document.documentElement;
-	if (Element.matchesSelector(root, selector)) addBinding(spec, root);
-	forEach(root.querySelectorAll(selector), function(el) { addBinding(spec, el); });
+	if (DOM.match$(root, selector)) addBindingToElement(spec, root);
+	forEach(DOM.$$(selector, root), function(el) { addBindingToElement(spec, el); });
 }
 
 var CSS = xbl.CSS = {}
@@ -575,12 +603,12 @@ addBinding: function(selector, spec) {
 	enteringBindingRules.push({ specification: spec, selector: selector });
 	if (!alreadyTriggered) setTimeout(function() {
 		var rule; while (rule = enteringBindingRules.shift()) {
-			applyBinding(rule.specification, rule.selector);
+			applyBindingToTree(rule.specification, rule.selector);
 			cssBindingRules.push(rule);
 		}
 	});
 },
-removeBinding: function(selector, spec) {
+removeBinding: function(selector, spec) { // TODO
 	
 }
 
@@ -591,7 +619,7 @@ extend(xbl, {
 // TODO domReady: function() { this.nodeInserted(document.documentElement); },
 
 nodeInserted: function(node) { // NOTE called AFTER node inserted into document
-	cssBindingRules.forEach(function(rule) {
+	forEach(cssBindingRules, function(rule) {
 		applyBinding(rule.specification, rule.selector, node);
 	});
 },
@@ -605,5 +633,7 @@ xbl.Binding = Binding;
 xbl.baseBinding = Binding.create(); // NOTE now we can extend baseBinding.prototype
 
 return xbl;
+
+})(); // END xbl
 
 })();
