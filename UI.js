@@ -287,17 +287,6 @@ return navtree;
 })();
 
 
-var navlink = (function() {
-var navlink = baseBinding.create();
-navlink.addHandler({
-type: "click",
-preventDefault: true
-});
-
-return navlink;
-})();
-
-
 var scrollBox = (function() {
 var scrollBox = box.create();
 var prototype = scrollBox.prototype;
@@ -517,7 +506,6 @@ return {
 	tree: tree, 
 	navtreeitem: navtreeitem, 
 	navtree: navtree,
-	navlink: navlink,
 	panel: panel,
 	scrollBox: scrollBox, 
 	scrollBoxWithResize: scrollBoxWithResize, 
