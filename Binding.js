@@ -97,17 +97,28 @@ DOM.cmpSpecificty = function(s1, s2) { // WARN no sanity checks
 DOM.match$ = function(element, selector) { throw "match$ not supported"; } // NOTE fallback
 some(words('moz webkit ms o'), function(prefix) {
 	var method = prefix + "MatchesSelector";
-	if (document.body[method]) DOM.match$ = function(element, selector) { return element[method](selector); };
+	if (document.body[method]) DOM.match$ = function(element, selector) {
+		if (selector.indexOf(',') >= 0) throw "match$ does not support selectors that contain COMMA (,)";		
+		return element[method](selector);
+	};
 	else return false;
 	return true;
 });
 
 DOM.$$ = document.querySelectorAll ?
-function(selector, node) { if (!node) node = document; return [].slice.call(node.querySelectorAll(selector), 0); } :
+function(selector, node) {
+	if (selector.indexOf(',') >= 0) throw "$$ does not support selectors that contain COMMA (,)";
+	if (!node) node = document;
+	return [].slice.call(node.querySelectorAll(selector), 0);
+} :
 function(selector, node) { throw "$$ not supported"; };
 
 DOM.$ = document.querySelector ?
-function(selector, node) { if (!node) node = document; return node.querySelector(selector); } :
+function(selector, node) {
+	if (!node) node = document;
+	if (selector.indexOf(',') >= 0) throw "$ does not support selectors that contain COMMA (,)";
+	return node.querySelector(selector);
+} :
 function(selector, node) { throw "$ not supported"; };
 
 DOM.$id = function(id, node) { // NOTE assumes node really is a Node in a Document
@@ -151,7 +162,6 @@ this.Meeko.xbl = (function() {
 
 var xbl = {};
 
-var handlers = {};
 var activeListeners = {};
 
 var Binding = function() {
@@ -163,7 +173,7 @@ var Binding = function() {
 Binding.create = function(prototype, handlers) {
 	var binding = new Binding();
 	binding.setImplementation(prototype || {});
-	if (handlers) forEach(handlers, function(handler) { binding.addHandler(handler); });
+	if (handlers) [].push.apply(this.handlers, handlers); // FIXME assert handlers is array
 	return binding;
 }
 
@@ -171,17 +181,6 @@ extend(Binding.prototype, {
 setImplementation: function(prototype) {
 	if (this.prototype) throw "Implementation already set";
 	this.prototype = prototype;
-},
-addHandler: function(handler) {
-	this.handlers.push(handler);
-	var type = handler.type
-	if (!handlers[type]) {
-		handlers[type] = [];
-		DOM.addEventListener(document, type, handleEvent, true);
-	}
-},
-removeHandler: function(handler) {
-	this.handlers.splice(handlers.indexOf(handler), 1);
 },
 getBindingFor: function(element) {
 	return ElementXBL.getInterface(element, true).getBinding(this, true);
@@ -191,22 +190,15 @@ create: function(properties, handlers) { // inherit this.prototype, extend with 
 	var prototype = Object.create(this.prototype);
 	if (properties) extend(prototype, properties);
 	sub.setImplementation(prototype);
-	forEach(this.handlers, function(handler) { sub.addHandler(handler); });
-	if (handlers) forEach(handlers, function(handler) { sub.addHandler(handler); });
+	[].push.apply(sub.handlers, this.handlers);
+	if (handlers) [].push.apply(sub.handlers, handlers); // FIXME assert handlers is array
 	return sub;
 }
 
 });
 
-extend(Binding, {
-SYSTEM_CONTEXT: 0,
-CONFIGURATION_CONTEXT: 1,
-CSS_CONTEXT: 2,
-IMMEDIATE_CONTEXT: 3
-});
-
 var ElementXBL = function(element) {
-	this.xblImplementations = [];
+	this.xblImplementations = []; // TODO max of one binding per element so don't need array
 	this.boundElement = element;
 }
 extend(ElementXBL.prototype, {
@@ -215,7 +207,6 @@ addBinding: function(spec) {
 	if (this.xblImplementations.length >= 1) throw "Maximum of one binding per element"; // FIXME DOMError
 	var binding = Object.create(spec.prototype);
 	binding.specification = spec;
-	binding.context = Binding.IMMEDIATE_CONTEXT;
 	binding.boundElement = this.boundElement;
 	this.xblImplementations.push(binding);
 	if (binding.xblBindingAttached) binding.xblBindingAttached();
@@ -267,7 +258,7 @@ function handleEvent(event) {
 	listeners = activeListeners[event.type] = [];
 	
 	var target = event.target;
-	for (var current=target; current!=document; current=current.parentNode) {
+	for (var current=target; current!=document; current=current.parentNode) { // TODO detect matching but unapplied bindings
 		var elementXBL = ElementXBL.getInterface(current);
 		if (!elementXBL) continue;
 		var bindings = elementXBL.xblImplementations;
@@ -392,6 +383,7 @@ var convertXBLHandler = function(config) {
 	handler.filter = new RegExp(config.filter, "");
 	
 	// mutation
+	// FIXME not supported anymore
 	handler.attrName = config["attr-name"];
 	handler.attrChange = [];
 	var attrChangeText = config["attr-change"];
@@ -436,7 +428,7 @@ var convertXBLHandler = function(config) {
 var matchesEvent = function(handler, event, ignorePhase) {
 	// type
 	var xblEvents = { click: true, dblclick: true, mousedown: true, mouseup: true, mouseover: true, mouseout: true, mousemove: true,
-		keydown: true, keyup: true, textInput: true, DOMAttrModified: true,
+		keydown: true, keyup: true, textInput: true, 
 		load: true, unload: true, abort: true, error: true, select: true, change: true, submit: true, reset: true, resize: true, scroll: true };
 	var xblMouseEvents = { click: true, dblclick: true, mousedown: true, mouseup: true, mouseover: true, mouseout: true, mousemove: true, mousewheel: true };
 	var xblKeyboardEvents = { keydown: true, keyup: true };
@@ -572,38 +564,36 @@ var cssBindingRules = [];
 var enteringBindingRules = [];
 var leavingBindingRules = [];
 
-function addBindingToElement(spec, element) {
+function applyBindingToElement(spec, element) { // FIXME compare current and new CSS specifities
 	var elementXBL = ElementXBL.getInterface(element, true);
-	var firstBinding = elementXBL.xblImplementations[0];
-	if (firstBinding && firstBinding.context == Binding.CSS_CONTEXT) {
-		if (firstBinding.xblLeftDocument) firstBinding.xblLeftDocument(); // TODO isolate
-		elementXBL.xblImplementations.shift();
-	}
-	var binding = Object.create(spec.prototype);
-	binding.specification = spec;
-	binding.context = Binding.CSS_CONTEXT;
-	binding.boundElement = element;
-	elementXBL.xblImplementations.unshift(binding);
-	if (binding.xblBindingAttached) binding.xblBindingAttached();
-	if (binding.xblEnteredDocument) binding.xblEnteredDocument();
+	var firstBinding;
+	while (firstBinding = elementXBL.xblImplementations[0]) elementXBL.removeBinding(firstBinding);
+	elementXBL.addBinding(spec);
 }
 
 function applyBindingToTree(spec, selector, root) {
 	if (!root) root = document.documentElement;
-	if (DOM.match$(root, selector)) addBindingToElement(spec, root);
-	forEach(DOM.$$(selector, root), function(el) { addBindingToElement(spec, el); });
+	if (DOM.match$(root, selector)) applyBindingToElement(spec, root);
+	forEach(DOM.$$(selector, root), function(el) { applyBindingToElement(spec, el); });
 }
 
 var CSS = xbl.CSS = {}
 
 extend(CSS, {
-	
+
 addBinding: function(selector, spec) {
 	var alreadyTriggered = (enteringBindingRules.length > 0);
 	enteringBindingRules.push({ specification: spec, selector: selector });
 	if (!alreadyTriggered) setTimeout(function() {
 		var rule; while (rule = enteringBindingRules.shift()) {
-			applyBindingToTree(rule.specification, rule.selector);
+			forEach(rule.specification.handlers, function(handler) {
+				var type = handler.type
+				if (!activeListeners[type]) {
+					activeListeners[type] = [];
+					DOM.addEventListener(document, type, handleEvent, true);
+				}
+			});
+			applyBindingToTree(rule.specification, rule.selector /* , document */);
 			cssBindingRules.push(rule);
 		}
 	});

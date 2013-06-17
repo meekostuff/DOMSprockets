@@ -11,11 +11,22 @@ var _ = Meeko.stuff, extend = _.extend, forEach = _.forEach;
 var DOM = Meeko.DOM, $id = DOM.$id, $ = DOM.$, $$ = DOM.$$;
 var xbl = Meeko.xbl, Binding = xbl.Binding, baseBinding = xbl.baseBinding;
 
-var box = (function() {
-	
-var box = baseBinding.create();
-var prototype = box.prototype;
-extend(prototype, {
+function declareProperties(obj, props) {
+	forEach(props.split(/\s+/), function(prop) {
+		var Prop = ucFirst(prop);
+		var getter = 'get' + Prop, setter = 'set' + Prop;
+		Object.defineProperty(obj, prop, {
+			get: obj[getter],
+			set: obj[setter]
+		});
+	});
+}
+
+function ucFirst(text) {
+	return text.substr(0,1).toUpperCase() + text.substr(1);
+}
+
+var box = baseBinding.create({
 
 setHidden: function(state) {
 	var element = this.boundElement;
@@ -29,22 +40,9 @@ getHidden: function() {
 
 });
 
-Object.defineProperties(prototype, {
+declareProperties(box.prototype, 'hidden');
 
-hidden: { get: prototype.getHidden, set: prototype.setHidden }
-
-});
-
-return box;
-
-})();
-
-
-var treeitem = (function() {
-
-var treeitem = baseBinding.create();
-var prototype = treeitem.prototype;
-extend(prototype, {
+var treeitem = baseBinding.create({
 
 getListElement: function() {
 
@@ -86,26 +84,11 @@ getExpanded: function() {
 
 });
 
-Object.defineProperties(prototype, {
-
-listElement: { get: prototype.getListElement },
-selected: { get: prototype.getSelected, set: prototype.setSelected },
-expanded: { get: prototype.getExpanded, set: prototype.setExpanded }
-
-});
-
-return treeitem;
-
-})();
+declareProperties(treeitem.prototype, 'listElement selected expanded');
 
 var listitem = treeitem;
 
-var list = (function() {
-	
-var list = box.create();
-var prototype = list.prototype;
-
-extend(prototype, {
+var list = box.create({
 
 getItems: function() {
 	
@@ -126,23 +109,10 @@ getHidden: function() {
 
 });
 
-Object.defineProperties(prototype, {
-
-hidden: { get: prototype.getHidden, set: prototype.setHidden }
-
-});
-
-return list;
-
-})();
+declareProperties(list.prototype, 'hidden');
 
 
-var tree = (function() {
-
-var tree = box.create();
-var prototype = tree.prototype;
-
-extend(prototype, {
+var tree = box.create({
 
 getListElement: treeitem.prototype.getListElement,
 
@@ -183,38 +153,26 @@ signalChange: function() {
 			
 }
 
-});
-
-Object.defineProperties(prototype, {
-
-listElement: { get: prototype.getListElement },
-selectedIndex: { get: prototype.getSelectedIndex },
-selectedItem: { get: prototype.getSelectedItem }
-
-});
-
-tree.addHandler({
-type: "click",
-action: function(event) {
-	var element = this.boundElement;
-	var item = event.target;
-	while (item.tagName.toLowerCase() != "li") {
-		if (item == element) return;
-		item = item.parentNode;
+},
+[
+{
+	type: "click",
+	action: function(event) {
+		var element = this.boundElement;
+		var item = event.target;
+		while (item.tagName.toLowerCase() != "li") {
+			if (item == element) return;
+			item = item.parentNode;
+		}
+		this.selectItem(item);
 	}
-	this.selectItem(item);
 }
-});
+]);
 
-return tree;
-})();
+declareProperties(tree.prototype, 'listElement selectedIndex selectedItem');
 
 
-var navtreeitem = (function() {
-
-var navtreeitem = treeitem.create();
-var prototype = navtreeitem.prototype;
-extend(prototype, {
+var navtreeitem = treeitem.create({
 
 getView: function() {
 	
@@ -242,55 +200,34 @@ getView: function() {
 }
 	
 });
-Object.defineProperties(prototype, {
 
-view: { get: prototype.getView }
-
-});
-
-return navtreeitem;
-})();
+declareProperties(navtreeitem.prototype, 'view');
 
 
-
-var navtree = (function() {
-var navtree = tree.create();
-var prototype = navtree.prototype;
-extend(prototype, {
+var navtree = tree.create({
 
 getView: navtreeitem.prototype.getView
 	
-});
-Object.defineProperties(prototype, {
-
-view: { get: prototype.getView }
-
-});
-
-navtree.addHandler({
-
-type: "click",
-action: function(event) {
-	var element = this.boundElement;
-	var item = event.target;
-	while (item.tagName.toLowerCase() != "li") {
-		if (item == element) return;
-		item = item.parentNode;
+},
+[
+{
+	type: "click",
+	action: function(event) {
+		var element = this.boundElement;
+		var item = event.target;
+		while (item.tagName.toLowerCase() != "li") {
+			if (item == element) return;
+			item = item.parentNode;
+		}
+		this.selectItem(item);
 	}
-	this.selectItem(item);
 }
+]);
 
-});
-
-
-return navtree;
-})();
+declareProperties(navtree.prototype, 'view');
 
 
-var scrollBox = (function() {
-var scrollBox = box.create();
-var prototype = scrollBox.prototype;
-extend(prototype, {
+var scrollBox = box.create({
 	
 setView: function(item) {
 
@@ -302,19 +239,12 @@ setView: function(item) {
 
 	element.scrollTop = item.offsetTop - element.offsetTop;
 
-			
 }
 
 });
-return scrollBox;
-})();
 
 
-var scrollBoxWithResize = (function() {
-
-var scrollBoxWithResize = box.create();
-var prototype = scrollBoxWithResize.prototype;
-extend(prototype, {
+var scrollBoxWithResize = box.create({
 	
 setView: function(item) {
 
@@ -325,7 +255,6 @@ setView: function(item) {
 	}
 	element.style.height = "" + item.clientHeight + "px";
 	element.scrollTop = item.offsetTop - element.offsetTop;
-
 			
 },
 xblBindingAttached: function() {
@@ -337,20 +266,12 @@ xblBindingAttached: function() {
 
 }
 
-})
-
-return scrollBoxWithResize;
-})();
+});
 
 
 var panel = box;
 
-var switchBox = (function() {
-	
-var switchBox = box.create();
-var prototype = switchBox.prototype;
-
-extend(prototype, {
+var switchBox = box.create({
 
 _getPanels: function() {
 	return this.boundElement.children;
@@ -385,17 +306,8 @@ xblBindingAttached: function() {
 
 });
 
-return switchBox;
-})();
 
-
-
-var table = (function() {
-
-var table = box.create();
-var prototype = table.prototype;
-
-extend(prototype, {
+var table = box.create({
 	
 getColumns: function() {
 	
@@ -439,7 +351,6 @@ _sort: function(column, type, reverse) {
 		}
 	}
 
-			
 },
 toggleColumnSortState: function(column) { // TODO shouldn't have hard-wired classes
 
@@ -474,15 +385,7 @@ toggleColumnSortState: function(column) { // TODO shouldn't have hard-wired clas
 
 });
 
-return table;
-})();
-
-var WF2FormElement = (function() {
-	
-var WF2FormElement = baseBinding.create();
-var prototype = WF2FormElement.prototype;
-
-extend(prototype, {
+var WF2FormElement = baseBinding.create({
 encode: function() {
 
 var a = [];
@@ -494,10 +397,6 @@ return txt;
 			
 }
 });
-
-return WF2FormElement;
-})();
-
 
 
 return {
