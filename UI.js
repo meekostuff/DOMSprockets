@@ -26,7 +26,7 @@ function ucFirst(text) {
 	return text.substr(0,1).toUpperCase() + text.substr(1);
 }
 
-var box = baseBinding.create({
+var box = baseBinding.evolve({
 
 setHidden: function(state) {
 	var element = this.boundElement;
@@ -42,7 +42,7 @@ getHidden: function() {
 
 declareProperties(box.prototype, 'hidden');
 
-var treeitem = baseBinding.create({
+var treeitem = baseBinding.evolve({
 
 getListElement: function() {
 
@@ -88,7 +88,7 @@ declareProperties(treeitem.prototype, 'listElement selected expanded');
 
 var listitem = treeitem;
 
-var list = box.create({
+var list = box.evolve({
 
 getItems: function() {
 	
@@ -112,7 +112,7 @@ getHidden: function() {
 declareProperties(list.prototype, 'hidden');
 
 
-var tree = box.create({
+var tree = box.evolve({
 
 getListElement: treeitem.prototype.getListElement,
 
@@ -172,7 +172,7 @@ signalChange: function() {
 declareProperties(tree.prototype, 'listElement selectedIndex selectedItem');
 
 
-var navtreeitem = treeitem.create({
+var navtreeitem = treeitem.evolve({
 
 getView: function() {
 	
@@ -204,7 +204,7 @@ getView: function() {
 declareProperties(navtreeitem.prototype, 'view');
 
 
-var navtree = tree.create({
+var navtree = tree.evolve({
 
 getView: navtreeitem.prototype.getView
 	
@@ -227,7 +227,7 @@ getView: navtreeitem.prototype.getView
 declareProperties(navtree.prototype, 'view');
 
 
-var scrollBox = box.create({
+var scrollBox = box.evolve({
 	
 setView: function(item) {
 
@@ -244,7 +244,7 @@ setView: function(item) {
 });
 
 
-var scrollBoxWithResize = box.create({
+var scrollBoxWithResize = box.evolve({
 	
 setView: function(item) {
 
@@ -271,7 +271,7 @@ xblBindingAttached: function() {
 
 var panel = box;
 
-var switchBox = box.create({
+var switchBox = box.evolve({
 
 _getPanels: function() {
 	return this.boundElement.children;
@@ -307,7 +307,7 @@ xblBindingAttached: function() {
 });
 
 
-var table = box.create({
+var table = box.evolve({
 	
 getColumns: function() {
 	
@@ -385,7 +385,7 @@ toggleColumnSortState: function(column) { // TODO shouldn't have hard-wired clas
 
 });
 
-var WF2FormElement = baseBinding.create({
+var WF2FormElement = baseBinding.evolve({
 encode: function() {
 
 var a = [];

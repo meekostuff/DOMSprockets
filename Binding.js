@@ -166,30 +166,19 @@ var activeListeners = {};
 
 var Binding = function() {
 	if (!(this instanceof Binding)) return new Binding();
-	this.prototype = null;
+	this.prototype = {};
 	this.handlers = [];
 }
 
-Binding.create = function(prototype, handlers) {
-	var binding = new Binding();
-	binding.setImplementation(prototype || {});
-	if (handlers) [].push.apply(this.handlers, handlers); // FIXME assert handlers is array
-	return binding;
-}
-
 extend(Binding.prototype, {
-setImplementation: function(prototype) {
-	if (this.prototype) throw "Implementation already set";
-	this.prototype = prototype;
-},
 getBindingFor: function(element) {
 	return ElementXBL.getInterface(element, true).getBinding(this, true);
 },
-create: function(properties, handlers) { // inherit this.prototype, extend with prototype and copy this.handlers and handlers
+evolve: function(properties, handlers) { // inherit this.prototype, extend with prototype and copy this.handlers and handlers
 	var sub = new Binding();
-	var prototype = Object.create(this.prototype);
+	var prototype = Object.create(this.prototype); // FIXME Object.create for older browsers
 	if (properties) extend(prototype, properties);
-	sub.setImplementation(prototype);
+	sub.prototype = prototype;
 	[].push.apply(sub.handlers, this.handlers);
 	if (handlers) [].push.apply(sub.handlers, handlers); // FIXME assert handlers is array
 	return sub;
@@ -594,7 +583,7 @@ addBinding: function(selector, spec) {
 				}
 			});
 			applyBindingToTree(rule.specification, rule.selector /* , document */);
-			cssBindingRules.push(rule);
+			cssBindingRules.unshift(rule); // TODO splice in specificity order
 		}
 	});
 },
@@ -610,7 +599,7 @@ extend(xbl, {
 
 nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 	forEach(cssBindingRules, function(rule) {
-		applyBinding(rule.specification, rule.selector, node);
+		applyBindingToTree(rule.specification, rule.selector, node);
 	});
 },
 nodeRemoved: function(node) { // NOTE called BEFORE node removed from document
@@ -620,7 +609,7 @@ nodeRemoved: function(node) { // NOTE called BEFORE node removed from document
 });
 
 xbl.Binding = Binding;
-xbl.baseBinding = Binding.create(); // NOTE now we can extend baseBinding.prototype
+xbl.baseBinding = new Binding(); // NOTE now we can extend baseBinding.prototype
 
 return xbl;
 
