@@ -553,6 +553,7 @@ var cssBindingRules = [];
 var enteringBindingRules = [];
 var leavingBindingRules = [];
 
+// FIXME BIG BALL OF MUD
 function applyBindingToElement(spec, element) { // FIXME compare current and new CSS specifities
 	var elementXBL = ElementXBL.getInterface(element, true);
 	var firstBinding;
@@ -566,6 +567,20 @@ function applyBindingToTree(spec, selector, root) {
 	forEach(DOM.$$(selector, root), function(el) { applyBindingToElement(spec, el); });
 }
 
+function applyEnteringBindingRules() {
+	var rule; while (rule = enteringBindingRules.shift()) {
+		forEach(rule.specification.handlers, function(handler) {
+			var type = handler.type
+			if (!activeListeners[type]) {
+				activeListeners[type] = [];
+				DOM.addEventListener(document, type, handleEvent, true);
+			}
+		});
+		applyBindingToTree(rule.specification, rule.selector /* , document */);
+		cssBindingRules.unshift(rule); // TODO splice in specificity order
+	}
+}
+
 var CSS = xbl.CSS = {}
 
 extend(CSS, {
@@ -573,19 +588,7 @@ extend(CSS, {
 addBinding: function(selector, spec) {
 	var alreadyTriggered = (enteringBindingRules.length > 0);
 	enteringBindingRules.push({ specification: spec, selector: selector });
-	if (!alreadyTriggered) setTimeout(function() {
-		var rule; while (rule = enteringBindingRules.shift()) {
-			forEach(rule.specification.handlers, function(handler) {
-				var type = handler.type
-				if (!activeListeners[type]) {
-					activeListeners[type] = [];
-					DOM.addEventListener(document, type, handleEvent, true);
-				}
-			});
-			applyBindingToTree(rule.specification, rule.selector /* , document */);
-			cssBindingRules.unshift(rule); // TODO splice in specificity order
-		}
-	});
+	if (!alreadyTriggered) setTimeout(applyEnteringBindingRules);
 },
 removeBinding: function(selector, spec) { // TODO
 	
@@ -593,17 +596,24 @@ removeBinding: function(selector, spec) { // TODO
 
 });
 
+var started = false;
+
 extend(xbl, {
 
-// TODO domReady: function() { this.nodeInserted(document.documentElement); },
+domReady: function() { // FIXME find a way to allow progressive binding application
+	if (started) throw 'domReady() has already been called';
+	started = true;
+	applyEnteringBindingRules();
+},
 
 nodeInserted: function(node) { // NOTE called AFTER node inserted into document
+	if (!started) throw 'domReady() has not been called yet';
 	forEach(cssBindingRules, function(rule) {
 		applyBindingToTree(rule.specification, rule.selector, node);
 	});
 },
 nodeRemoved: function(node) { // NOTE called BEFORE node removed from document
-	
+	if (!started) throw 'domReady() has not been called yet';
 }
 
 });
