@@ -74,6 +74,7 @@ var DOM = Meeko.DOM || (Meeko.DOM = {});
 
 // WARN getSpecificity is for selectors, **but not** for selector-chains
 DOM.getSpecificity = function(selector) { // NOTE this fn is small but extremely naive (and wrongly counts attrs and pseudo-attrs with element-type)
+	if (selector.indexOf(',') >= 0) throw "getSpecificity does not support selectors that contain COMMA (,)";		
 	var idCount = selector.split('#').length - 1;
 	var classCount = selector.split('.').length - 1;
 	var typeCount =
@@ -86,8 +87,9 @@ DOM.getSpecificity = function(selector) { // NOTE this fn is small but extremely
 }
 
 DOM.cmpSpecificty = function(s1, s2) { // WARN no sanity checks
-	for (var n=s1.length, i=0; i<n; i++) {
-		var a = s1[i], b = s2[i];
+	var c1 = DOM.getSpecificity(s1), c2 = DOM.getSpecificity(c2);
+	for (var n=c1.length, i=0; i<n; i++) {
+		var a = c1[i], b = c2[i];
 		if (a > b) return 1;
 		if (a < b) return -1;
 	}
