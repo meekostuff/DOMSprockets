@@ -185,7 +185,7 @@ getView: function() {
 		if (!ref.getAttribute("href")) break;
 		var href = ref.href;
 //		var base = document.documentURI + "#";
-		var base = document.URL + "#";
+		var base = document.URL.replace(/#.*$/, '')  + "#";
 		if (href.indexOf(base) != 0) break;
 		var id = href.replace(base, "");
 		return $id(id);
