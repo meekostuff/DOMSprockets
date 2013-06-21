@@ -138,9 +138,15 @@ document.body.contains && function(node, otherNode) { return node !== otherNode 
 document.body.compareDocumentPosition && function(node, otherNode) { return !!(node.compareDocumentPosition(otherNode) & 16); } ||
 function(node, otherNode) { throw "contains not supported"; };
 
-DOM.addEventListener = document.addEventListener ?
-function(node, type, listener, capture) { return node.addEventListener(type, listener, capture); } :
-function(node, type, listener, capture) { throw "addEventListener not supported"; };
+DOM.addEvent =
+document.addEventListener && function(node, type, listener) { return node.addEventListener(type, listener, false); } ||
+document.attachEvent && function(node, type, listener) { return node.attachEvent(type, listener); } ||
+function(node, type, listener, capture) { throw "addEvent not supported"; };
+
+DOM.removeEvent =
+document.removeEventListener && function(node, type, listener) { return node.removeEventListener(type, listener, false); } ||
+document.detachEvent && function(node, type, listener) { return node.detachEvent(type, listener); } ||
+function(node, type, listener, capture) { throw "removeEvent not supported"; };
 
 var logger = Meeko.logger || (Meeko.logger = new function() {
 
@@ -198,16 +204,33 @@ addBinding: function(spec) {
 	if (this.xblImplementations.length >= 1) throw "Maximum of one binding per element"; // FIXME DOMError
 	var binding = Object.create(spec.prototype);
 	binding.specification = spec;
-	binding.boundElement = this.boundElement;
+	var element = this.boundElement;
+	binding.boundElement = element;
 	this.xblImplementations.push(binding);
+	binding.listeners = []; // FIXME should be in binding constructor??
+	forEach(spec.handlers, function(handler) {
+		var type = handler.type;
+		var fn = function(event) {
+			handleEvent.call(binding, event, handler);
+		}
+		fn.type = type;
+		DOM.addEvent(element, type, fn);
+		binding.listeners.push(fn);
+	});
 	if (binding.xblBindingAttached) binding.xblBindingAttached();
 	if (binding.xblEnteredDocument) binding.xblEnteredDocument();
 },
 
 removeBinding: function(spec) {
+	var element = this.boundElement;
 	var list = this.xblImplementations;
 	for (var binding, i=list.length-1; binding=list[i]; i--) {
 		if (binding.constructor != spec) continue;
+		forEach(binding.listeners, function(fn) {
+			var type = listeners.type;
+			DOM.removeEvent(element, type, listener);
+		});
+		binding.listeners.length = 0;
 		if (binding.xblLeftDocument) binding.xblLeftDocument();
 		list.splice(i, 1);
 		break;
@@ -232,63 +255,32 @@ getInterface: function(element, bCreate) {
 }
 });
 
-/*
- handleEvent() is designed to be attached as a listener on document.
- For each element on the event-path (between document and event target)
- it determines if there are valid handlers,
- and if so it adds an appropriate listener. 
-*/
-
-function handleEvent(event) {
-	var listeners = activeListeners[event.type];
-	if (listeners && listeners.length > 0) {
-		forEach(listeners, function(listener) {
-			listener.node.removeEventListener(event.type, listener.fn, false);
-		});
-	}
-	listeners = activeListeners[event.type] = [];
-	
+function handleEvent(event, handler) {
+	var binding = this;
 	var target = event.target;
-	for (var current=target; current!=document; current=current.parentNode) { // TODO detect matching but unapplied bindings
-		var elementXBL = ElementXBL.getInterface(current);
-		if (!elementXBL) continue;
-		var bindings = elementXBL.xblImplementations;
-		if (!bindings || bindings.length <= 0) continue;
-		forEach(bindings, function(binding) { // there should be a maximum of one, but this creates a closure
-			forEach(binding.specification.handlers, function(handler) {
-				if (!matchesEvent(handler, event, true)) return; // NOTE the phase check is below
-				var delegator = current;
-				var fn = function(e) {
-					if (handler.stopPropagation) e.stopPropagation();
-					if (handler.preventDefault) e.preventDefault();
-					if (handler.action) handler.action.call(binding, e, delegator);
-				}
-				
-				if (handler.delegator) {
-					var delegatorSelector = current.id + ' ' + handler.delegator; // FIXME doesn't assert current.id or that handler.delegator isn't a chain
-					for (var el=target; el!=current; el=el.parentNode) {
-						if (DOM.match$(el, delegatorSelector)) break;
-					}
-					if (el == current) return;
-					delegator = el;
-				}
-				if (delegator == target) {
-					if (phaseMatchesEvent(handler.eventPhase, { eventPhase: Event.AT_TARGET }))
-						listeners.push({ node: current, fn: fn });
-				}
-				else {
-					if (phaseMatchesEvent(handler.eventPhase, { eventPhase: Event.CAPTURING_PHASE }))
-						throw "Capturing not supported";
-					else if (phaseMatchesEvent(handler.eventPhase, { eventPhase: Event.BUBBLING_PHASE }))
-						listeners.push({ node: current, fn: fn });
-				}
-			});
-		});
+	var current = event.currentTarget;
+	if (!matchesEvent(handler, event, true)) return; // NOTE the phase check is below
+	var delegator = current;
+	if (handler.delegator) {
+		var delegatorSelector = current.id + ' ' + handler.delegator; // FIXME doesn't assert current.id or that handler.delegator isn't a chain
+		for (var el=target; el!=current; el=el.parentNode) {
+			if (DOM.match$(el, delegatorSelector)) break;
+		}
+		if (el == current) return;
+		delegator = el;
 	}
-	
-	forEach(listeners, function(listener) {
-		DOM.addEventListener(listener.node, event.type, listener.fn, false); // NOTE only ever bubbling-phase
-	});
+	if (delegator == target) {
+		if (!phaseMatchesEvent(handler.eventPhase, { eventPhase: Event.AT_TARGET })) return;
+	}
+	else {
+		if (phaseMatchesEvent(handler.eventPhase, { eventPhase: Event.CAPTURING_PHASE }))
+			throw "Capturing not supported";
+		else if (!phaseMatchesEvent(handler.eventPhase, { eventPhase: Event.BUBBLING_PHASE })) return;
+	}
+
+	if (handler.stopPropagation) event.stopPropagation();
+	if (handler.preventDefault) event.preventDefault();
+	if (handler.action) handler.action.call(binding, event, delegator);
 	
 	return;
 }
@@ -571,13 +563,6 @@ function applyBindingToTree(spec, selector, root) {
 
 function applyEnteringBindingRules() {
 	var rule; while (rule = enteringBindingRules.shift()) {
-		forEach(rule.specification.handlers, function(handler) {
-			var type = handler.type
-			if (!activeListeners[type]) {
-				activeListeners[type] = [];
-				DOM.addEventListener(document, type, handleEvent, true);
-			}
-		});
 		applyBindingToTree(rule.specification, rule.selector /* , document */);
 		cssBindingRules.unshift(rule); // TODO splice in specificity order
 	}
