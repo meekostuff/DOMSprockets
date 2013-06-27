@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<!--
+Tabbox demo
+Copyright 2007-2009,2013 Sean Hogan (http://www.meekostuff.net/)
+All rights reserved
+-->
+<html>
+<head>
+	<title>DOMSprockets Tabbox Demo</title>
+	<style>
+html { border: none; }
+body { width: 480px; height: 100%; }
+
+#tabbox {
+	margin: 0px;
+	padding: 0px;
+	background-color: #ffffff;
+}
+
+/* Reset CSS */
+#tabboxTabs, #tabboxPanels { margin: 0px; }
+#tabboxTabs ul, #tabboxTabs li { list-style: none; margin-left: 0px; padding-left: 0px; }
+#tabboxTabs a:focus { outline-style: none; }
+
+#tabboxTabs {
+	width: 100%;
+	height: 1.5em;
+	text-align: center;
+	background-color: #dddddd;
+	border-top: 0.2em solid #dddddd;
+	border-bottom: 0.2em solid #ffffff;
+	padding: 0px;
+}
+#tabboxTabs .skip {
+	display: none;
+}
+#tabboxTabs ul, #tabboxTabs li {
+	display: inline;
+	line-height: 1.5em;
+	margin: 0;
+	padding: 0;
+}
+#tabboxTabs li a, #tabboxTabs li a:hover, #tabboxTabs li a:active, #tabboxTabs li a:visited {
+	text-decoration: none;
+	color: black;
+	padding: 0.2em 1em;
+	/* fix for moz, opera */
+	position: relative;
+	bottom: -1px;
+}
+#tabboxTabs li.current a, #tabboxTabs li.current a:active, #tabboxTabs li.current a:visited {
+	background-color: #ffffff;
+}
+
+#tabboxPanels {
+	background-color: #ffffff;
+	border: 1px solid #ffffff;
+	padding: 1em;
+}
+#tabboxPanels ul { margin-left: 0px; padding-left: 2em;  }
+	</style>
+<script src="../Binding.js"></script>
+<script src="../UI.js"></script>
+</head>
+<body id="tabbox">
+	
+	<div class="nav" id="tabboxTabs">
+		<a class="skip" rel="target" href="#tabboxPanels">The Tabbox</a>
+		<ul>
+			<li id="Tab1"><a href="#tabboxPanel1">Description</a></li>
+			<li id="Tab2"><a href="#tabboxPanel2">Implementation</a></li>
+			<li id="Tab3"><a href="#tabboxPanel3">Semantics</a></li>
+		</ul>
+	</div>
+	<div id="tabboxPanels">
+		<div id="tabboxPanel1">
+			<p>
+A tabbox is a list of blocks (panels) only one of which is displayed at a time.
+The currently displayed panel is controlled by a set of tabs
+at the top, bottom or on side of the panels.
+			</p>
+			<p>
+The tabbox allows visual presentation to highlight structure, 
+especially where content doesn't naturally flow from panel to panel.
+			</p>
+		</div>
+		<div id="tabboxPanel2">
+			<p>
+A tabbox is implemented using:
+			</p>
+			<ul>
+				<li>a list of block elements (the panels) inside a container block which has a switchBox behavior applied.  This is preceded by</li>
+				<li>a list of links (the tabs) to the panels inside the container. This list has a menu behavior similar to the select element</li>
+			</ul>
+			<p>
+When one of the tabs is activated, a change event is sent to the menu.
+The menu grabs the href of the activated tab and commands the switchBox to display referenced panel.
+			</p>
+		</div>
+		<div id="tabboxPanel3">
+			<p>
+The tabbox implementation matches a list of skip links, where each link references the content of one of the panels
+			</p>
+		</div>
+	</div>
+<script>
+(function() {
+
+var xbl = Meeko.xbl, UI = Meeko.UI;
+
+xbl.CSS.addBinding("#tabboxPanels > div", UI.panel);
+
+xbl.CSS.addBinding('#tabboxPanels', UI.switchBox);
+
+xbl.CSS.addBinding('#tabbox .nav > ul > li', UI.navtreeitem.evolve(
+{
+
+setSelected: function(state) { // NOTE treeitem is ignorant of whether multiple treeitems can be selected
+	var element = this.boundElement;
+	element.className = !!state ? 'current' : '';
+},
+getSelected: function() {
+	var element = this.boundElement;
+	var state = element.className == 'current';
+	return state;	
+}
+
+},
+[
+{
+	type: 'click',
+	preventDefault: true
+}
+]
+));
+
+xbl.CSS.addBinding('#tabbox .nav > ul', UI.list);
+
+xbl.CSS.addBinding('#tabbox .nav', UI.navtree.evolve(
+{
+
+xblEnteredDocument: function() {
+  this.selectItem(this.getListElement().children[0]);
+}
+
+},
+[
+{
+	type: "click",
+	delegator: 'li',
+	action: function(event, item) {
+		this.selectItem(item);
+	}
+},
+{
+	type: "change",
+	action: function(event) {
+		var viewer = this.getView();
+		var target = UI.navtreeitem.getBindingFor(this.getSelectedItem()).getView();
+		UI.switchBox.getBindingFor(viewer).setView(target);
+	}
+}
+]
+));
+
+xbl.domReady();
+
+})();
+</script>
+</body>
+</html>

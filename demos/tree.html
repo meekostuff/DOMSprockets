@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<!--
+Tree demo
+Copyright 2007,2013 Sean Hogan (http://www.meekostuff.net/)
+All rights reserved
+-->
+<html>
+<head>
+	<title>DOMSprockets Collapsible Tree Demo</title>
+	<style>
+html { border: none; }
+body {
+	height: 100%;
+	background-color: #ffffff;
+}
+#tree, #tree .nav {
+	margin: 0px;
+	padding: 0px;
+}
+#tree .nav label { display: block; background-color: #dddddd; border: 1px outset #dddddd; }
+	</style>
+	
+<style>
+#tree ul { margin-left: 0px; padding-left: 1em; }
+#tree li.closed ul { display: none; }
+
+/* pseudo list-style-image */
+#tree li { list-style: outside disc; margin-left: 0px; padding-left: 0px; }
+#tree li.open { list-style-image: url(arrow-dn.gif); }
+#tree li.closed { list-style-image: url(arrow-rit.gif); }
+#tree li { -moz-user-select: none; }
+#tree li > * { -moz-user-select: text; }
+</style>
+<script src="../Binding.js"></script>
+<script src="../UI.js"></script>
+</head>
+
+<body id="tree">
+	<div class="nav">
+		<label>Plants</label>
+<ul>
+	<li><a>Green algae</a>
+		<ul>
+			<li><a>Chlorophyta</a></li>
+			<li><a>Charophyta</a></li>
+		</ul>
+	</li>
+	<li><a>Land plants (embryophytes)</a>
+		<ul>
+			<li class="closed"><a>Non-vascular land plants (bryophytes)</a>
+				<ul>
+					<li><a>Marchantiophyta - liverworts</a></li>
+					<li><a>Anthocerotophyta - hornworts</a></li>
+					<li><a>Bryophyta - mosses</a></li>
+					<li><a>Horneophytopsida</a></li>
+				</ul>
+			</li>
+			<li><a>Vascular plants (tracheophytes)</a>
+				<ul>
+					<li><a>Rhyniophyta - rhyniophytes</a></li>
+					<li><a>Zosterophyllophyta - zosterophylls</a></li>
+					<li><a>Lycopodiophyta - clubmosses</a></li>
+					<li><a>Trimerophytophyta - trimerophytes</a></li>
+					<li><a>Pteridophyta - ferns and horsetails</a></li>
+					<li><a>Progymnospermophyta</a></li>
+					<li><a>Seed plants (spermatophytes)</a>
+						<ul>
+							<li><a>Pteridospermatophyta - seed ferns</a></li>
+							<li><a>Pinophyta - conifers</a></li>
+							<li><a>Cycadophyta - cycads</a></li>
+							<li><a>Ginkgophyta - ginkgo</a></li>
+							<li><a>Gnetophyta - gnetae</a></li>
+							<li><a>Magnoliophyta - flowering plants</a></li>
+						</ul>
+					</li>
+				</ul>
+			</li>
+		</ul>
+	</li>
+	<li><a>Nematophytes</a></li>
+</ul>
+	</div>
+
+<script>
+(function() {
+
+var xbl = Meeko.xbl, UI = Meeko.UI, DOM = Meeko.DOM;
+var _ = Meeko.stuff;
+
+xbl.CSS.addBinding('#tree .nav ul', UI.list);
+
+xbl.CSS.addBinding('#tree .nav li', UI.treeitem.evolve(
+{
+	setExpanded: function(state) {
+		var element = this.boundElement;
+		if (state == null) element.className = '';
+		else element.className = !!state ? 'open' : 'closed';
+	},
+	getExpanded: function()  {
+		var element = this.boundElement;
+		switch(element.className) {
+			case 'open': return true;
+			case 'closed': return false;
+			default: return null;
+		}
+	},
+	isEmpty: function() {
+		var element = this.boundElement;
+		for (var node=element.firstChild; node; node=node.nextSibling) {
+			if (node.nodeType === 1 && node.tagName === 'UL') return false;
+		}
+		return true;
+	}
+},
+[
+{
+	type: 'click',
+	eventPhase: 2,
+	action: function(event) {
+		if (this.isEmpty()) this.setExpanded();
+		else this.setExpanded(!this.getExpanded());
+	}
+}
+]
+));
+
+xbl.CSS.addBinding('#tree .nav', UI.tree.evolve(
+{
+	xblEnteredDocument: function() {
+		var element = this.boundElement;
+		_.forEach(DOM.$$('ul', element), function(list) {
+			var parent = list.parentNode;
+			var item = UI.treeitem.getBindingFor(parent);
+			if (item) item.setExpanded(false);	
+		});
+	}
+}
+));
+
+})();
+</script>
+
+</body>
+</html>

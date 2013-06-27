@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<!--
+Menu Demo
+Copyright 2007-2008,2013 Sean Hogan (http://www.meekostuff.net/)
+All rights reserved
+-->
+<html>
+<head>
+	<title>DOMSprockets Menu Demo</title>
+	<style>
+html { border: none; padding: 0; margin: 0; } 
+body { width: 480px; height: 100%; }
+#menu {
+	margin: 0px;
+	padding: 0px;
+	background-color: #ffffff;
+}
+/* Reset CSS */
+.menu { margin: 0px; padding: 0px; background-color: #dddddd; }
+.menu { height: 0; overflow: hidden; }
+
+#edit { background-color: #ffffff; margin: 0px; padding: 1em; }
+	</style>
+	
+<style>
+.menu { height: auto; overflow: visible; }
+.menu ul { list-style: none outside; margin: 0px; padding: 0px; border: 1px outset #dddddd; background-color: #dddddd; }
+.menu li { list-style: none outside; margin: 0px; padding: 0px; }
+.menu li { display: inline; position: relative; top: 0px; left: 0px; }
+.menu li ul { position: absolute; top: 1em; left: 0; width: auto; ~width: 0; }
+.menu li li { display: block; position: static; white-space: nowrap; ~height: 0; ~padding-left: 0.5em; }
+.menu button, .menu a { border: none; background-color: transparent; color: #000000; margin: 0; padding: 0.1em 0.5em; text-decoration: none; }
+
+.menu li ul.hidden { height: 0; overflow: hidden; border: none; }
+.menu li button:hover, .menu a:hover { background-color: #0033cc; color: #dddddd; }
+</style>
+<script src="../Binding.js"></script>
+<script src="../UI.js"></script>
+</head>
+<body id="menu">
+	<div class="menu">
+		<ul>
+			<li><button>File</button>
+				<ul class="hidden">
+					<li><a href="#">New</a></li>
+					<li><a href="#">Open</a></li>
+					<li><a href="#">Save</a></li>
+					<li><a href="#">Save As</a></li>
+					<li><a href="#">Close</a></li>
+				</ul>
+			</li>
+			<li><button>Edit</button>
+				<ul class="hidden">
+					<li><a href="#">Undo</a></li>
+					<li><a href="#">Redo</a></li>
+					<li><a href="#">Cut</a></li>
+					<li><a href="#">Copy</a></li>
+					<li><a href="#">Paste</a></li>
+					<li><a href="#">Delete</a></li>
+				</ul>			
+			</li>
+			<li><button>View</button>
+				<ul class="hidden">
+					<li><a href="#">Normal</a></li>
+					<li><a href="#">Outline</a></li>
+					<li><a href="#">Source</a></li>
+				</ul>
+			</li>
+			<li><button>Help</button>
+				<ul class="hidden">
+					<li><a href="#">Online Help</a></li>
+					<li><a href="#">About</a></li>
+				</ul>
+			</li>
+		</ul>
+	</div>
+	<div id="edit">
+		<p>The application menu bar is merely a list of lists.</p>
+		<p>
+Sub-menus (nested lists) are normally hidden, but are displayed under the appropriate conditions -
+in this case when the mouse is over the menu label or the menu.
+		</p>
+		<p>CSS does the rest.</p>
+	</div>
+
+<script>
+(function() {
+
+var xbl = Meeko.xbl, UI = Meeko.UI;
+xbl.CSS.addBinding('.menu > ul > li > ul', UI.list.evolve(
+{
+	setHidden: function(state) {
+		var element = this.boundElement;
+		element.className = !!state ? 'hidden' : '';
+	},
+	
+	getHidden: function() {
+		var element = this.boundElement;
+		return element.className == 'hidden';
+	}
+}
+));
+xbl.CSS.addBinding('.menu > ul > li', UI.treeitem.evolve(
+null,
+[
+{
+	type: 'mouseover',
+	phase: 2,
+	action: function(event) {
+		this.setExpanded(true);
+	}
+},
+{
+	type: 'mouseout',
+	phase: 2,
+	action: function(event) {
+		this.setExpanded(false);
+	}
+}
+]
+));
+
+xbl.domReady();
+
+})();
+</script>
+</body>
+</html>
