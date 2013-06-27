@@ -18,6 +18,8 @@ var defaults = { // NOTE defaults also define the type of the associated config 
 	"log_level": "warn"
 }
 
+var vendorPrefix = 'meeko';
+
 /*
  ### Utility functions
  */
@@ -99,7 +101,7 @@ DOM.cmpSpecificty = function(s1, s2) { // WARN no sanity checks
 DOM.match$ = function(element, selector) { throw "match$ not supported"; } // NOTE fallback
 some(words('moz webkit ms o'), function(prefix) {
 	var method = prefix + "MatchesSelector";
-	if (document.body[method]) DOM.match$ = function(element, selector) {
+	if (document.documentElement[method]) DOM.match$ = function(element, selector) {
 		if (selector.indexOf(',') >= 0) throw "match$ does not support selectors that contain COMMA (,)";		
 		return element[method](selector);
 	};
@@ -129,13 +131,13 @@ DOM.$id = function(id, node) { // NOTE assumes node really is a Node in a Docume
 	else if (node.nodeType === 9) doc = node;
 	else doc = node.ownerDocument;
 	var result = doc.getElementById(id);
-	if (!node || node == doc) return result;
-	if (DOM.contains(node, result)) return result;
+	if (!node || node === doc) return result;
+	if (node !== result && DOM.contains(node, result)) return result;
 };
 
 DOM.contains =
-document.body.contains && function(node, otherNode) { return node !== otherNode && node.contains(otherNode); } ||
-document.body.compareDocumentPosition && function(node, otherNode) { return !!(node.compareDocumentPosition(otherNode) & 16); } ||
+document.documentElement.contains && function(node, otherNode) { return node.contains(otherNode); } ||
+document.documentElement.compareDocumentPosition && function(node, otherNode) { return node === otherNode || !!(node.compareDocumentPosition(otherNode) & 16); } ||
 function(node, otherNode) { throw "contains not supported"; };
 
 DOM.addEvent =
@@ -169,6 +171,44 @@ this.LOG_LEVEL = levels[defaults['log_level']]; // DEFAULT
 this.Meeko.xbl = (function() {
 
 var xbl = {};
+
+// TODO all this node manager stuff assumes that nodes are only released on unload
+// This might need revising
+
+var nodeIdProperty = vendorPrefix + 'ID';
+var nodeCount = 0; // used to generated node IDs
+var nodeTable = []; // list of nodes being managed
+var nodeStorage = {}; // hash of storage for nodes, keyed off `nodeIdProperty`
+
+var nodeManager = {};
+nodeManager.setData = function(node, data) { // FIXME assert node is element
+	var nodeId = node[nodeIdProperty];
+	if (!nodeId) {
+		nodeId = '__' + vendorPrefix + '_' + nodeCount++;
+		node[nodeIdProperty] = new String(nodeId); // NOTE so that node cloning in IE doesn't copy the node ID property
+		nodeTable.push(node);
+	}
+	nodeStorage[nodeId] = data;
+}
+nodeManager.hasData = function(node) {
+	var nodeId = node[nodeIdProperty];
+	return !nodeId ? false : nodeId in nodeStorage;
+}
+nodeManager.getData = function(node, key) {
+	var nodeId = node[nodeIdProperty];
+	if (!nodeId) return;
+	return nodeStorage[nodeId];
+}
+nodeManager.releaseNodes = function(callback, context) {
+	for (var i=nodeTable.length-1; i>=0; i--) {
+		var node = nodeTable[i];
+		delete nodeTable[i];
+		if (callback) callback.call(context, node);
+		var nodeId = node[nodeIdProperty];
+		delete nodeStorage[nodeId];
+	}
+	nodeTable.length = 0;
+}
 
 var activeListeners = {};
 
@@ -246,12 +286,14 @@ getBinding: function(spec, derived) {
 }
 
 });
+
 extend(ElementXBL, {
 getInterface: function(element, bCreate) {
-	if (element._elementXBL) return element._elementXBL;
+	if (nodeManager.hasData(element)) return nodeManager.getData(element);
 	if (!bCreate) return null;
-	element._elementXBL = new ElementXBL(element);
-	return element._elementXBL;
+	var elementXBL = new ElementXBL(element);
+	nodeManager.setData(element, elementXBL);
+	return elementXBL;
 }
 });
 
@@ -259,10 +301,13 @@ function handleEvent(event, handler) {
 	var binding = this;
 	var target = event.target;
 	var current = event.currentTarget;
+	var nodeId = current[nodeIdProperty];
+	if (!nodeId) throw "Handler called on non-bound element";
 	if (!matchesEvent(handler, event, true)) return; // NOTE the phase check is below
 	var delegator = current;
 	if (handler.delegator) {
-		var delegatorSelector = current.id + ' ' + handler.delegator; // FIXME doesn't assert current.id or that handler.delegator isn't a chain
+		if (!current.id) current.id = nodeId;
+		var delegatorSelector = '#' + current.id + ' ' + handler.delegator; // FIXME doesn't assert current.id or that handler.delegator isn't a chain
 		for (var el=target; el!=current; el=el.parentNode) {
 			if (DOM.match$(el, delegatorSelector)) break;
 		}
