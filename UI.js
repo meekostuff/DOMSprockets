@@ -70,7 +70,7 @@ setExpanded: function(state) {
 	var element = this.boundElement;
 	var listEl = this.getListElement();
 	if (!listEl) throw "";
-	list.getBindingFor(listEl).setHidden(state);
+	list.getBindingFor(listEl).setHidden(!state);
 
 },
 getExpanded: function() {
@@ -95,16 +95,6 @@ getItems: function() {
 	var element = this.boundElement;
 	return element.children;
 
-},
-
-setHidden: function(state) {
-	var element = this.boundElement;
-	element.hidden = !!state;
-},
-
-getHidden: function() {
-	var element = this.boundElement;
-	return element.hidden;
 }
 
 });
@@ -153,21 +143,7 @@ signalChange: function() {
 			
 }
 
-},
-[
-{
-	type: "click",
-	action: function(event) {
-		var element = this.boundElement;
-		var item = event.target;
-		while (item.tagName.toLowerCase() != "li") {
-			if (item == element) return;
-			item = item.parentNode;
-		}
-		this.selectItem(item);
-	}
-}
-]);
+});
 
 declareProperties(tree.prototype, 'listElement selectedIndex selectedItem');
 
@@ -208,21 +184,7 @@ var navtree = tree.evolve({
 
 getView: navtreeitem.prototype.getView
 	
-},
-[
-{
-	type: "click",
-	action: function(event) {
-		var element = this.boundElement;
-		var item = event.target;
-		while (item.tagName.toLowerCase() != "li") {
-			if (item == element) return;
-			item = item.parentNode;
-		}
-		this.selectItem(item);
-	}
-}
-]);
+});
 
 declareProperties(navtree.prototype, 'view');
 
@@ -315,7 +277,7 @@ getColumns: function() {
 	return element.tHead.rows.item(0).cells;
 			
 },
-_sort: function(column, type, reverse) {
+sort: function(column, type, reverse) {
 	
 
 	var element = this.boundElement;
@@ -326,7 +288,7 @@ _sort: function(column, type, reverse) {
 		var values = [];
 		for (var i=0, n=rows.length; i<n; i++) {
 			var row = rows.item(i); var cell = row.cells.item(column);
-			var val = String(cell.firstChild.nodeValue);
+			var val = new String(cell.firstChild.nodeValue);
 			val.row = row;
 			values.push(val);
 		}
@@ -364,12 +326,12 @@ toggleColumnSortState: function(column) { // TODO shouldn't have hard-wired clas
 	var reversed = classList.contains("reversed");
 	if (!sortable) return;
 	if (!sorted) {
-		this._sort(column, type, false);
+		this.sort(column, type, false);
 		classList.add("sorted");
 		classList.remove("reversed");
 	}
 	else {
-		this._sort(column, type, !reversed);
+		this.sort(column, type, !reversed);
 		if (reversed) classList.remove("reversed");
 		else classList.add("reversed");
 	}
