@@ -42,13 +42,13 @@ function(object, fn) {
 
 var extend = (Object.defineProperty) ?
 function(dest, src) {
-	each(src, function(key) { Object.defineProperty(dest, key, Object.getOwnPropertyDescriptor(src, key)); });
-	return dest;
+       each(src, function(key) { Object.defineProperty(dest, key, Object.getOwnPropertyDescriptor(src, key)); });
+       return dest;
 } :
 function(dest, src) {
 	each(src, function(key, val) { dest[key] = val; });
 	return dest;
-}
+};
 
 var some = function(a, fn, context) { 
 	for (var n=a.length, i=0; i<n; i++) {
@@ -61,6 +61,12 @@ var forEach = function(a, fn, context) {
 	for (var n=a.length, i=0; i<n; i++) {
 		fn.call(context, a[i], i, a);
 	}
+}
+
+var createObject = function(prototype) {
+	var constructor = function() {};
+	constructor.prototype = prototype;
+	return new constructor;
 }
 
 if (!Meeko.stuff) Meeko.stuff = {}
@@ -224,7 +230,7 @@ getBindingFor: function(element) {
 },
 evolve: function(properties, handlers) { // inherit this.prototype, extend with prototype and copy this.handlers and handlers
 	var sub = new Binding();
-	var prototype = Object.create(this.prototype); // FIXME Object.create for older browsers
+	var prototype = createObject(this.prototype); 
 	if (properties) extend(prototype, properties);
 	sub.prototype = prototype;
 	[].push.apply(sub.handlers, this.handlers);
@@ -242,7 +248,7 @@ extend(ElementXBL.prototype, {
 	
 addBinding: function(spec) {
 	if (this.xblImplementations.length >= 1) throw "Maximum of one binding per element"; // FIXME DOMError
-	var binding = Object.create(spec.prototype);
+	var binding = createObject(spec.prototype);
 	binding.specification = spec;
 	var element = this.boundElement;
 	binding.boundElement = element;

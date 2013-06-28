@@ -11,7 +11,8 @@ var _ = Meeko.stuff, extend = _.extend, forEach = _.forEach;
 var DOM = Meeko.DOM, $id = DOM.$id, $ = DOM.$, $$ = DOM.$$;
 var xbl = Meeko.xbl, Binding = xbl.Binding, baseBinding = xbl.baseBinding;
 
-function declareProperties(obj, props) {
+var declareProperties = Object.defineProperty ?
+function(obj, props) {
 	forEach(props.split(/\s+/), function(prop) {
 		var Prop = ucFirst(prop);
 		var getter = 'get' + Prop, setter = 'set' + Prop;
@@ -20,7 +21,8 @@ function declareProperties(obj, props) {
 			set: obj[setter]
 		});
 	});
-}
+} :
+function(obj, props) { };
 
 function ucFirst(text) {
 	return text.substr(0,1).toUpperCase() + text.substr(1);
