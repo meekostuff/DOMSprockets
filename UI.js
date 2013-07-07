@@ -11,7 +11,7 @@ var _ = Meeko.stuff, extend = _.extend, forEach = _.forEach;
 var DOM = Meeko.DOM, $id = DOM.$id, $ = DOM.$, $$ = DOM.$$;
 var xbl = Meeko.xbl, Binding = xbl.Binding, baseBinding = xbl.baseBinding;
 
-var declareProperties = Object.defineProperty ?
+var declareProperties = (Object.defineProperty && Object.create) ? // IE8 supports defineProperty but only on DOM objects
 function(obj, props) {
 	forEach(props.split(/\s+/), function(prop) {
 		var Prop = ucFirst(prop);
@@ -139,10 +139,16 @@ signalChange: function() {
 	
 	var element = this.boundElement;
 	var document = element.ownerDocument;
-	var event = document.createEvent("Event");
-	event.initEvent("change", false, true);
-	return element.dispatchEvent(event);
-			
+	if (document.createEvent) {
+		var event = document.createEvent("Event");
+		event.initEvent("change", false, true);
+		return element.dispatchEvent(event);
+	}
+	else if (document.createEventObject) {
+		var event = document.createEventObject();
+		event.type = 'change';
+		return element.fireEvent('onclick', event);
+	}
 }
 
 });

@@ -40,7 +40,7 @@ function(object, fn) {
 	}
 }
 
-var extend = (Object.defineProperty) ?
+var extend = (Object.defineProperty && Object.create) ? // IE8 supports defineProperty but only on DOM objects
 function(dest, src) {
        each(src, function(key) { Object.defineProperty(dest, key, Object.getOwnPropertyDescriptor(src, key)); });
        return dest;
@@ -63,11 +63,27 @@ var forEach = function(a, fn, context) {
 	}
 }
 
-var createObject = function(prototype) {
+var createObject = Object.create ?
+Object.create :
+function(prototype) {
 	var constructor = function() {};
 	constructor.prototype = prototype;
-	return new constructor;
+	var object = new constructor;
+	if (!object.__proto__) object.__proto__ = prototype;
+	return object;
 }
+
+var getPrototypeOf = Object.getPrototypeOf ?
+Object.getPrototypeOf :
+function(object) { return object.__proto__; };
+
+var isPrototypeOf = {}.isPrototypeOf ?
+function(prototype, object) { return prototype.isPrototypeOf(object); } :
+function(prototype, object) {
+	for (var current=object.__proto__; current; current=current.__proto__) if (current === prototype) return true;
+	return false;
+};
+
 
 if (!Meeko.stuff) Meeko.stuff = {}
 extend(Meeko.stuff, {
@@ -148,12 +164,12 @@ function(node, otherNode) { throw "contains not supported"; };
 
 DOM.addEvent =
 document.addEventListener && function(node, type, listener) { return node.addEventListener(type, listener, false); } ||
-document.attachEvent && function(node, type, listener) { return node.attachEvent(type, listener); } ||
+document.attachEvent && function(node, type, listener) { return node.attachEvent('on' + type, listener); } ||
 function(node, type, listener, capture) { throw "addEvent not supported"; };
 
 DOM.removeEvent =
 document.removeEventListener && function(node, type, listener) { return node.removeEventListener(type, listener, false); } ||
-document.detachEvent && function(node, type, listener) { return node.detachEvent(type, listener); } ||
+document.detachEvent && function(node, type, listener) { return node.detachEvent('on' + type, listener); } ||
 function(node, type, listener, capture) { throw "removeEvent not supported"; };
 
 var logger = Meeko.logger || (Meeko.logger = new function() {
@@ -286,7 +302,7 @@ removeBinding: function(spec) {
 getBinding: function(spec, derived) {
 	var list = this.xblImplementations;
 	for (var binding, i=list.length-1; binding=list[i]; i--) {
-		if (Object.getPrototypeOf(binding) == spec.prototype || derived && spec.prototype.isPrototypeOf(binding)) return binding;
+		if (getPrototypeOf(binding) == spec.prototype || derived && isPrototypeOf(spec.prototype, binding)) return binding;
 	}
 	return null;
 }
@@ -305,8 +321,8 @@ getInterface: function(element, bCreate) {
 
 function handleEvent(event, handler) {
 	var binding = this;
-	var target = event.target;
-	var current = event.currentTarget;
+	var target = event.target || event.srcElement;
+	var current = event.currentTarget || binding.boundElement;
 	var nodeId = current[nodeIdProperty];
 	if (!nodeId) throw "Handler called on non-bound element";
 	if (!matchesEvent(handler, event, true)) return; // NOTE the phase check is below
@@ -320,17 +336,28 @@ function handleEvent(event, handler) {
 		if (el == current) return;
 		delegator = el;
 	}
-	if (delegator == target) {
-		if (!phaseMatchesEvent(handler.eventPhase, { eventPhase: Event.AT_TARGET })) return;
-	}
-	else {
-		if (phaseMatchesEvent(handler.eventPhase, { eventPhase: Event.CAPTURING_PHASE }))
-			throw "Capturing not supported";
-		else if (!phaseMatchesEvent(handler.eventPhase, { eventPhase: Event.BUBBLING_PHASE })) return;
+	switch (handler.eventPhase) {
+	case 1:
+		throw "Capturing not supported";
+		break;
+	case 2:
+		if (delegator !== target) return;
+		break;
+	case 3:
+		if (delegator === target) return;
+		break;
+	default:
+		break;
 	}
 
-	if (handler.stopPropagation) event.stopPropagation();
-	if (handler.preventDefault) event.preventDefault();
+	if (handler.stopPropagation) {
+		if (event.stopPropagation) event.stopPropagation();
+		else event.cancelBubble = true;
+	}
+	if (handler.preventDefault) {
+		if (event.preventDefault) event.preventDefault();
+		else event.returnValue = false;
+	}
 	if (handler.action) handler.action.call(binding, event, delegator);
 	
 	return;
@@ -525,15 +552,6 @@ var matchesEvent = function(handler, event, ignorePhase) {
 	// user-defined events.  TODO should these be optionally allowed / prevented??
 	if (!(evType in xblEvents)) { }
 
-	return true;
-}
-
-var phaseMatchesEvent = function(phase, event) {
-	var evPhase = event.eventPhase;
-	if (phase && evPhase != phase) return false;
-	else { // no specified phase means target or bubbling okay
-		if (Event.BUBBLING_PHASE != evPhase && Event.AT_TARGET != evPhase) return false;
-	}
 	return true;
 }
 
