@@ -139,16 +139,10 @@ signalChange: function() {
 	
 	var element = this.boundElement;
 	var document = element.ownerDocument;
-	if (document.createEvent) {
-		var event = document.createEvent("Event");
-		event.initEvent("change", false, true);
-		return element.dispatchEvent(event);
-	}
-	else if (document.createEventObject) {
-		var event = document.createEventObject();
-		event.type = 'change';
-		return element.fireEvent('onclick', event);
-	}
+	var event = document.createEvent("Event");
+	event.initEvent("change", false, true);
+	return element.dispatchEvent(event);
+
 }
 
 });
