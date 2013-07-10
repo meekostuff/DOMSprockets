@@ -1,13 +1,18 @@
-
-if (!window.Meeko) window.Meeko = {};
-
-/* 
-CSS Parser
-Copyright October 2007, Sean Hogan (http://www.meekostuff.net/)
-All rights reserved
+/*!
+Legacy.js
+Copyright 2007, 2013 Sean Hogan (http://www.meekostuff.net/)
+MIT License
 */
 
 /*
+This script patches DOMSprockets with element selector and event handling utils.
+*/
+
+if (!window.Meeko) window.Meeko = {};
+
+/*
+CSS Parser
+
 This API and implementation is a Frankenstein of:
 1. W3C Simple API for CSS
 	http://www.w3.org/TR/SAC
@@ -914,4 +919,20 @@ DOM.match$ = function(element, selector) {
 	return DOM.ElementSelector.matchesSelector(element, selector);
 }
 
+function normalizeEvent(event) {
+	event.target = event.srcElement;
+	return event;
+}
+
+DOM.addEventListener = document.attachEvent && function(node, type, listener, capture) {
+	if (capture) throw "Event capturing not supported on this browser";
+	listener.normalize = normalizeEvent;
+	return node.attachEvent('on' + type, listener);
+}
+
+DOM.removeEventListener = document.detachEvent && function(node, type, listener, capture) {
+	return node.detachEvent('on' + type, listener);
+}
+
 })();
+

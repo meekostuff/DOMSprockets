@@ -162,15 +162,13 @@ document.documentElement.contains && function(node, otherNode) { return node.con
 document.documentElement.compareDocumentPosition && function(node, otherNode) { return node === otherNode || !!(node.compareDocumentPosition(otherNode) & 16); } ||
 function(node, otherNode) { throw "contains not supported"; };
 
-DOM.addEvent =
-document.addEventListener && function(node, type, listener) { return node.addEventListener(type, listener, false); } ||
-document.attachEvent && function(node, type, listener) { return node.attachEvent('on' + type, listener); } ||
-function(node, type, listener, capture) { throw "addEvent not supported"; };
+DOM.addEventListener =
+document.addEventListener && function(node, type, listener, capture) { return node.addEventListener(type, listener, capture); } ||
+function(node, type, listener, capture) { throw "addEventListener not supported"; };
 
-DOM.removeEvent =
-document.removeEventListener && function(node, type, listener) { return node.removeEventListener(type, listener, false); } ||
-document.detachEvent && function(node, type, listener) { return node.detachEvent('on' + type, listener); } ||
-function(node, type, listener, capture) { throw "removeEvent not supported"; };
+DOM.removeEventListener =
+document.removeEventListener && function(node, type, listener, capture) { return node.removeEventListener(type, listener, capture); } ||
+function(node, type, listener, capture) { throw "removeEventListener not supported"; };
 
 var logger = Meeko.logger || (Meeko.logger = new function() {
 
@@ -272,11 +270,14 @@ addBinding: function(spec) {
 	binding.listeners = []; // FIXME should be in binding constructor??
 	forEach(spec.handlers, function(handler) {
 		var type = handler.type;
+		var capture = (handler.eventPhase == 1); // Event.CAPTURING_PHASE
 		var fn = function(event) {
+			if (fn.normalize) event = fn.normalize(event);
 			handleEvent.call(binding, event, handler);
 		}
 		fn.type = type;
-		DOM.addEvent(element, type, fn);
+		fn.capture = capture;
+		DOM.addEventListener(element, type, fn, capture);
 		binding.listeners.push(fn);
 	});
 	if (binding.xblBindingAttached) binding.xblBindingAttached();
@@ -289,8 +290,9 @@ removeBinding: function(spec) {
 	for (var binding, i=list.length-1; binding=list[i]; i--) {
 		if (binding.constructor != spec) continue;
 		forEach(binding.listeners, function(fn) {
-			var type = listeners.type;
-			DOM.removeEvent(element, type, listener);
+			var type = fn.type;
+			var capture = fn.capture;
+			DOM.removeEventListener(element, type, fn, capture);
 		});
 		binding.listeners.length = 0;
 		if (binding.xblLeftDocument) binding.xblLeftDocument();
@@ -321,8 +323,8 @@ getInterface: function(element, bCreate) {
 
 function handleEvent(event, handler) {
 	var binding = this;
-	var target = event.target || event.srcElement;
-	var current = event.currentTarget || binding.boundElement;
+	var target = event.target;
+	var current = binding.boundElement;
 	var nodeId = current[nodeIdProperty];
 	if (!nodeId) throw "Handler called on non-bound element";
 	if (!matchesEvent(handler, event, true)) return; // NOTE the phase check is below
@@ -486,15 +488,29 @@ var convertXBLHandler = function(config) {
 	return handler;
 }
 
+var EventModules = {};
+EventModules.AllEvents = {};
+registerModule('FocusEvents', 'focus blur focusin focusout');
+registerModule('MouseEvents', 'click dblclick mousedown mouseup mouseover mouseout mousemove mousewheel');
+registerModule('KeyboardEvents', 'keydown keyup');
+registerModule('UIEvents', 'load unload abort error select change submit reset resize scroll');
+
+function registerModule(modName, evTypes) {
+	var mod = {};
+	EventModules[modName] = mod;
+	forEach(words(evTypes), registerEvent, mod);
+}
+function registerEvent(evType) {
+	EventModules.AllEvents[evType] = true;
+	this[evType] = true;
+}
+
 var matchesEvent = function(handler, event, ignorePhase) {
 	// type
-	var xblEvents = { click: true, dblclick: true, mousedown: true, mouseup: true, mouseover: true, mouseout: true, mousemove: true,
-		keydown: true, keyup: true, textInput: true, 
-		load: true, unload: true, abort: true, error: true, select: true, change: true, submit: true, reset: true, resize: true, scroll: true };
-	var xblMouseEvents = { click: true, dblclick: true, mousedown: true, mouseup: true, mouseover: true, mouseout: true, mousemove: true, mousewheel: true };
-	var xblKeyboardEvents = { keydown: true, keyup: true };
-	var xblTextEvents = { textInput: true };
-	var xblHTMLEvents = { load: true, unload: true, abort: true, error: true, select: true, change: true, submit: true, reset: true, resize: true, scroll: true };
+	var xblEvents = EventModules.AllEvents;
+	var xblMouseEvents = EventModules.MouseEvents;
+	var xblKeyboardEvents = EventModules.KeyboardEvents;
+	var xblUIEvents = EventModules.UIEvents;
 
 	if (event.type != handler.type) return false;
 
@@ -529,7 +545,7 @@ var matchesEvent = function(handler, event, ignorePhase) {
 		if (handler.key) {
 			var success = false;
 			var keyId = event.keyIdentifier;
-			if (/^U\+00....$/.test(keyId)) { // TODO Needed for Safari-2. It would be great if this test could be done in eventSystem
+			if (/^U\+00....$/.test(keyId)) { // TODO Needed for Safari-2. It would be great if this test could be done elsewhere
 				keyId = keyId.replace(/^U\+00/, "U+");
 			}
 			if (handler.key != keyId && ourKeyIdentifiers[handler.key] != keyId) return false;
@@ -541,16 +557,11 @@ var matchesEvent = function(handler, event, ignorePhase) {
 		}
 	}
 
-	// TextEvents
-	if (evType in xblTextEvents) {
-		if (handler.text && handler.text != event.data) return false;
-	}
-		
-	// HTML events
-	if (evType in xblHTMLEvents) { }
+	// UI events
+	if (evType in xblUIEvents) { } // TODO
 	
-	// user-defined events.  TODO should these be optionally allowed / prevented??
-	if (!(evType in xblEvents)) { }
+	// user-defined events
+	if (!(evType in xblEvents)) { } // TODO should these be optionally allowed / prevented??
 
 	return true;
 }
