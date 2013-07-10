@@ -12,12 +12,14 @@ html { border: none; }
 body {
 	height: 100%;
 	background-color: #ffffff;
-}
-#tree, #tree .nav {
 	margin: 0px;
 	padding: 0px;
 }
-#tree .nav label { display: block; background-color: #dddddd; border: 1px outset #dddddd; }
+#tree {
+	margin: 0px;
+	padding: 0px;
+}
+#tree label { display: block; background-color: #dddddd; border: 1px outset #dddddd; }
 	</style>
 	
 <style>
@@ -28,6 +30,7 @@ body {
 #tree li { list-style: outside disc; margin-left: 0px; padding-left: 0px; }
 #tree li.open { list-style-image: url(arrow-dn.gif); }
 #tree li.closed { list-style-image: url(arrow-rit.gif); }
+#tree li.open ul, #tree li.closed ul { list-style-image: none; } /* IE <= 8 */
 #tree li { -moz-user-select: none; }
 #tree li > * { -moz-user-select: text; }
 </style>
@@ -38,8 +41,8 @@ body {
 <script src="../UI.js"></script>
 </head>
 
-<body id="tree">
-	<div class="nav">
+<body>
+	<div id="tree" class="nav">
 		<label>Plants</label>
 <ul>
 	<li><a>Green algae</a>
@@ -50,7 +53,7 @@ body {
 	</li>
 	<li><a>Land plants (embryophytes)</a>
 		<ul>
-			<li class="closed"><a>Non-vascular land plants (bryophytes)</a>
+			<li><a>Non-vascular land plants (bryophytes)</a>
 				<ul>
 					<li><a>Marchantiophyta - liverworts</a></li>
 					<li><a>Anthocerotophyta - hornworts</a></li>
@@ -90,9 +93,9 @@ body {
 var xbl = Meeko.xbl, UI = Meeko.UI, DOM = Meeko.DOM;
 var _ = Meeko.stuff;
 
-xbl.CSS.addBinding('#tree .nav ul', UI.list);
+xbl.CSS.addBinding('#tree ul', UI.list);
 
-xbl.CSS.addBinding('#tree .nav li', UI.treeitem.evolve(
+xbl.CSS.addBinding('#tree li', UI.treeitem.evolve(
 {
 	setExpanded: function(state) {
 		var element = this.boundElement;
@@ -127,7 +130,7 @@ xbl.CSS.addBinding('#tree .nav li', UI.treeitem.evolve(
 ]
 ));
 
-xbl.CSS.addBinding('#tree .nav', UI.tree.evolve(
+xbl.CSS.addBinding('#tree', UI.tree.evolve(
 {
 	xblEnteredDocument: function() {
 		var element = this.boundElement;
