@@ -237,14 +237,9 @@ releaseNodes: function(callback, context) {
 var activeListeners = {};
 
 var SprocketDefinition = function(prototype) {
-	var constructor = function(element, options) { // FIXME options
-		if (this instanceof constructor) {
-			return constructor.create(element);
-		}
-		var implementation =
-			constructor.getInterface(element) ||
-			constructor.create(element);
-		return implementation;
+	var constructor = function(element) { // FIXME options
+		if (this instanceof constructor) return constructor.create(element);
+		return constructor.cast(element);
 	}
 	constructor.prototype = prototype;
 	extend(constructor, SprocketDefinition.prototype);
@@ -258,9 +253,9 @@ create: function(element) {
 	implementation.boundElement = element;
 	return implementation;
 },
-getInterface: function(element) {
+cast: function(element) {
 	var binding = Binding.getInterface(element);
-	if (!binding) return null;
+	if (!binding) return this.create(element);
 	if (!isPrototypeOf(this.prototype, binding.implementation)) throw "Attached sprocket doesn't match";
 	return binding.implementation;
 },
