@@ -52,7 +52,7 @@ thead th.reversed button {
   background-image: url(arrow-up.gif);
 }
   </style>
-<script src="../Binding.js"></script>
+<script src="../Sprocket.js"></script>
 <!--[if lte IE 8]>
 <script src="../Legacy.js"></script>
 <![endif]-->
@@ -257,10 +257,9 @@ thead th.reversed button {
 <script>
 (function() {
 
-var xbl = Meeko.xbl, UI = Meeko.UI;
-xbl.CSS.addBinding('table', UI.table.evolve(
-null,
-[
+var sprockets = Meeko.sprockets, UI = Meeko.UI;
+sprockets.register('table', UI.Table, {
+handlers: [
 {
   type: 'click',
   preventDefault: true,
@@ -270,9 +269,9 @@ null,
   }
 }
 ]
-));
+});
 
-xbl.domReady();
+sprockets.domReady();
 
 })();
 </script>

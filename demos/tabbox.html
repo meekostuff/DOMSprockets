@@ -59,7 +59,7 @@ body { width: 480px; height: 100%; }
 }
 #tabboxPanels ul { margin-left: 0px; padding-left: 2em;  }
 	</style>
-<script src="../Binding.js"></script>
+<script src="../Sprocket.js"></script>
 <!--[if lte IE 8]>
 <script src="../Legacy.js"></script>
 <![endif]-->
@@ -109,13 +109,13 @@ The tabbox implementation matches a list of skip links, where each link referenc
 <script>
 (function() {
 
-var xbl = Meeko.xbl, UI = Meeko.UI;
+var sprockets = Meeko.sprockets, UI = Meeko.UI;
 
-xbl.CSS.addBinding("#tabboxPanels > div", UI.panel);
+sprockets.register("#tabboxPanels > div", UI.Panel);
 
-xbl.CSS.addBinding('#tabboxPanels', UI.switchBox);
+sprockets.register('#tabboxPanels', UI.SwitchBox);
 
-xbl.CSS.addBinding('#tabbox .nav > ul > li', UI.navtreeitem.evolve(
+var NavTreeItem = UI.NavTreeItem.evolve(
 {
 
 setSelected: function(state) { // NOTE treeitem is ignorant of whether multiple treeitems can be selected
@@ -128,29 +128,23 @@ getSelected: function() {
 	return state;	
 }
 
+});
+
+sprockets.register('#tabbox .nav > ul > li', NavTreeItem);
+
+sprockets.register('#tabbox .nav > ul', UI.List);
+
+sprockets.register('#tabbox .nav', UI.NavTree, {
+callbacks: {
+	enteredDocument: function() {
+	  this.selectItem(this.getListElement().children[0]);
+	}
 },
-[
-{
-	type: 'click',
-	preventDefault: true
-}
-]
-));
-
-xbl.CSS.addBinding('#tabbox .nav > ul', UI.list);
-
-xbl.CSS.addBinding('#tabbox .nav', UI.navtree.evolve(
-{
-
-xblEnteredDocument: function() {
-  this.selectItem(this.getListElement().children[0]);
-}
-
-},
-[
+handlers: [
 {
 	type: "click",
 	delegator: 'li',
+	preventDefault: true,
 	action: function(event, item) {
 		this.selectItem(item);
 	}
@@ -159,14 +153,14 @@ xblEnteredDocument: function() {
 	type: "change",
 	action: function(event) {
 		var viewer = this.getView();
-		var target = UI.navtreeitem.getBindingFor(this.getSelectedItem()).getView();
-		UI.switchBox.getBindingFor(viewer).setView(target);
+		var target = UI.NavTreeItem(this.getSelectedItem()).getView();
+		UI.SwitchBox(viewer).setView(target);
 	}
 }
 ]
-));
+});
 
-xbl.domReady();
+sprockets.domReady();
 
 })();
 </script>

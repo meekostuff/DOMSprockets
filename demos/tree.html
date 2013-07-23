@@ -34,7 +34,7 @@ body {
 #tree li { -moz-user-select: none; }
 #tree li > * { -moz-user-select: text; }
 </style>
-<script src="../Binding.js"></script>
+<script src="../Sprocket.js"></script>
 <!--[if lte IE 8]>
 <script src="../Legacy.js"></script>
 <![endif]-->
@@ -90,12 +90,12 @@ body {
 <script>
 (function() {
 
-var xbl = Meeko.xbl, UI = Meeko.UI, DOM = Meeko.DOM;
+var sprockets = Meeko.sprockets, UI = Meeko.UI, DOM = Meeko.DOM;
 var _ = Meeko.stuff;
 
-xbl.CSS.addBinding('#tree ul', UI.list);
+sprockets.register('#tree ul', UI.List);
 
-xbl.CSS.addBinding('#tree li', UI.treeitem.evolve(
+var TreeItem = UI.TreeItem.evolve(
 {
 	setExpanded: function(state) {
 		var element = this.boundElement;
@@ -117,8 +117,10 @@ xbl.CSS.addBinding('#tree li', UI.treeitem.evolve(
 		}
 		return true;
 	}
-},
-[
+});
+
+sprockets.register('#tree li', TreeItem, {
+handlers: [
 {
 	type: 'click',
 	eventPhase: 2,
@@ -128,20 +130,20 @@ xbl.CSS.addBinding('#tree li', UI.treeitem.evolve(
 	}
 }
 ]
-));
+});
 
-xbl.CSS.addBinding('#tree', UI.tree.evolve(
-{
-	xblEnteredDocument: function() {
+sprockets.register('#tree', UI.Tree, {
+callbacks: {
+	enteredDocument: function() {
 		var element = this.boundElement;
-		_.forEach(DOM.$$('ul', element), function(list) {
+		_.forEach(DOM.$$('li > ul', element), function(list) {
 			var parent = list.parentNode;
-			var item = UI.treeitem.getBindingFor(parent);
+			var item = UI.TreeItem(parent);
 			if (item) item.setExpanded(false);	
 		});
 	}
 }
-));
+});
 
 })();
 </script>

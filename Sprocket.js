@@ -1,5 +1,5 @@
 /*
- Binding
+ Sprocket
  (c) Sean Hogan, 2008,2012,2013
  All rights reserved.
 */
@@ -188,9 +188,9 @@ this.LOG_LEVEL = levels[defaults['log_level']]; // DEFAULT
 }); // end logger defn
 
 
-this.Meeko.xbl = (function() {
+this.Meeko.sprockets = (function() {
 
-var xbl = {};
+var sprockets = {};
 
 // TODO all this node manager stuff assumes that nodes are only released on unload
 // This might need revising
@@ -200,8 +200,9 @@ var nodeCount = 0; // used to generated node IDs
 var nodeTable = []; // list of nodes being managed
 var nodeStorage = {}; // hash of storage for nodes, keyed off `nodeIdProperty`
 
-var nodeManager = {};
-nodeManager.setData = function(node, data) { // FIXME assert node is element
+var nodeManager = {
+
+setData: function(node, data) { // FIXME assert node is element
 	var nodeId = node[nodeIdProperty];
 	if (!nodeId) {
 		nodeId = '__' + vendorPrefix + '_' + nodeCount++;
@@ -209,17 +210,17 @@ nodeManager.setData = function(node, data) { // FIXME assert node is element
 		nodeTable.push(node);
 	}
 	nodeStorage[nodeId] = data;
-}
-nodeManager.hasData = function(node) {
+},
+hasData: function(node) {
 	var nodeId = node[nodeIdProperty];
 	return !nodeId ? false : nodeId in nodeStorage;
-}
-nodeManager.getData = function(node, key) {
+},
+getData: function(node, key) {
 	var nodeId = node[nodeIdProperty];
 	if (!nodeId) return;
 	return nodeStorage[nodeId];
-}
-nodeManager.releaseNodes = function(callback, context) {
+},
+releaseNodes: function(callback, context) {
 	for (var i=nodeTable.length-1; i>=0; i--) {
 		var node = nodeTable[i];
 		delete nodeTable[i];
@@ -230,95 +231,105 @@ nodeManager.releaseNodes = function(callback, context) {
 	nodeTable.length = 0;
 }
 
-var activeListeners = {};
-
-var Binding = function() {
-	if (!(this instanceof Binding)) return new Binding();
-	this.prototype = {};
-	this.handlers = [];
 }
 
-extend(Binding.prototype, {
-getBindingFor: function(element) {
-	return ElementXBL.getInterface(element, true).getBinding(this, true);
+
+var activeListeners = {};
+
+var SprocketDefinition = function(prototype) {
+	var constructor = function(element, options) { // FIXME options
+		if (this instanceof constructor) {
+			return constructor.create(element);
+		}
+		var implementation =
+			constructor.getInterface(element) ||
+			constructor.create(element);
+		return implementation;
+	}
+	constructor.prototype = prototype;
+	extend(constructor, SprocketDefinition.prototype);
+	return constructor;
+}
+
+extend(SprocketDefinition.prototype, {
+
+create: function(element) {
+	var implementation = createObject(this.prototype);
+	implementation.boundElement = element;
+	return implementation;
 },
-evolve: function(properties, handlers) { // inherit this.prototype, extend with prototype and copy this.handlers and handlers
-	var sub = new Binding();
+getInterface: function(element) {
+	var binding = Binding.getInterface(element);
+	if (!binding) return null;
+	if (!isPrototypeOf(this.prototype, binding.implementation)) throw "Attached sprocket doesn't match";
+	return binding.implementation;
+},
+evolve: function(properties) { // inherit this.prototype, extend with prototype and copy this.handlers and handlers
 	var prototype = createObject(this.prototype); 
 	if (properties) extend(prototype, properties);
-	sub.prototype = prototype;
-	[].push.apply(sub.handlers, this.handlers);
-	if (handlers) [].push.apply(sub.handlers, handlers); // FIXME assert handlers is array
+	var sub = new SprocketDefinition(prototype);
 	return sub;
 }
 
 });
 
-var ElementXBL = function(element) {
-	this.xblImplementations = []; // TODO max of one binding per element so don't need array
-	this.boundElement = element;
+
+var Binding = function(definition) {
+	this.defintion = definition;
 }
-extend(ElementXBL.prototype, {
-	
-addBinding: function(spec) {
-	if (this.xblImplementations.length >= 1) throw "Maximum of one binding per element"; // FIXME DOMError
-	var binding = createObject(spec.prototype);
-	binding.specification = spec;
-	var element = this.boundElement;
-	binding.boundElement = element;
-	this.xblImplementations.push(binding);
+
+function attachBinding(definition, element) {
+	var binding = new Binding(definition);
+	nodeManager.setData(element, binding);
+	var implementation = binding.implementation = createObject(definition.implementation);
+	implementation.boundElement = element;
 	binding.listeners = []; // FIXME should be in binding constructor??
-	forEach(spec.handlers, function(handler) {
+	forEach(definition.handlers, function(handler) {
 		var type = handler.type;
 		var capture = (handler.eventPhase == 1); // Event.CAPTURING_PHASE
 		var fn = function(event) {
 			if (fn.normalize) event = fn.normalize(event);
-			handleEvent.call(binding, event, handler);
+			handleEvent.call(implementation, event, handler);
 		}
 		fn.type = type;
 		fn.capture = capture;
 		DOM.addEventListener(element, type, fn, capture);
 		binding.listeners.push(fn);
 	});
-	if (binding.xblBindingAttached) binding.xblBindingAttached();
-	if (binding.xblEnteredDocument) binding.xblEnteredDocument();
-},
-
-removeBinding: function(spec) {
-	var element = this.boundElement;
-	var list = this.xblImplementations;
-	for (var binding, i=list.length-1; binding=list[i]; i--) {
-		if (binding.constructor != spec) continue;
-		forEach(binding.listeners, function(fn) {
-			var type = fn.type;
-			var capture = fn.capture;
-			DOM.removeEventListener(element, type, fn, capture);
-		});
-		binding.listeners.length = 0;
-		if (binding.xblLeftDocument) binding.xblLeftDocument();
-		list.splice(i, 1);
-		break;
+	var callbacks = definition.callbacks;
+	if (callbacks) {
+		if (callbacks.attached) callbacks.attached.call(implementation);
+		if (callbacks.enteredDocument) callbacks.enteredDocument.call(implementation);	
 	}
-},
+	return binding;
+}
 
-getBinding: function(spec, derived) {
-	var list = this.xblImplementations;
-	for (var binding, i=list.length-1; binding=list[i]; i--) {
-		if (getPrototypeOf(binding) == spec.prototype || derived && isPrototypeOf(spec.prototype, binding)) return binding;
+function detachBinding(definition, element) { // FIXME
+	var binding = nodeManager.getData(element);
+	if (!binding) throw 'No binding attached to element';
+	var implementation = binding.implementation;
+	if (isPrototypeOf(definition.implementation, implementation)) throw 'Mismatch between binding and the definition';
+	forEach(sprocket.listeners, function(fn) {
+		var type = fn.type;
+		var capture = fn.capture;
+		DOM.removeEventListener(element, type, fn, capture);
+	});
+	sprocket.listeners.length = 0;
+	var callbacks = definition.callbacks;
+	if (callbacks) {
+		if (callbacks.leftDocument) callbacks.leftDocument.call(implementation);	
+		if (callbacks.detached) callbacks.detached.call(implementation);	
 	}
+	nodeManager.setData(element, null);
 	return null;
 }
 
-});
+extend(Binding, {
 
-extend(ElementXBL, {
-getInterface: function(element, bCreate) {
+getInterface: function(element) {
 	if (nodeManager.hasData(element)) return nodeManager.getData(element);
-	if (!bCreate) return null;
-	var elementXBL = new ElementXBL(element);
-	nodeManager.setData(element, elementXBL);
-	return elementXBL;
 }
+
 });
 
 function handleEvent(event, handler) {
@@ -366,15 +377,11 @@ function handleEvent(event, handler) {
 }
 
 /*
-	XBL document & element wrappers
 	TODO: better reporting of invalid content
-	TODO: clean up the process of adding xblDocument property to XBLBindingElements
-	TODO: tight binding of wrappers?? Won't work in IE
 */
 
 var convertXBLHandler = function(config) {
 	var handler = {}
-	// Otherwise assume xbl names
 	handler.type = config.event;
 	if (null == config.event) logger.warn("Invalid handler: event property undeclared");
 
@@ -623,73 +630,92 @@ var modifiersMatchEvent = function(modifiers, event) {
 }
 
 /* CSS Rules */
-var cssBindingRules = [];
-var enteringBindingRules = [];
-var leavingBindingRules = [];
+
+function BindingDefinition(desc) {
+	this.implementation = desc.implementation;
+	this.handlers = desc.handlers && desc.handlers.length ? desc.handlers.slice(0) : [];
+	this.callbacks = desc.callbacks;
+}
+
+function BindingRule(selector, bindingDefn) {
+	this.selector = selector;
+	this.definition = bindingDefn;
+}
+
+extend(BindingRule.prototype, {
+
+deregister: function() { // FIXME
+	
+}
+
+});
+
+var cssRules = [];
+var enteringRules = [];
+var leavingRules = [];
 
 // FIXME BIG BALL OF MUD
-function applyBindingToElement(spec, element) { // FIXME compare current and new CSS specifities
-	var elementXBL = ElementXBL.getInterface(element, true);
-	var firstBinding;
-	while (firstBinding = elementXBL.xblImplementations[0]) elementXBL.removeBinding(firstBinding);
-	elementXBL.addBinding(spec);
+function applyRuleToElement(rule, element) { // FIXME compare current and new CSS specifities
+	var binding = Binding.getInterface(element);
+	if (binding) detachBinding(binding.definition, element);
+	attachBinding(rule.definition, element);
 }
 
-function applyBindingToTree(spec, selector, root) {
-	if (!root) root = document.documentElement;
-	if (DOM.match$(root, selector)) applyBindingToElement(spec, root);
-	forEach(DOM.$$(selector, root), function(el) { applyBindingToElement(spec, el); });
+function applyRuleToTree(rule, root) {
+	if (!root || root === document) root = document.documentElement;
+	if (DOM.match$(root, rule.selector)) applyRuleToElement(rule, root);
+	forEach(DOM.$$(rule.selector, root), function(el) { applyRuleToElement(rule, el); });
 }
 
-function applyEnteringBindingRules() {
-	var rule; while (rule = enteringBindingRules.shift()) {
-		applyBindingToTree(rule.specification, rule.selector /* , document */);
-		cssBindingRules.unshift(rule); // TODO splice in specificity order
+function applyEnteringRules() {
+	var rule; while (rule = enteringRules.shift()) {
+		applyRuleToTree(rule /* , document */);
+		cssRules.unshift(rule); // TODO splice in specificity order
 	}
 }
 
-var CSS = xbl.CSS = {}
+extend(sprockets, {
 
-extend(CSS, {
-
-addBinding: function(selector, spec) {
-	var alreadyTriggered = (enteringBindingRules.length > 0);
-	enteringBindingRules.push({ specification: spec, selector: selector });
-	if (!alreadyTriggered) setTimeout(applyEnteringBindingRules);
-},
-removeBinding: function(selector, spec) { // TODO
-	
+register: function(selector, sprocket, extras) {
+	var alreadyTriggered = (enteringRules.length > 0);
+	var bindingDefn = new BindingDefinition({
+		implementation: sprocket.prototype,
+		handlers: extras && extras.handlers,
+		callbacks: extras && extras.callbacks
+	});
+	var rule = new BindingRule(selector, bindingDefn);
+	enteringRules.push(rule);
+	if (!alreadyTriggered) setTimeout(applyEnteringRules);
+	return rule;
 }
 
 });
 
 var started = false;
 
-extend(xbl, {
+extend(sprockets, {
 
 domReady: function() { // FIXME find a way to allow progressive binding application
 	if (started) throw 'domReady() has already been called';
 	started = true;
-	applyEnteringBindingRules();
+	applyEnteringRules();
 },
 
-nodeInserted: function(node) { // NOTE called AFTER node inserted into document
+refresh: function(node) { // NOTE called AFTER node inserted into document
+	if (!node) node = document;
 	if (!started) throw 'domReady() has not been called yet';
-	forEach(cssBindingRules, function(rule) {
-		applyBindingToTree(rule.specification, rule.selector, node);
+	forEach(cssRules, function(rule) {
+		applySprocketToTree(rule.specification, rule.selector, node);
 	});
-},
-nodeRemoved: function(node) { // NOTE called BEFORE node removed from document
-	if (!started) throw 'domReady() has not been called yet';
 }
 
 });
 
-xbl.Binding = Binding;
-xbl.baseBinding = new Binding(); // NOTE now we can extend baseBinding.prototype
+var basePrototype = {};
+sprockets.baseSprocket = new SprocketDefinition(basePrototype); // NOTE now we can extend basePrototype
 
-return xbl;
+return sprockets;
 
-})(); // END xbl
+})(); // END sprockets
 
 })();

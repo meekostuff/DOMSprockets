@@ -2,14 +2,14 @@
  UI components 
  (c) Sean Hogan, 2008,2012
  All rights reserved.
- Assumes Binding.js already loaded
+ Assumes Sprocket.js already loaded
 */
 
 Meeko.UI = (function() {
 
 var _ = Meeko.stuff, extend = _.extend, forEach = _.forEach;
 var DOM = Meeko.DOM, $id = DOM.$id, $ = DOM.$, $$ = DOM.$$;
-var xbl = Meeko.xbl, Binding = xbl.Binding, baseBinding = xbl.baseBinding;
+var sprockets = Meeko.sprockets, baseSprocket = sprockets.baseSprocket;
 
 var declareProperties = (Object.defineProperty && Object.create) ? // IE8 supports defineProperty but only on DOM objects
 function(obj, props) {
@@ -28,7 +28,7 @@ function ucFirst(text) {
 	return text.substr(0,1).toUpperCase() + text.substr(1);
 }
 
-var box = baseBinding.evolve({
+var Box = baseSprocket.evolve({
 
 setHidden: function(state) {
 	var element = this.boundElement;
@@ -42,10 +42,11 @@ getHidden: function() {
 
 });
 
-declareProperties(box.prototype, 'hidden');
+declareProperties(Box.prototype, 'hidden');
 
-var treeitem = baseBinding.evolve({
+var TreeItem = baseSprocket.evolve({
 
+listSprocket: List,
 getListElement: function() {
 
 	var element = this.boundElement;
@@ -58,7 +59,7 @@ getListElement: function() {
 	return null;
 		
 },
-setSelected: function(state) { // NOTE treeitem is ignorant of whether multiple treeitems can be selected
+setSelected: function(state) { // NOTE TreeItem is ignorant of whether multiple TreeItems can be selected
 	var element = this.boundElement;
 	element.setAttribute("aria-selected", !!state);
 },
@@ -72,7 +73,7 @@ setExpanded: function(state) {
 	var element = this.boundElement;
 	var listEl = this.getListElement();
 	if (!listEl) throw "";
-	list.getBindingFor(listEl).setHidden(!state);
+	this.listSprocket(listEl).setHidden(!state);
 
 },
 getExpanded: function() {
@@ -80,17 +81,17 @@ getExpanded: function() {
 	var element = this.boundElement;
 	var listEl = this.getListElement();
 	if (!listEl) throw "";
-	return list.getBindingFor(listEl).getHidden();
+	return this.listSprocket(listEl).getHidden();
 
 }
 
 });
 
-declareProperties(treeitem.prototype, 'listElement selected expanded');
+declareProperties(TreeItem.prototype, 'listElement selected expanded');
 
-var listitem = treeitem;
+var ListItem = TreeItem;
 
-var list = box.evolve({
+var List = Box.evolve({
 
 getItems: function() {
 	
@@ -101,20 +102,20 @@ getItems: function() {
 
 });
 
-declareProperties(list.prototype, 'hidden');
+declareProperties(List.prototype, 'hidden');
 
 
-var tree = box.evolve({
+var Tree = Box.evolve({
 
-getListElement: treeitem.prototype.getListElement,
+getListElement: TreeItem.prototype.getListElement,
 
-getSelectedItem: function() { // FIXME this only searches the top list, not the whole tree
+getSelectedItem: function() { // FIXME this only searches the top List, not the whole Tree
 
-	var items = list.getBindingFor(this.getListElement()).getItems();
+	var items = List(this.getListElement()).getItems();
 	var n = items.length;
 	for (var i=0; i<n; i++) {
 		var node = items.item(i);
-		var binding = treeitem.getBindingFor(node);
+		var binding = TreeItem(node);
 		if (binding.getSelected()) return node;
 	}
 	return null;
@@ -124,11 +125,11 @@ selectItem: function(item) {
 
 	var listEl = this.getListElement();
 	if (item && item.parentNode != listEl) throw "Element doesn't exist in list";
-	var items = list.getBindingFor(listEl).getItems();
+	var items = List(listEl).getItems();
 	var n = items.length;
 	for (var i=0; i<n; i++) {
 		var node = items[i];
-		var binding = treeitem.getBindingFor(node);
+		var binding = TreeItem(node);
 		if (node === item) binding.setSelected(true);
 		if (node !== item) binding.setSelected(false);
 	}
@@ -147,10 +148,10 @@ signalChange: function() {
 
 });
 
-declareProperties(tree.prototype, 'listElement selectedIndex selectedItem');
+declareProperties(Tree.prototype, 'listElement selectedIndex selectedItem');
 
 
-var navtreeitem = treeitem.evolve({
+var NavTreeItem = TreeItem.evolve({
 
 getView: function() {
 	
@@ -179,26 +180,26 @@ getView: function() {
 	
 });
 
-declareProperties(navtreeitem.prototype, 'view');
+declareProperties(NavTreeItem.prototype, 'view');
 
 
-var navtree = tree.evolve({
+var NavTree = Tree.evolve({
 
-getView: navtreeitem.prototype.getView
+getView: NavTreeItem.prototype.getView
 	
 });
 
-declareProperties(navtree.prototype, 'view');
+declareProperties(NavTree.prototype, 'view');
 
 
-var scrollBox = box.evolve({
+var ScrollBox = Box.evolve({
 	
 setView: function(item) {
 
 	var element = this.boundElement;
 	var document = element.ownerDocument;
 	if (element.compareDocumentPosition(node) & 0x10) { // Node.DOCUMENT_POSITION_CONTAINED_BY
-		throw "setView failed: item is not descendant of scrollBox";
+		throw "setView failed: item is not descendant of ScrollBox";
 	}
 
 	element.scrollTop = item.offsetTop - element.offsetTop;
@@ -208,20 +209,20 @@ setView: function(item) {
 });
 
 
-var scrollBoxWithResize = box.evolve({
+var ScrollBoxWithResize = Box.evolve({
 	
 setView: function(item) {
 
 	var element = this.boundElement;
 	var document = element.ownerDocument;
 	if (element.compareDocumentPosition(node) & 0x10) { // Node.DOCUMENT_POSITION_CONTAINED_BY
-		throw "setView failed: item is not descendant of scrollBoxWithResize";
+		throw "setView failed: item is not descendant of ScrollBoxWithResize";
 	}
 	element.style.height = "" + item.clientHeight + "px";
 	element.scrollTop = item.offsetTop - element.offsetTop;
 			
 },
-xblBindingAttached: function() {
+domSprocketAttached: function() {
 	
 	var element = this.boundElement;
 	var elementHeight = element.clientHeight;
@@ -233,9 +234,9 @@ xblBindingAttached: function() {
 });
 
 
-var panel = box;
+var Panel = Box;
 
-var switchBox = box.evolve({
+var SwitchBox = Box.evolve({
 
 _getPanels: function() {
 	return this.boundElement.children;
@@ -243,10 +244,10 @@ _getPanels: function() {
 setView: function(item) {
 	
 	var element = this.boundElement;
-	if (item && element != item.parentNode) throw "setView failed: item is not child of switchBox";
+	if (item && element != item.parentNode) throw "setView failed: item is not child of SwitchBox";
 	var panels = this._getPanels();
 	forEach(panels, function(child) {
-		var binding = panel.getBindingFor(child);
+		var binding = Panel(child);
 		if (item == child) binding.setHidden(false);
 		else binding.setHidden(true);
 	});
@@ -255,23 +256,23 @@ setView: function(item) {
 setViewByIndex: function(index) {
 
 	var panels = this._getPanels();
-	if (index >= panels.length) throw "setViewByIndex failed: index is not valid for switchBox";
+	if (index >= panels.length) throw "setViewByIndex failed: index is not valid for SwitchBox";
 	forEach(panels, function(child, i) {
-		var binding = panel.getBindingFor(child);
+		var binding = Panel(child);
 		if (index == i) binding.setHidden(false);
 		else binding.setHidden(true);
 	});
 	return;
 
 },
-xblBindingAttached: function() {
+domSprocketAttached: function() {
 	this.setView();
 }
 
 });
 
 
-var table = box.evolve({
+var Table = Box.evolve({
 	
 getColumns: function() {
 	
@@ -349,7 +350,7 @@ toggleColumnSortState: function(column) { // TODO shouldn't have hard-wired clas
 
 });
 
-var WF2FormElement = baseBinding.evolve({
+var WF2FormElement = baseSprocket.evolve({
 encode: function() {
 
 var a = [];
@@ -364,16 +365,16 @@ return txt;
 
 
 return {
-	list: list,
-	treeitem: treeitem, 
-	tree: tree, 
-	navtreeitem: navtreeitem, 
-	navtree: navtree,
-	panel: panel,
-	scrollBox: scrollBox, 
-	scrollBoxWithResize: scrollBoxWithResize, 
-	switchBox: switchBox, 
-	table: table, 
+	List: List,
+	TreeItem: TreeItem, 
+	Tree: Tree, 
+	NavTreeItem: NavTreeItem, 
+	NavTree: NavTree,
+	Panel: Panel,
+	ScrollBox: ScrollBox, 
+	ScrollBoxWithResize: ScrollBoxWithResize, 
+	SwitchBox: SwitchBox, 
+	Table: Table, 
 	WF2FormElement: WF2FormElement	
 }
 
