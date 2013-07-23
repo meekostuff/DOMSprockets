@@ -9,7 +9,7 @@ Meeko.UI = (function() {
 
 var _ = Meeko.stuff, extend = _.extend, forEach = _.forEach;
 var DOM = Meeko.DOM, $id = DOM.$id, $ = DOM.$, $$ = DOM.$$;
-var sprockets = Meeko.sprockets, baseSprocket = sprockets.baseSprocket;
+var sprockets = Meeko.sprockets, BaseSprocket = sprockets.BaseSprocket;
 
 var declareProperties = (Object.defineProperty && Object.create) ? // IE8 supports defineProperty but only on DOM objects
 function(obj, props) {
@@ -28,7 +28,7 @@ function ucFirst(text) {
 	return text.substr(0,1).toUpperCase() + text.substr(1);
 }
 
-var Box = baseSprocket.evolve({
+var Box = BaseSprocket.evolve({
 
 setHidden: function(state) {
 	var element = this.boundElement;
@@ -44,7 +44,7 @@ getHidden: function() {
 
 declareProperties(Box.prototype, 'hidden');
 
-var TreeItem = baseSprocket.evolve({
+var TreeItem = BaseSprocket.evolve({
 
 listSprocket: List,
 getListElement: function() {
@@ -321,28 +321,30 @@ toggleColumnSortState: function(column) { // TODO shouldn't have hard-wired clas
 
 	var type = "string";
 	var cols = this.getColumns();
-	var classList = cols.item(column).classList; // TODO classList isn't backwards compat
-	if (classList.contains("number")) type = "number";
-	if (classList.contains("string")) type = "string";
-	var sortable = classList.contains("sortable");
-	var sorted = classList.contains("sorted");
-	var reversed = classList.contains("reversed");
+	var colEl = cols.item(column);
+	var col = new BaseSprocket(colEl); // TODO classList isn't backwards compat
+	if (col.hasClass("number")) type = "number";
+	if (col.hasClass("string")) type = "string";
+	var sortable = col.hasClass("sortable");
+	var sorted = col.hasClass("sorted");
+	var reversed = col.hasClass("reversed");
 	if (!sortable) return;
 	if (!sorted) {
 		this.sort(column, type, false);
-		classList.add("sorted");
-		classList.remove("reversed");
+		col.addClass("sorted");
+		col.removeClass("reversed");
 	}
 	else {
 		this.sort(column, type, !reversed);
-		if (reversed) classList.remove("reversed");
-		else classList.add("reversed");
+		if (reversed) col.removeClass("reversed");
+		else col.addClass("reversed");
 	}
 	for (var n=cols.length, i=0; i<n; i++) {
 		if (column != i) {
-			var classList = cols.item(i).classList;
-			classList.remove("sorted");
-			classList.remove("reversed");
+			colEl = cols.item(i);
+			col = new BaseSprocket(colEl);
+			col.removeClass("sorted");
+			col.removeClass("reversed");
 		}
 	}
 	
@@ -350,7 +352,7 @@ toggleColumnSortState: function(column) { // TODO shouldn't have hard-wired clas
 
 });
 
-var WF2FormElement = baseSprocket.evolve({
+var WF2FormElement = BaseSprocket.evolve({
 encode: function() {
 
 var a = [];

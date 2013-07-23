@@ -8,6 +8,7 @@
 Requires some features not implemented on older browsers:
 element.matchesSelector (or prefixed equivalent) - IE9+
 element.querySelectorAll - IE8+
+element.addEventListener - IE9+
 */
 
 if (!this.Meeko) this.Meeko = {};
@@ -87,7 +88,7 @@ function(prototype, object) {
 
 if (!Meeko.stuff) Meeko.stuff = {}
 extend(Meeko.stuff, {
-	forEach: forEach, each: each, extend: extend
+	forEach: forEach, each: each, extend: extend, some: some, words: words
 });
 
 /*
@@ -238,7 +239,7 @@ var activeListeners = {};
 
 var SprocketDefinition = function(prototype) {
 	var constructor = function(element) { // FIXME options
-		if (this instanceof constructor) return constructor.create(element);
+		if (this instanceof constructor) return constructor.bind(element);
 		return constructor.cast(element);
 	}
 	constructor.prototype = prototype;
@@ -248,14 +249,14 @@ var SprocketDefinition = function(prototype) {
 
 extend(SprocketDefinition.prototype, {
 
-create: function(element) {
+bind: function(element) {
 	var implementation = createObject(this.prototype);
 	implementation.boundElement = element;
 	return implementation;
 },
 cast: function(element) {
 	var binding = Binding.getInterface(element);
-	if (!binding) return this.create(element);
+	if (!binding) return this.bind(element);
 	if (!isPrototypeOf(this.prototype, binding.implementation)) throw "Attached sprocket doesn't match";
 	return binding.implementation;
 },
@@ -707,10 +708,74 @@ refresh: function(node) { // NOTE called AFTER node inserted into document
 });
 
 var basePrototype = {};
-sprockets.baseSprocket = new SprocketDefinition(basePrototype); // NOTE now we can extend basePrototype
+sprockets.BaseSprocket = new SprocketDefinition(basePrototype); // NOTE now we can extend basePrototype
 
 return sprockets;
 
 })(); // END sprockets
+
+})();
+
+/* Extend BaseSprocket.prototype */
+(function() {
+
+var _ = Meeko.stuff, extend = _.extend, forEach = _.forEach, words = _.words;
+var DOM = Meeko.DOM, $id = DOM.$id, $ = DOM.$, $$ = DOM.$$;
+var sprockets = Meeko.sprockets, BaseSprocket = sprockets.BaseSprocket, basePrototype = BaseSprocket.prototype;
+
+function indexOf(a, item) {
+    for (var n=a.length, i=0; i<n; i++) if (a[i] == item) return i;
+    return -1;
+}
+
+
+extend(basePrototype, {
+
+$: function(selector) { return $(selector, this.boundElement); },
+$id: function(id) { return $id(selector, this.boundElement); },
+$$: function(selector) { return $$(selector, this.boundElement); },
+
+contains: function(otherNode) { return DOM.contains(this.boundElement, otherNode); },
+
+hasClass: function(token) {
+	return indexOf(words(this.boundElement.className), token) >= 0;
+},
+addClass: function(token) {
+	if (this.hasClass(token)) return this;
+	var element = this.boundElement;
+	var text = element.className;
+	var n = text.length,
+		space = (n && text.charAt(n-1) !== " ") ? " " : "";
+	text += space + token;
+	element.className = text;
+	return this;
+},
+removeClass: function(token) {
+	var element = this.boundElement;
+	var text = element.className;
+	var prev = text.split(/\s+/);
+	var next = [];
+	forEach(prev, function(str) { if (str !== token) next.push(str); });
+	if (prev.length == next.length) return this;
+	element.className = next.join(" ");
+	return this;
+},
+toggleClass: function(token, force) {
+	var found = this.hasClass(token);
+	if (found) {
+		if (force) return true;
+		this.removeClass(token);
+		return false;
+	}
+	else {
+		if (force === false) return false;
+		this.addClass(token);
+		return true;
+	}
+}
+
+
+});
+
 
 })();
