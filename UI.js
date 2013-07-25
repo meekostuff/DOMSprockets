@@ -32,12 +32,13 @@ var Box = BaseSprocket.evolve({
 
 setHidden: function(state) {
 	var element = this.boundElement;
-	element.hidden = !!state;
+	if (!state) element.removeAttribute('hidden');
+	else element.setAttribute('hidden', '');
 },
 
 getHidden: function() {
 	var element = this.boundElement;
-	return element.hidden;
+	return element.getAttribute('hidden') !== null;
 }
 
 });
@@ -140,10 +141,9 @@ signalChange: function() {
 	
 	var element = this.boundElement;
 	var document = element.ownerDocument;
-	var event = document.createEvent("Event");
-	event.initEvent("change", false, true);
-	return element.dispatchEvent(event);
-
+	this.trigger({
+		type: 'change'
+	});
 }
 
 });
@@ -157,8 +157,8 @@ getView: function() {
 	
 	var element = this.boundElement;
 	var document = element.ownerDocument;
-	var ref = this.boundElement.firstElementChild;
-	var tagName = ref.tagName.toLowerCase();
+	for (var ref=this.boundElement.firstChild; ref; ref=ref.nextSibling) if (ref.nodeType === 1) break;
+	var tagName = ref && ref.tagName.toLowerCase();
 	switch(tagName) {
 	case "a":
 		if (!ref.getAttribute("href")) break;
@@ -241,27 +241,28 @@ var SwitchBox = Box.evolve({
 _getPanels: function() {
 	return this.boundElement.children;
 },
+panelSprocket: Panel,
 setView: function(item) {
 	
 	var element = this.boundElement;
 	if (item && element != item.parentNode) throw "setView failed: item is not child of SwitchBox";
 	var panels = this._getPanels();
 	forEach(panels, function(child) {
-		var binding = Panel(child);
+		var binding = this.panelSprocket(child);
 		if (item == child) binding.setHidden(false);
 		else binding.setHidden(true);
-	});
-			
+	}, this);
+
 },
 setViewByIndex: function(index) {
 
 	var panels = this._getPanels();
 	if (index >= panels.length) throw "setViewByIndex failed: index is not valid for SwitchBox";
 	forEach(panels, function(child, i) {
-		var binding = Panel(child);
+		var binding = this.panelSprocket(child);
 		if (index == i) binding.setHidden(false);
 		else binding.setHidden(true);
-	});
+	}, this);
 	return;
 
 },
@@ -272,7 +273,7 @@ domSprocketAttached: function() {
 });
 
 
-var Table = Box.evolve({
+var Table = Box.evolve({ // FIXME uses className. This shouldn't be hard-wired
 	
 getColumns: function() {
 	
