@@ -92,13 +92,11 @@ in this case when the mouse is over the menu label or the menu.
 var sprockets = Meeko.sprockets, UI = Meeko.UI;
 var List = UI.List.evolve({
 	setHidden: function(state) {
-		var element = this.boundElement;
-		element.className = !!state ? 'hidden' : '';
+		this.toggleClass('hidden', state);
 	},
 	
 	getHidden: function() {
-		var element = this.boundElement;
-		return element.className == 'hidden';
+		return this.hasClass('hidden');
 	}
 });
 

@@ -57,6 +57,11 @@ body { width: 480px; height: 100%; }
 	border: 1px solid #ffffff;
 	padding: 1em;
 }
+
+#tabboxPanels div.hidden {
+	display: none;
+}
+
 #tabboxPanels ul { margin-left: 0px; padding-left: 2em;  }
 	</style>
 <script src="../Sprocket.js"></script>
@@ -111,21 +116,33 @@ The tabbox implementation matches a list of skip links, where each link referenc
 
 var sprockets = Meeko.sprockets, UI = Meeko.UI;
 
-sprockets.register("#tabboxPanels > div", UI.Panel);
+var Panel = UI.Panel.evolve({
 
-sprockets.register('#tabboxPanels', UI.SwitchBox);
+setHidden: function(state) {
+	this.toggleClass('hidden', state);
+},
+getHidden: function() {
+	return this.hasClass('hidden');
+}
+
+});
+
+var SwitchBox = UI.SwitchBox.evolve({
+
+panelSprocket: Panel
+
+});
+
+sprockets.register('#tabboxPanels', SwitchBox);
 
 var NavTreeItem = UI.NavTreeItem.evolve(
 {
 
 setSelected: function(state) { // NOTE treeitem is ignorant of whether multiple treeitems can be selected
-	var element = this.boundElement;
-	element.className = !!state ? 'current' : '';
+	this.toggleClass('current', state);
 },
 getSelected: function() {
-	var element = this.boundElement;
-	var state = element.className == 'current';
-	return state;	
+	return this.hasClass('current');
 }
 
 });
