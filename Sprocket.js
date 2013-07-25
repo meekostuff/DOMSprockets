@@ -720,7 +720,7 @@ return sprockets;
 (function() {
 
 var _ = Meeko.stuff, extend = _.extend, forEach = _.forEach, words = _.words;
-var DOM = Meeko.DOM, $id = DOM.$id, $ = DOM.$, $$ = DOM.$$;
+var DOM = Meeko.DOM;
 var sprockets = Meeko.sprockets, BaseSprocket = sprockets.BaseSprocket, basePrototype = BaseSprocket.prototype;
 
 function indexOf(a, item) {
@@ -731,9 +731,10 @@ function indexOf(a, item) {
 
 extend(basePrototype, {
 
-$: function(selector) { return $(selector, this.boundElement); },
-$id: function(id) { return $id(selector, this.boundElement); },
-$$: function(selector) { return $$(selector, this.boundElement); },
+$: function(selector) { return DOM.$(selector, this.boundElement); },
+$id: function(id) { return DOM.$id(selector, this.boundElement); },
+$$: function(selector) { return DOM.$$(selector, this.boundElement); },
+match$: function(selector) { return DOM.match$(this.boundElement, selector); },
 
 contains: function(otherNode) { return DOM.contains(this.boundElement, otherNode); },
 
