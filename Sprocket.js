@@ -238,7 +238,7 @@ releaseNodes: function(callback, context) {
 var activeListeners = {};
 
 var SprocketDefinition = function(prototype) {
-	var constructor = function(element) { // FIXME options
+	var constructor = function(element) {
 		if (this instanceof constructor) return constructor.bind(element);
 		return constructor.cast(element);
 	}
@@ -285,7 +285,7 @@ function attachBinding(definition, element) {
 		var capture = (handler.eventPhase == 1); // Event.CAPTURING_PHASE
 		var fn = function(event) {
 			if (fn.normalize) event = fn.normalize(event);
-			handleEvent.call(implementation, event, handler);
+			return handleEvent.call(implementation, event, handler);
 		}
 		fn.type = type;
 		fn.capture = capture;
@@ -359,18 +359,42 @@ function handleEvent(event, handler) {
 		break;
 	}
 
-	if (handler.stopPropagation) {
+	if (handler.stopPropagation) { // FIXME
 		if (event.stopPropagation) event.stopPropagation();
 		else event.cancelBubble = true;
 	}
-	if (handler.preventDefault) {
+	if (handler.preventDefault) { // FIXME
 		if (event.preventDefault) event.preventDefault();
 		else event.returnValue = false;
 	}
-	if (handler.action) handler.action.call(binding, event, delegator);
-	
+	if (handler.action) {
+		var result = handler.action.call(binding, event, delegator);
+		if (result === false) event.preventDefault();
+	}
 	return;
 }
+
+function dispatchEvent(target, event) {
+	event.defaultPrevented = false;
+	event.preventDefault = function() { this.defaultPrevented = true; }
+	event.propagationStopped = true;
+	event.stopPropagation = function() { this.propagationStopped = true; }
+	event.target = target;
+	event.eventPhase = 2;
+	for (var current=target; current!=document; current=current.parentNode) {
+		event.currentTarget = current;
+		event.eventPhase = (current === target) ? 2 : 3;
+		var binding = Binding.getInterface(current);
+		if (!binding || !binding.listeners) continue;
+		forEach(binding.listeners, function(handler) {
+			if (handler.type !== event.type) return;
+			handler(event); // FIXME isolate
+		});
+		if (event.propagationStopped) break; 
+	}
+	return !event.defaultPrevented;	
+}
+
 
 /*
 	TODO: better reporting of invalid content
@@ -710,6 +734,7 @@ refresh: function(node) { // NOTE called AFTER node inserted into document
 var basePrototype = {};
 sprockets.BaseSprocket = new SprocketDefinition(basePrototype); // NOTE now we can extend basePrototype
 
+sprockets.trigger = dispatchEvent;
 return sprockets;
 
 })(); // END sprockets
@@ -773,6 +798,10 @@ toggleClass: function(token, force) {
 		this.addClass(token);
 		return true;
 	}
+},
+
+trigger: function(event) {
+	return sprockets.trigger(this.boundElement, event);
 }
 
 
