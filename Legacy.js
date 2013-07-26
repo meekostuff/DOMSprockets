@@ -677,45 +677,28 @@ if (!Meeko.DOM) Meeko.DOM = {};
 
 Meeko.stuff.extend(Meeko.DOM, new function() {
 
-var NodeSelector = function(target) {
-	if (target.querySelector) return target;
-	if (target.nodeType == null) throw "Target does not have NodeSelector interface";
-	if (!(this instanceof NodeSelector)) return new NodeSelector(target);
-	this._target = target;
-}
-NodeSelector.querySelector = function(target, selectorText) { return NodeSelector(target).querySelector(selectorText); }
-NodeSelector.querySelectorAll = function(target, selectorText) { return NodeSelector(target).querySelectorAll(selectorText); }
-NodeSelector.prototype.querySelector = function(selectorText) {
-	var target = this._target || this;
+var NodeSelector = {
+	
+querySelector: function(node, selectorText) {
 	if (null == selectorText) return false;
-	return getElementsBySelector(target, selectorText, true);
-}
-NodeSelector.prototype.querySelectorAll = function(selectorText) {
-	var target = this._target || this;
+	return getElementsBySelector(node, selectorText, true);
+},
+querySelectorAll: function(node, selectorText) {
 	if (null == selectorText) return false;
-	return getElementsBySelector(target, selectorText, false);
-}
-var ElementSelector = function(target) {
-	if (target.matchesSelector) return target;
-	if (target.nodeType !== 1) throw "Target does not have ElementSelector interface";
-	if (!(this instanceof ElementSelector)) return new ElementSelector(target);
-	this._target = target;
-}
-ElementSelector.querySelector = function(target, selectorText) { return ElementSelector(target).querySelector(selectorText); }
-ElementSelector.querySelectorAll = function(target, selectorText) { return ElementSelector(target).querySelectorAll(selectorText); }
-ElementSelector.matchesSelector = function(target, selectorText) { return ElementSelector(target).matchesSelector(selectorText); }
-ElementSelector.prototype.querySelector = NodeSelector.prototype.querySelector;
-ElementSelector.prototype.querySelectorAll = NodeSelector.prototype.querySelectorAll;
-ElementSelector.prototype.matchesSelector = function(selectorText) {
-	var target = this._target || this;
+	return getElementsBySelector(node, selectorText, false);
+},
+matchesSelector: function(node, selectorText) {
 	if (null == selectorText) return false;
 	var selectorList = getSelector(selectorText);
 	if (!selectorList) return false;
 	for (var j=0, selector; selector=selectorList[j]; j++) {
-		if (selector.test(target)) return true;
+		if (selector.test(node)) return true;
 	}
 	return false;
 }
+
+}
+
 
 var CSS = Meeko.CSS;
 var Relative = CSS.RelativeSelector;
@@ -899,10 +882,7 @@ function(node, otherNode) {
 function(node, otherNode) { return !!(node.compareDocumentPosition(otherNode) & 16); } // Node.DOCUMENT_POSITION_CONTAINED_BY
 
 return {
-	NodeSelector: NodeSelector,
-	ElementSelector: ElementSelector,
-	Document: NodeSelector,
-	Element: ElementSelector
+	Selector: NodeSelector
 };
 
 }
@@ -913,14 +893,18 @@ return {
 (function() {
 	
 var DOM = Meeko.DOM;
+DOM.$ = function(selector, node) {
+	if (!node) node = document;
+	return DOM.Selector.querySelector(node, selector);
+}
+
 DOM.$$ = function(selector, node) {
 	if (!node) node = document;
-	var Selector = (node === document) ? DOM.NodeSelector : DOM.ElementSelector;
-	return Selector.querySelectorAll(node, selector);
+	return DOM.Selector.querySelectorAll(node, selector);
 }
 
 DOM.match$ = function(element, selector) {
-	return DOM.ElementSelector.matchesSelector(element, selector);
+	return DOM.Selector.matchesSelector(element, selector);
 }
 
 function normalizeEvent(event) {
