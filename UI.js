@@ -7,7 +7,7 @@
 
 Meeko.UI = (function() {
 
-var _ = Meeko.stuff, extend = _.extend, forEach = _.forEach;
+var _ = Meeko.stuff, extend = _.extend, forEach = _.forEach, indexOf = _.indexOf;
 var DOM = Meeko.DOM, $id = DOM.$id, $ = DOM.$, $$ = DOM.$$;
 var sprockets = Meeko.sprockets, Base = sprockets.BaseSprocket;
 
@@ -154,7 +154,6 @@ getView: function() {
 	case "a":
 		if (!ref.getAttribute("href")) break;
 		var href = ref.href;
-//		var base = document.documentURI + "#";
 		var base = document.URL.replace(/#.*$/, '')  + "#";
 		if (href.indexOf(base) != 0) break;
 		var id = href.replace(base, "");
@@ -202,17 +201,16 @@ setView: function(item) {
 
 	var element = this.boundElement;
 	var document = element.ownerDocument;
-	if (element.compareDocumentPosition(node) & 0x10) { // Node.DOCUMENT_POSITION_CONTAINED_BY
+	if (element === item || !this.contains(node)) {
 		throw "setView failed: item is not descendant of ScrollBoxWithResize";
 	}
 	element.style.height = "" + item.clientHeight + "px";
 	element.scrollTop = item.offsetTop - element.offsetTop;
 			
 },
-domSprocketAttached: function() {
+initialize: function() {
 	
 	var element = this.boundElement;
-	var elementHeight = element.clientHeight;
 	element.style.overflow = "hidden";
 	element.style.height = "0px";
 
@@ -225,15 +223,15 @@ var Panel = Box;
 
 var SwitchBox = Box.evolve({
 
-_getPanels: function() {
+getPanels: function() {
 	return this.boundElement.children;
 },
 Panel: Panel,
 setView: function(item) {
 	
 	var element = this.boundElement;
-	if (item && element != item.parentNode) throw "setView failed: item is not child of SwitchBox";
-	var panels = this._getPanels();
+	var panels = this.getPanels();
+	if (indexOf(panels, item) < 0) throw "setView failed: item is not child of SwitchBox";
 	forEach(panels, function(child) {
 		var binding = this.Panel(child);
 		if (item == child) binding.setHidden(false);
@@ -243,7 +241,7 @@ setView: function(item) {
 },
 setViewByIndex: function(index) {
 
-	var panels = this._getPanels();
+	var panels = this.getPanels();
 	if (index >= panels.length) throw "setViewByIndex failed: index is not valid for SwitchBox";
 	forEach(panels, function(child, i) {
 		var binding = this.Panel(child);
@@ -253,7 +251,7 @@ setViewByIndex: function(index) {
 	return;
 
 },
-domSprocketAttached: function() {
+initialize: function() {
 	this.setView();
 }
 
@@ -310,7 +308,7 @@ toggleColumnSortState: function(column) { // TODO shouldn't have hard-wired clas
 	var type = "string";
 	var cols = this.getColumns();
 	var colEl = cols.item(column);
-	var col = new Base(colEl); // TODO classList isn't backwards compat
+	var col = new Base(colEl);
 	if (col.hasClass("number")) type = "number";
 	if (col.hasClass("string")) type = "string";
 	var sortable = col.hasClass("sortable");

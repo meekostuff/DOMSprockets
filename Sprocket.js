@@ -51,14 +51,19 @@ function(dest, src) {
 	return dest;
 };
 
-var some = function(a, fn, context) { 
+function indexOf(a, item) {
+    for (var n=a.length, i=0; i<n; i++) if (a[i] == item) return i;
+    return -1;
+}
+
+function some(a, fn, context) { 
 	for (var n=a.length, i=0; i<n; i++) {
 		if (fn.call(context, a[i], i, a)) return true; 
 	}
 	return false;
 }
 
-var forEach = function(a, fn, context) {
+function forEach(a, fn, context) {
 	for (var n=a.length, i=0; i<n; i++) {
 		fn.call(context, a[i], i, a);
 	}
@@ -88,7 +93,7 @@ function(prototype, object) {
 
 if (!Meeko.stuff) Meeko.stuff = {}
 extend(Meeko.stuff, {
-	forEach: forEach, each: each, extend: extend, some: some, words: words
+	indexOf: indexOf, some: some, forEach: forEach, each: each, extend: extend, words: words
 });
 
 /*
@@ -744,14 +749,9 @@ return sprockets;
 /* Extend BaseSprocket.prototype */
 (function() {
 
-var _ = Meeko.stuff, extend = _.extend, forEach = _.forEach, words = _.words;
+var _ = Meeko.stuff, extend = _.extend, forEach = _.forEach, words = _.words, indexOf = _.indexOf;
 var DOM = Meeko.DOM;
 var sprockets = Meeko.sprockets, BaseSprocket = sprockets.BaseSprocket, basePrototype = BaseSprocket.prototype;
-
-function indexOf(a, item) {
-    for (var n=a.length, i=0; i<n; i++) if (a[i] == item) return i;
-    return -1;
-}
 
 
 extend(basePrototype, {
