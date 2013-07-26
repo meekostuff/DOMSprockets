@@ -98,17 +98,21 @@ sprockets.register('#tree ul', UI.List);
 var TreeItem = UI.TreeItem.evolve(
 {
 	setExpanded: function(state) {
-		var element = this.boundElement;
-		if (state == null) element.className = '';
-		else element.className = !!state ? 'open' : 'closed';
-	},
-	getExpanded: function()  {
-		var element = this.boundElement;
-		switch(element.className) {
-			case 'open': return true;
-			case 'closed': return false;
-			default: return null;
+		if (state == null) {
+			this.removeClass('open');
+			this.removeClass('closed');
 		}
+		else {
+			this.toggleClass('open', !!state);
+			this.toggleClass('closed', !state);
+		}
+	},
+	getExpanded: function() {
+		var state =
+			this.hasClass('open') ? true :
+			this.hasClass('closed') ? false :
+			null;
+		return state;
 	},
 	isEmpty: function() {
 		var element = this.boundElement;
@@ -132,15 +136,18 @@ handlers: [
 ]
 });
 
-sprockets.register('#tree', UI.Tree, {
+var Tree = UI.Tree.evolve({
+TreeItem: TreeItem
+});
+
+sprockets.register('#tree', Tree, {
 callbacks: {
 	enteredDocument: function() {
-		var element = this.boundElement;
-		_.forEach(DOM.$$('li > ul', element), function(list) {
+		_.forEach(this.$$('li > ul'), function(list) {
 			var parent = list.parentNode;
-			var item = UI.TreeItem(parent);
+			var item = this.TreeItem(parent);
 			if (item) item.setExpanded(false);	
-		});
+		}, this);
 	}
 }
 });
