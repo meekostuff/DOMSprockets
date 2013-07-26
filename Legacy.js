@@ -745,7 +745,7 @@ function getElementsBySelector(scope, selectorText, single) { // TODO namespaces
 	if (id == null) id = getId(selectorList); 
 	if (id) { // correlates to a single selector in the list
 		var el = document.getElementById(id);
-		if (scope !== el && contains(scope, el)) { // FIXME IE
+		if (contains(scope, el)) {
 			if (selectorList[0].test(el)) return (single) ? el : [ el ];
 			else return (single) ? null : nodeList;
 		}
@@ -759,7 +759,7 @@ function getElementsBySelector(scope, selectorText, single) { // TODO namespaces
 	if (ancestorId) {
 		var el = document.getElementById(ancestorId);
 		if (!el) return (single) ? null : nodeList;
-		if (scope !== el && contains(scope, el)) scope = el; // FIXME IE
+		if (contains(scope, el)) scope = el; // FIXME IE
 	}
 	
 	// check if there is one className we are searching for
@@ -891,8 +891,8 @@ function getSelectorTagName(selector) {
 }
 
 var contains = document.documentElement.contains ?
-function(node, otherNode) { return node.contains(otherNode); } :
-function(node, otherNode) { return node === otherNode || !!(node.compareDocumentPosition(otherNode) & 16); } // Node.DOCUMENT_POSITION_CONTAINED_BY
+function(node, otherNode) { return node !== otherNode && node.contains(otherNode); } :
+function(node, otherNode) { return !!(node.compareDocumentPosition(otherNode) & 16); } // Node.DOCUMENT_POSITION_CONTAINED_BY
 
 return {
 	NodeSelector: NodeSelector,

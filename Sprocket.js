@@ -163,9 +163,9 @@ DOM.$id = function(id, node) { // NOTE assumes node really is a Node in a Docume
 	if (node !== result && DOM.contains(node, result)) return result;
 };
 
-DOM.contains =
-document.documentElement.contains && function(node, otherNode) { return node.contains(otherNode); } ||
-document.documentElement.compareDocumentPosition && function(node, otherNode) { return node === otherNode || !!(node.compareDocumentPosition(otherNode) & 16); } ||
+DOM.contains = // WARN `contains()` means "contains", not contains-or-isSameNode
+document.documentElement.contains && function(node, otherNode) { return node !== otherNode && node.contains(otherNode); } ||
+document.documentElement.compareDocumentPosition && function(node, otherNode) { return !!(node.compareDocumentPosition(otherNode) & 16); } ||
 function(node, otherNode) { throw "contains not supported"; };
 
 DOM.addEventListener =

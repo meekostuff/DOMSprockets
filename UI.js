@@ -187,7 +187,7 @@ var ScrollBox = Box.evolve({
 setView: function(item) {
 
 	var element = this.boundElement;
-	if (element === item || !this.contains(item)) throw "setView failed: item is not descendant of ScrollBox";
+	if (!this.contains(item)) throw "setView failed: item is not descendant of ScrollBox";
 	element.scrollTop = item.offsetTop - element.offsetTop;
 
 }
@@ -201,7 +201,7 @@ setView: function(item) {
 
 	var element = this.boundElement;
 	var document = element.ownerDocument;
-	if (element === item || !this.contains(node)) {
+	if (!this.contains(node)) {
 		throw "setView failed: item is not descendant of ScrollBoxWithResize";
 	}
 	element.style.height = "" + item.clientHeight + "px";
