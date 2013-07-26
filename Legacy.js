@@ -891,7 +891,11 @@ function getSelectorTagName(selector) {
 }
 
 var contains = document.documentElement.contains ?
-function(node, otherNode) { return node !== otherNode && node.contains(otherNode); } :
+function(node, otherNode) {
+	if (node === otherNode) return false;
+	if (node === document) node = document.documentElement;
+	return node.contains(otherNode);
+} :
 function(node, otherNode) { return !!(node.compareDocumentPosition(otherNode) & 16); } // Node.DOCUMENT_POSITION_CONTAINED_BY
 
 return {
