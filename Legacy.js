@@ -10,6 +10,8 @@ This script patches DOMSprockets with element selector and event handling utils.
 
 if (!window.Meeko) window.Meeko = {};
 
+(function() {
+
 /*
 CSS Parser
 
@@ -30,34 +32,15 @@ TODO
 - stylesheet & property parsing
 */
 
-if (!this.Meeko) this.Meeko = {};
+var _ = Meeko.stuff, forEach = _.forEach;
 
-Meeko.CSS = (function() {	
-
-var _ = Meeko.stuff;
-
-var Parser = function() {
-	this.conditionFactory = _conditionFactory;
-}
-
-Parser.prototype.parseSelectors = function(text)
-{
-	var selectorList = this._parseSelectors(text);
-	_.forEach(selectorList, function(selector) {
-		selector.__refresh();
-	});
-	return selectorList;
-}
-
-Parser.prototype._parseSelectors = function(selectorText) { // TODO error handling
+function parseSelectors(selectorText) {
 	var text = selectorText;
-
-	var cf = this.conditionFactory;
 	
 	var selectorList = [];
 	var selector = new Selector();
 	var relSelector = new RelativeSelector();
-	relSelector.relationType = RelativeSelector.DESCENDANT_RELATIVE;
+	relSelector.relationType = DESCENDANT_RELATIVE;
 	var ci = null; // current Condition
 
 	function mergeCondition(c) {
@@ -66,7 +49,7 @@ Parser.prototype._parseSelectors = function(selectorText) { // TODO error handli
 
 	var ns = null;
 	var name = null;
-	var invert = 0;
+	var invert = false;
 
 	var state = 0;
 
@@ -89,7 +72,7 @@ Parser.prototype._parseSelectors = function(selectorText) { // TODO error handli
 				if (m) {
 					if (m[3]) {	ns = m[1]; name = m[3];	}
 					else { ns = null; name = m[1]; }
-					ci = cf.createNodeTestCondition(name, ns);
+					ci = createNodeTestCondition(name, ns);
 					mergeCondition(ci);
 					state = 2;
 					text = text.substr(m[0].length);
@@ -100,7 +83,7 @@ Parser.prototype._parseSelectors = function(selectorText) { // TODO error handli
 				// ID
 				m = /^#([a-zA-Z0-9_-]+)/.exec(text);
 				if (m) {
-					ci = cf.createIdCondition(m[1]);
+					ci = createIdCondition(m[1]);
 					mergeCondition(ci);
 					state = 2;
 					text = text.substr(m[0].length);
@@ -110,7 +93,7 @@ Parser.prototype._parseSelectors = function(selectorText) { // TODO error handli
 				// Class
 				m = /^\.([a-zA-Z0-9_-]*)/.exec(text);
 				if (m) {
-					ci = cf.createClassCondition(null, m[1]);
+					ci = createClassCondition(null, m[1]);
 					mergeCondition(ci);
 					state = 2;
 					text = text.substr(m[0].length);
@@ -125,20 +108,28 @@ Parser.prototype._parseSelectors = function(selectorText) { // TODO error handli
 					if (m[4]) {
 						value = m[7] || m[8] || m[9];
 						switch(m[5]) {
-							case "~=": ci = cf.createOneOfAttributeCondition(name, ns, true, value); break;
-							case "|=": ci = cf.createBeginHyphenAttributeCondition(name, ns, true, value); break;
-							case "^=": ci = cf.createStartsWithAttributeCondition(name, ns, true, value); break;
-							case "$=": ci = cf.createEndsWithAttributeCondition(name, ns, true, value); break;
-							case "*=": ci = cf.createContainsAttributeCondition(name, ns, true, value); break;
-							case "=": ci = cf.createAttributeCondition(name, ns, true, value); break;
+							case "~=": ci = createOneOfAttributeCondition(name, ns, true, value); break;
+							case "|=": ci = createBeginHyphenAttributeCondition(name, ns, true, value); break;
+							case "^=": ci = createStartsWithAttributeCondition(name, ns, true, value); break;
+							case "$=": ci = createEndsWithAttributeCondition(name, ns, true, value); break;
+							case "*=": ci = createContainsAttributeCondition(name, ns, true, value); break;
+							case "=": ci = createAttributeCondition(name, ns, true, value); break;
 						}
 					}
 					else {
-						ci = cf.createAttributeCondition(name, ns, false, null);
+						ci = createAttributeCondition(name, ns, false, null);
 					}
 	
 					mergeCondition(ci);
 					state = 2;
+					text = text.substr(m[0].length);
+					break;
+				}
+				
+				m = /^:not\(\s*/.exec(text);
+				if (m) {
+					state = 1;
+					invert = true;
 					text = text.substr(m[0].length);
 					break;
 				}
@@ -150,65 +141,17 @@ Parser.prototype._parseSelectors = function(selectorText) { // TODO error handli
 					/^:(before)/.exec(text) ||
 					/^:(after)/.exec(text);	
 				if (m) {
-					ci = cf.createPseudoElementCondition(m[1]);
+					ci = createPseudoElementCondition(m[1]);
 					mergeCondition(ci);
 					state = 3;
 					text = text.substr(m[0].length);
 					break;
 				}
 				
-				// Only-child. FIXME
-				m = /^:only-(child|of-type)/.exec(text);
-				if (m) {
-					var same_type = ("of-type" === m[1]);
-					ci = (same_type) ? cf.createOnlyTypeCondition() : cf.createOnlyChildCondition();
-					mergeCondition(ci);
-					state = 2;
-					text = text.substr(m[0].length);
-					break;
-				}
-				
-				// Positionals
-				m = /^:first-(child|of-type)/.exec(text);
-				if (m) {
-					var same_type = ("of-type" === m[1]);
-					var a = 0, b = 0;
-					ci = cf.createPositionalCondition([a, b], same_type, true);
-					mergeCondition(ci);
-					state = 2;
-					text = text.substr(m[0].length);
-					break;
-				}
-				
-				m = /^:nth-(child|of-type)\(/.exec(text);
-				if (m) {
-					var same_type = ("of-type" === m[1]);
-					text = text.substr(m[0].length);
-					m = /^\s*(odd|even)\s*\)/.exec(text); // TODO an+b
-					var a = 0, b = 0;
-					switch (m[1]) {
-						case "even": a = 2; b = 2; break;
-						case "odd": a = 2; b = 1; break;
-					}
-					ci = cf.createPositionalCondition([a, b], same_type, true);
-					mergeCondition(ci);
-					state = 2;
-					text = text.substr(m[0].length);
-					break;
-				}
-
-				m = /^:not\(\s*/.exec(text);
-				if (m) {
-					state = 1;
-					invert = 2;
-					text = text.substr(m[0].length);
-					break;
-				}
-				
 				// Pseudo-class.  FIXME
-				m = /^:([a-zA-Z_-]+)/.exec(text);
+				m = /^:([a-zA-Z_-]+)(?:\(([^)]*)\))?/.exec(text); // TODO robustness
 				if (m) {
-					ci = cf.createPseudoClassCondition(null, m[1]);
+					ci = createPseudoClassCondition(m[1], m[2]);
 					mergeCondition(ci);
 					state = 2;
 					text = text.substr(m[0].length);
@@ -223,7 +166,7 @@ Parser.prototype._parseSelectors = function(selectorText) { // TODO error handli
 					selectorList.push(selector);
 
 					relSelector = new RelativeSelector();
-					relSelector.relationType = RelativeSelector.DESCENDANT_RELATIVE;
+					relSelector.relationType = DESCENDANT_RELATIVE;
 					selector = new Selector();
 
 					state = 0;
@@ -239,10 +182,10 @@ Parser.prototype._parseSelectors = function(selectorText) { // TODO error handli
 
 					relSelector = new RelativeSelector();
 					switch (m[1]) {
-						case ">": relSelector.relationType = RelativeSelector.CHILD_RELATIVE; break;
-						case "~": relSelector.relationType = RelativeSelector.INDIRECT_ADJACENT_RELATIVE; break;
-						case "+": relSelector.relationType = RelativeSelector.DIRECT_ADJACENT_RELATIVE; break;
-						default /* case "\s" */: relSelector.relationType = RelativeSelector.DESCENDANT_RELATIVE; break;
+						case ">": relSelector.relationType = CHILD_RELATIVE; break;
+						case "~": relSelector.relationType = INDIRECT_ADJACENT_RELATIVE; break;
+						case "+": relSelector.relationType = DIRECT_ADJACENT_RELATIVE; break;
+						default /* case "\s" */: relSelector.relationType = DESCENDANT_RELATIVE; break;
 					}
 					
 					state = 0;
@@ -251,16 +194,17 @@ Parser.prototype._parseSelectors = function(selectorText) { // TODO error handli
 				}
 				
 				break;
+
 		}
 		
-		if (invert > 0 && invert-- === 1) {
+		if (invert) {
 			m = /^\s*\)/.exec(text);
 			if (m) {
 				ci.negativeCondition = true;
 				state = 2;
 				text = text.substr(m[0].length);
 			}
-			else throw ":not() failed";
+			else throw "Selector parsing failed in :not() at " + text;
 		}
 		
 	} while (text.length && m);
@@ -297,33 +241,38 @@ interface Selector {
 */
 var Selector = function() {
 	this.steps = [];
-	this.specificity = new Specificity();
 }
 
-Selector.prototype.__refresh = function() {
-	this.specificity = Selector.__get_specificity(this);
-}
-
-Selector.__get_specificity = function(selector) {
-	var aCount = 0, bCount = 0, cCount = 0;
-	_.forEach(selector.steps, function(step) {
-		_.forEach(step.conditions, function(condition) {
+Selector.getSpecificity = function(selector) {
+	var idCount = 0, classCount = 0, typeCount = 0;
+	forEach(selector.steps, function(step) {
+		forEach(step.conditions, function(condition) {
 			switch (condition.conditionType) {
-				case Condition.NODE_TEST_CONDITION:
-					if (/* Node.ELEMENT_NODE */ 1 == condition.nodeType && condition.localName && "*" != condition.localName) cCount++;
+				case NODE_TEST_CONDITION:
+					if (/* Node.ELEMENT_NODE */ 1 == condition.nodeType && condition.localName && "*" != condition.localName) typeCount++;
 					break;
-				case Condition.ID_CONDITION:
-					aCount++;
+				case ID_CONDITION:
+					idCount++;
 					break;
-				case Condition.PSEUDO_ELEMENT_CONDITION:
+				case PSEUDO_ELEMENT_CONDITION:
 					break;
 				default:
-					bCount++;
+					classCount++;
 					break;
 			}
 		});
 	});
-	return new Specificity(aCount, bCount, cCount);
+	return [idCount, classCount, typeCount];
+}
+
+Selector.cmpSpecificity = function(s1, s2) {
+	var c1 = Selector.getSpecificity(s1), c2 = Selector.getSpecificity(c2);
+	for (var n=c1.length, i=0; i<n; i++) {
+		var a = c1[i], b = c2[i];
+		if (a > b) return 1;
+		if (a < b) return -1;
+	}
+	return 0;
 }
 
 Selector.prototype.addStep = function(step) {
@@ -375,30 +324,6 @@ Selector.prototype.test = function(element) {
 }
 
 
-
-/*
-interface Specificity {
-	int aCount;
-	int bCount;
-	int cCount;
-}
-*/
-var Specificity = function(a,b,c) {
-	this.aCount = a || 0;
-	this.bCount = b || 0;
-	this.cCount = c || 0;
-}
-
-Specificity.cmp = function(first, second) {
-	if (first.aCount > second.aCount) return 1;
-	if (first.aCount < second.aCount) return -1;
-	if (first.bCount > second.bCount) return 1;
-	if (first.bCount < second.bCount) return -1;
-	if (first.cCount > second.cCount) return 1;
-	if (first.cCount < second.cCount) return -1;
-	return 0;
-}
-
 /*
 interface RelativeSelector {
 	int relationType;
@@ -409,11 +334,11 @@ var RelativeSelector = function() {
 	this.relationType = 0;
 	this.conditions = [];
 }
-RelativeSelector.NO_RELATIVE = 0;
-RelativeSelector.DESCENDANT_RELATIVE = 1;
-RelativeSelector.CHILD_RELATIVE = 2;
-RelativeSelector.DIRECT_ADJACENT_RELATIVE = 3;
-RelativeSelector.INDIRECT_ADJACENT_RELATIVE = 4;
+var NO_RELATIVE = 0;
+var DESCENDANT_RELATIVE = 1;
+var CHILD_RELATIVE = 2;
+var DIRECT_ADJACENT_RELATIVE = 3;
+var INDIRECT_ADJACENT_RELATIVE = 4;
 
 RelativeSelector.prototype.addCondition = function(condition) {
 	if (condition instanceof Condition) this.conditions.push(condition);
@@ -439,42 +364,45 @@ interface Condition {
 }
 */
 var Condition = function() {}
-Condition.NODE_TEST_CONDITION = 1;
-Condition.ID_CONDITION = 2;
-Condition.CLASS_CONDITION = 3;
-Condition.PSEUDO_ELEMENT_CONDITION = 4;
-Condition.ATTRIBUTE_CONDITION = 5;
-Condition.ONE_OF_ATTRIBUTE_CONDITION = 6;
-Condition.BEGIN_HYPHEN_ATTRIBUTE_CONDITION = 7;
-Condition.STARTS_WITH_ATTRIBUTE_CONDITION = 8;
-Condition.ENDS_WITH_ATTRIBUTE_CONDITION = 9;
-Condition.CONTAINS_ATTRIBUTE_CONDITION = 10;
-Condition.LANG_CONDITION = 11;
-Condition.ONLY_CHILD_CONDITION = 12;
-Condition.ONLY_TYPE_CONDITION = 13;
-Condition.POSITIONAL_CONDITION = 14;
-Condition.PSEUDO_CLASS_CONDITION = 15;
-Condition.IS_ROOT_CONDITION = 16;
-Condition.IS_EMPTY_CONDITION = 17;
-
+var NODE_TEST_CONDITION = 1;
+var ID_CONDITION = 2;
+var CLASS_CONDITION = 3;
+var PSEUDO_ELEMENT_CONDITION = 4;
+var ATTRIBUTE_CONDITION = 5;
+var ONE_OF_ATTRIBUTE_CONDITION = 6;
+var BEGIN_HYPHEN_ATTRIBUTE_CONDITION = 7;
+var STARTS_WITH_ATTRIBUTE_CONDITION = 8;
+var ENDS_WITH_ATTRIBUTE_CONDITION = 9;
+var CONTAINS_ATTRIBUTE_CONDITION = 10;
+/* 
+var LANG_CONDITION = 11;
+var ONLY_CHILD_CONDITION = 12;
+var ONLY_TYPE_CONDITION = 13;
+var POSITIONAL_CONDITION = 14;
+*/
+var PSEUDO_CLASS_CONDITION = 15;
+/*
+var IS_ROOT_CONDITION = 16;
+var IS_EMPTY_CONDITION = 17;
+*/
 
 Condition.prototype.test = function(element) { // TODO namespace handling
 	var attrValue;
 	var success = !this.negativeCondition;
 	var failure = !success;
 	switch (this.conditionType) {
-		case Condition.NODE_TEST_CONDITION:
+		case NODE_TEST_CONDITION:
 			if (/* Node.ELEMENT_NODE */ 1 != this.nodeType) return false; // TODO should we allow tests for other node types?
 			if (!this.localName || "*" == this.localName) return success;
 			if (element.tagName == this.localName.toUpperCase()) return success; // FIXME assumes HTML
 			return failure;
 			break;
-		case Condition.ID_CONDITION:
+		case ID_CONDITION:
 			attrValue = element.id;
 			if (attrValue == this.value) return success;
 			return failure;
 			break;
-		case Condition.CLASS_CONDITION:
+		case CLASS_CONDITION:
 			var regex = this.regex;
 			if (!regex) {
 				regex = new RegExp(" "+this.value+" ");
@@ -484,210 +412,141 @@ Condition.prototype.test = function(element) { // TODO namespace handling
 			if (regex.test(" "+attrValue+" ")) return success;
 			return failure;
 			break;
-		case Condition.PSEUDO_CLASS_CONDITION: // TODO
+		case ATTRIBUTE_CONDITION:
+		case ONE_OF_ATTRIBUTE_CONDITION:
+		case BEGIN_HYPHEN_ATTRIBUTE_CONDITION:
+		case STARTS_WITH_ATTRIBUTE_CONDITION:
+		case ENDS_WITH_ATTRIBUTE_CONDITION:
+		case CONTAINS_ATTRIBUTE_CONDITION:
+			return this.testAttributeCondition(element);
 			break;
-		case Condition.PSEUDO_ELEMENT_CONDITION: // TODO
+		case PSEUDO_CLASS_CONDITION:
+		case PSEUDO_ELEMENT_CONDITION:
+			throw "Unsupported condition " + this.conditionType;
 			break;
-		case Condition.LANG_CONDITION: // TODO
-			break;
-		case Condition.ONLY_CHILD_CONDITION: // TODO
-			break;
-		case Condition.ONLY_TYPE_CONDITION: // TODO
-			break;
-		case Condition.POSITIONAL_CONDITION:
-			var tagName = element.tagName.toLowerCase();
-			var sameType = this.sameType;
-			var count = 1;
-			for (var node=element.previousSibling; node; node=node.previousSibling) {
-				if (node.nodeType != 1 || sameType && tagName !== node.tagName.toLowerCase()) continue;
-				count++;
-			}
-			return ( (count - this.position[1]) % this.position[0] === 0);
-			break;
-		case Condition.IS_ROOT_CONDITION:
-			if (element.parentNode.nodeType == 9 /* Node.DOCUMENT_NODE */) return success;
-			return failure;
-			break;
-		case Condition.IS_EMPTY_CONDITION: // FIXME does this fulfil the spec?
-			if (0 == element.childNodes.length) return success;
-			return failure;
-			break;
-		case Condition.ATTRIBUTE_CONDITION: // TODO consolidate all attribute checks
-			var attrName = this.localName;
-			attrValue = (attrName != "class") ? element.getAttribute(attrName) : element.className;
-			if (attrValue == null) return failure;
-			if (attrValue == "") return failure; // FIXME is this acceptable??
-			if (!this.specified) return success;
-			if (attrValue == this.value) return success;
-			return failure;
-			break;
-		case Condition.ONE_OF_ATTRIBUTE_CONDITION:
-			var attrName = this.localName;
-			attrValue = (attrName != "class") ? element.getAttribute(attrName) : element.className;
-			var regex = this.regex;
-			if (!regex) {
-				regex = new RegExp(" "+this.value+" ");
-				this.regex = regex;
-			}
-			if (regex.test(" "+attrValue+" ")) return success;
-			return failure;
-			break;
-		case Condition.BEGIN_HYPHEN_ATTRIBUTE_CONDITION:
-			var attrName = this.localName;
-			attrValue = (attrName != "class") ? element.getAttribute(attrName) : element.className;
-			if (attrValue == this.value) return success;
-			var regex = this.regex;
-			if (!regex) {
-				regex = new RegExp("^"+this.value+"-");
-				this.regex = regex;
-			}
-			if (regex.test(" "+attrValue+" ")) return success;
-			return failure;
-			break;
-		case Condition.STARTS_WITH_ATTRIBUTE_CONDITION:
-			var attrName = this.localName;
-			attrValue = (attrName != "class") ? element.getAttribute(attrName) : element.className;
-			var regex = this.regex;
-			if (!regex) {
-				regex = new RegExp("^"+this.value);
-				this.regex = regex;
-			}
-			if (regex.test(attrValue)) return success;
-			return failure;
-			break;
-		case Condition.ENDS_WITH_ATTRIBUTE_CONDITION:
-			var attrName = this.localName;
-			attrValue = (attrName != "class") ? element.getAttribute(attrName) : element.className;
-			var regex = this.regex;
-			if (!regex) {
-				regex = new RegExp(this.value+"$");
-				this.regex = regex;
-			}
-			if (regex.test(attrValue)) return success;
-			return failure;
-			break;
-		case Condition.CONTAINS_ATTRIBUTE_CONDITION:
-			var attrName = this.localName;
-			attrValue = (attrName != "class") ? element.getAttribute(attrName) : element.className;
-			var regex = this.regex;
-			if (!regex) {
-				regex = new RegExp(this.value);
-				this.regex = regex;
-			}
-			if (regex.test(attrValue)) return success;
-			return failure;
-			break;	
 	}
 	throw "Error in Condition.test()"; 
 }
 
-
-var _conditionFactory = {
-
-	createNodeTestCondition: function(name, ns) {
-		var c = new Condition();
-		c.conditionType = Condition.NODE_TEST_CONDITION;
-		c.nodeType = 1 /* Node.ELEMENT_NODE */;
-		c.localName = name;
-		c.namespaceURI = ns;
-		return c;
-	},
-	
-	createIdCondition: function(value) {
-		var c = new Condition();
-		c.conditionType = Condition.ID_CONDITION;
-		c.value = value;
-		return c;
-	},
-
-	createClassCondition: function(ns, value) {
-		var c = new Condition();
-		c.conditionType = Condition.CLASS_CONDITION;
-		c.namespaceURI = ns; // TODO is this relavent?
-		c.value = value;
-		return c;
-	},
-
-	createAttributeCondition: function(name, ns, specified, value, conditionType) {
-		var c = new Condition();
-		c.conditionType = conditionType || Condition.ATTRIBUTE_CONDITION;
-		c.localName = name;
-		c.namespaceURI = ns;
-		c.specified = specified;
-		c.value = value;
-		return c;
-	},
-
-	createBeginHyphenAttributeCondition: function(name, ns, specified, value) {
-		return this.createAttributeCondition(name, ns, specified, value, Condition.BEGIN_HYPHEN_ATTRIBUTE_CONDITION);
-	},
-
-	createOneOfAttributeCondition: function(name, ns, specified, value) {
-		return this.createAttributeCondition(name, ns, specified, value, Condition.ONE_OF_ATTRIBUTE_CONDITION);
-	},
-
-	createStartsWithAttributeCondition: function(name, ns, specified, value) {
-		return this.createAttributeCondition(name, ns, specified, value, Condition.STARTS_WITH_ATTRIBUTE_CONDITION);
-	},
-
-	createEndsWithAttributeCondition: function(name, ns, specified, value) {
-		return this.createAttributeCondition(name, ns, specified, value, Condition.ENDS_WITH_ATTRIBUTE_CONDITION);
-	},
-
-	createContainsAttributeCondition: function(name, ns, specified, value) {
-		return this.createAttributeCondition(name, ns, specified, value, Condition.CONTAINS_ATTRIBUTE_CONDITION);
-	},
-
-	createOnlyChildCondition: function() {
-		// TODO
-	},
-
-	createPositionalCondition: function(position, same_type) {
-		var c = new Condition();
-		c.conditionType = Condition.POSITIONAL_CONDITION;
-		c.position = position.slice(0);
-		c.sameType = same_type;
-		return c;
-	},
-
-	createPseudoClassCondition: function(ns, value) {
-		// TODO
+Condition.prototype.testAttributeCondition = function(element) {
+	var success = !this.negativeCondition;
+	var failure = !success;
+	var attrName = this.localName;
+	attrValue = (attrName != "class") ? element.getAttribute(attrName) : element.className;
+	if (attrValue == null) return failure;
+	var regex = this.regex;
+	if (!regex) {
+		switch (this.conditionType) {
+		case ATTRIBUTE_CONDITION: // WARN this case *always* returns
+			if (!this.specified) return success;
+			if (attrValue == this.value) return success;
+			return failure;
+			break;
+		case ONE_OF_ATTRIBUTE_CONDITION:
+			regex = new RegExp("(?:^|\\s)"+this.value+"(?:$|\\s)");
+			break;
+		case BEGIN_HYPHEN_ATTRIBUTE_CONDITION:
+			regex = new RegExp("^"+this.value+"(?:$|-)");
+			break;
+		case STARTS_WITH_ATTRIBUTE_CONDITION:
+			regex = new RegExp("^"+this.value);
+			break;
+		case ENDS_WITH_ATTRIBUTE_CONDITION:
+			regex = new RegExp(this.value+"$");
+			break;
+		case CONTAINS_ATTRIBUTE_CONDITION:
+			regex = new RegExp(this.value);
+			break;
+		}
+		this.regex = regex;
 	}
 	
+	if (regex.test(attrValue)) return success;
+	return failure;
 }
 
-
-
-return {
-	Parser: Parser,
-	SelectorList: SelectorList,
-	Selector: Selector,
-	Specificity: Specificity,
-	RelativeSelector: RelativeSelector,
-	Condition: Condition
+function createNodeTestCondition(name, ns) {
+	var c = new Condition();
+	c.conditionType = NODE_TEST_CONDITION;
+	c.nodeType = 1 /* Node.ELEMENT_NODE */;
+	c.localName = name;
+	c.namespaceURI = ns;
+	return c;
 }
 
+function createIdCondition(value) {
+	var c = new Condition();
+	c.conditionType = ID_CONDITION;
+	c.value = value;
+	return c;
+}
 
-})();
+function createClassCondition(ns, value) {
+	var c = new Condition();
+	c.conditionType = CLASS_CONDITION;
+	c.namespaceURI = ns; // TODO is this relavent?
+	c.value = value;
+	return c;
+}
+
+function createAttributeCondition(name, ns, specified, value, conditionType) {
+	var c = new Condition();
+	c.conditionType = conditionType || ATTRIBUTE_CONDITION;
+	c.localName = name;
+	c.namespaceURI = ns;
+	c.specified = specified;
+	c.value = value;
+	return c;
+}
+
+function createBeginHyphenAttributeCondition(name, ns, specified, value) {
+	return createAttributeCondition(name, ns, specified, value, BEGIN_HYPHEN_ATTRIBUTE_CONDITION);
+}
+
+function createOneOfAttributeCondition(name, ns, specified, value) {
+	return createAttributeCondition(name, ns, specified, value, ONE_OF_ATTRIBUTE_CONDITION);
+}
+
+function createStartsWithAttributeCondition(name, ns, specified, value) {
+	return createAttributeCondition(name, ns, specified, value, STARTS_WITH_ATTRIBUTE_CONDITION);
+}
+
+function createEndsWithAttributeCondition(name, ns, specified, value) {
+	return createAttributeCondition(name, ns, specified, value, ENDS_WITH_ATTRIBUTE_CONDITION);
+}
+
+function createContainsAttributeCondition(name, ns, specified, value) {
+	return createAttributeCondition(name, ns, specified, value, CONTAINS_ATTRIBUTE_CONDITION);
+}
+
+function createPseudoClassCondition(type, value) {
+	var c = new Condition();
+	c.conditionType = PSEUDO_CLASS_CONDITION;
+	c.type = type;
+	c.value = value;
+	return c;
+}
+
+function createPseudoElementCondition(type) {
+	var c = new Condition();
+	c.conditionType = PSEUDO_ELEMENT_CONDITION;
+	c.type = type;
+	return c;
+}
+
 
 
 // FIXME querySelector* should capture errors and rethrow as DOM Exceptions
 
-if (!Meeko.DOM) Meeko.DOM = {};
-
-Meeko.stuff.extend(Meeko.DOM, new function() {
-
-var NodeSelector = {
-	
-querySelector: function(node, selectorText) {
+function querySelector(node, selectorText) {
 	if (null == selectorText) return false;
 	return getElementsBySelector(node, selectorText, true);
-},
-querySelectorAll: function(node, selectorText) {
+}
+function querySelectorAll(node, selectorText) {
 	if (null == selectorText) return false;
 	return getElementsBySelector(node, selectorText, false);
-},
-matchesSelector: function(node, selectorText) {
+}
+function matchesSelector(node, selectorText) {
 	if (null == selectorText) return false;
 	var selectorList = getSelector(selectorText);
 	if (!selectorList) return false;
@@ -697,20 +556,14 @@ matchesSelector: function(node, selectorText) {
 	return false;
 }
 
-}
 
-
-var CSS = Meeko.CSS;
-var Relative = CSS.RelativeSelector;
-var Condition = CSS.Condition;
-var cssParser = new CSS.Parser();
 var selectors = {};
 var elementsByTagName = {};
 
 function getSelector(selectorText) {
 	var selectorList = selectors[selectorText];
 	if (!selectorList) {
-		selectorList = cssParser.parseSelectors(selectorText);
+		selectorList = parseSelectors(selectorText);
 		selectors[selectorText] = selectorList;
 	}
 	return selectorList;
@@ -785,7 +638,7 @@ function getSelectorId(selector) {
 	var steps = selector.steps;
 	var step = steps[steps.length-1];
 	for (var j=0, cond; cond=step.conditions[j]; j++) {
-		if (cond.conditionType == Condition.ID_CONDITION) return cond.value;
+		if (cond.conditionType == ID_CONDITION) return cond.value;
 	}
 	return null;
 }
@@ -812,8 +665,8 @@ function getSelectorAncestorId(selector) {
 		var conditions = step.conditions;
 		var relType = steps[i+1].relationType;
 		for (var j=0, cond; cond=conditions[j]; j++) {
-			if (cond.conditionType == Condition.ID_CONDITION && 
-				(relType == Relative.CHILD_RELATIVE || relType == Relative.DESCENDANT_RELATIVE)
+			if (cond.conditionType == ID_CONDITION && 
+				(relType == CHILD_RELATIVE || relType == DESCENDANT_RELATIVE)
 				) return cond.value;
 		}
 	}
@@ -844,7 +697,7 @@ function getSelectorClassNameTable(selector) {
 	var conditions = steps[steps.length-1].conditions;
 	var table = {};
 	for (var i=0, cond; cond=conditions[i]; i++) {
-		if (cond.conditionType == Condition.CLASS_CONDITION) {
+		if (cond.conditionType == CLASS_CONDITION) {
 			var className = cond.value;
 			if (!table[className]) table[className] = true;
 		}
@@ -869,7 +722,7 @@ function getTagName(selectorList) {
 function getSelectorTagName(selector) {
 	var steps = selector.steps; // FIXME don't want to access internal data directly. Should be an API cal
 	var nodeTest = steps[steps.length-1].conditions[0];
-	if (nodeTest.conditionType == Condition.NODE_TEST_CONDITION && nodeTest.nodeType == 1 /* Node.ELEMENT_NODE */) return nodeTest.localName;
+	if (nodeTest.conditionType == NODE_TEST_CONDITION && nodeTest.nodeType == 1 /* Node.ELEMENT_NODE */) return nodeTest.localName;
 	else return "*";
 }
 
@@ -881,30 +734,20 @@ function(node, otherNode) {
 } :
 function(node, otherNode) { return !!(node.compareDocumentPosition(otherNode) & 16); } // Node.DOCUMENT_POSITION_CONTAINED_BY
 
-return {
-	Selector: NodeSelector
-};
 
-}
-
-);
-
-
-(function() {
-	
 var DOM = Meeko.DOM;
 DOM.$ = function(selector, node) {
 	if (!node) node = document;
-	return DOM.Selector.querySelector(node, selector);
+	return querySelector(node, selector);
 }
 
 DOM.$$ = function(selector, node) {
 	if (!node) node = document;
-	return DOM.Selector.querySelectorAll(node, selector);
+	return querySelectorAll(node, selector);
 }
 
 DOM.match$ = function(element, selector) {
-	return DOM.Selector.matchesSelector(element, selector);
+	return matchesSelector(element, selector);
 }
 
 function normalizeEvent(event) {
