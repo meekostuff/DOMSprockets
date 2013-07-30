@@ -8,8 +8,6 @@ MIT License
 This script patches DOMSprockets with element selector and event handling utils.
 */
 
-if (!window.Meeko) window.Meeko = {};
-
 (function() {
 
 /*
@@ -18,7 +16,7 @@ CSS Parser
 This API and implementation is a Frankenstein of:
 1. W3C Simple API for CSS
 	http://www.w3.org/TR/SAC
-	http://www.w3.org/Style/CSS/SAC/doc/org/w3c/css/sac/package-summary.html
+	http://www.w3.org/Stypushle/CSS/SAC/doc/org/w3c/css/sac/package-summary.html
 2. CSS Editing and Selectors Object Models
 	Daniel Glazman
 	http://daniel.glazman.free.fr/csswg/csseom/csseom-0.00-01.htm
@@ -32,7 +30,7 @@ TODO
 - stylesheet & property parsing
 */
 
-var _ = Meeko.stuff, forEach = _.forEach;
+var _ = window.Meeko.stuff, forEach = _.forEach, extend = _.extend;
 
 function parseSelectors(selectorText) {
 	var text = selectorText;
@@ -41,209 +39,149 @@ function parseSelectors(selectorText) {
 	var selector = new Selector();
 	var relSelector = new RelativeSelector();
 	relSelector.relationType = DESCENDANT_RELATIVE;
-	var ci = null; // current Condition
 
-	function mergeCondition(c) {
-		relSelector.addCondition(c);
-	}
-
-	var ns = null;
-	var name = null;
+	var currentCondition = null; 
 	var invert = false;
 
-	var state = 0;
+	function mergeCondition(c) {
+		currentCondition = c;
+		relSelector.conditions.push(c);
+	}
+
+	var state = 0, foundMatch;
+	function test(regex, nextState, fn) {
+		var m;
+		if (regex.length) for (var i=0, n=regex.length; i<n; i++) {
+			m = regex[i].exec(text);
+			if (m) break;
+		}
+		else m = regex.exec(text);
+		if (!m) return false;
+		foundMatch = true; // NOTE foundMatch is set false at start of parsing loop
+		if (fn) fn(m);
+		state = nextState;
+		text = text.substr(m[0].length);
+		return true;
+	}
 
 	do {
-		var m = null;
-
+		foundMatch = false;
 		switch (state) {
 			case 0:
-				m = /^\s*/.exec(text);
-				if (m) {
-					state = 1;
-					text = text.substr(m[0].length);
-					break;
-				}
-				break;
+				test(/^\s*/, 1);
 		
 			case 1:
 				// Element / Universal
-				m = /^(\*|[a-zA-Z0-9_]+)(\|(\*|[a-zA-Z0-9_-]+))?/.exec(text);
-				if (m) {
+				test(/^(\*|[a-zA-Z0-9_]+)(\|(\*|[a-zA-Z0-9_-]+))?/, 2, function(m) {
+					var ns, name = m[1], c;
 					if (m[3]) {	ns = m[1]; name = m[3];	}
-					else { ns = null; name = m[1]; }
-					ci = createNodeTestCondition(name, ns);
-					mergeCondition(ci);
-					state = 2;
-					text = text.substr(m[0].length);
-					break;
-				}
+					c = createNodeTestCondition(name, ns);
+					mergeCondition(c);
+				});
 		
 			case 2:
 				// ID
-				m = /^#([a-zA-Z0-9_-]+)/.exec(text);
-				if (m) {
-					ci = createIdCondition(m[1]);
-					mergeCondition(ci);
-					state = 2;
-					text = text.substr(m[0].length);
-					break;
-				}
+				test(/^#([a-zA-Z0-9_-]+)/, 2, function(m) {
+					var c = createIdCondition(m[1]);
+					mergeCondition(c);
+				});
 	
 				// Class
-				m = /^\.([a-zA-Z0-9_-]*)/.exec(text);
-				if (m) {
-					ci = createClassCondition(null, m[1]);
-					mergeCondition(ci);
-					state = 2;
-					text = text.substr(m[0].length);
-					break;
-				}
+				test(/^\.([a-zA-Z0-9_-]*)/, 2, function(m) {
+					var c = createClassCondition(m[1]);
+					mergeCondition(c);
+				});
 	
 				// Attribute
-				m = /^\[\s*([a-z0-9_-]+)(\|([a-z0-9_-]+))?\s*(([~|^$*]?=)\s*("([^"]*)"|'([^']*)'|([^\]\s]+))\s*)?\]/.exec(text);
-				if (m) {
+				test(/^\[\s*([a-z0-9_-]+)(\|([a-z0-9_-]+))?\s*(([~|^$*]?=)\s*("([^"]*)"|'([^']*)'|([^\]\s]+))\s*)?\]/, 2, function(m) {
+					var ns = null, name = m[1], value, type = ATTRIBUTE_CONDITION, specified = false, c;
 					if (m[3]) { ns = m[1]; name = m[3]; }
-					else { ns = null; name = m[1]; }
 					if (m[4]) {
+						type = ({
+							"~=": ONE_OF_ATTRIBUTE_CONDITION,
+							"|=": BEGIN_HYPHEN_ATTRIBUTE_CONDITION,
+							"^=": STARTS_WITH_ATTRIBUTE_CONDITION,
+							"$=": ENDS_WITH_ATTRIBUTE_CONDITION,
+							"*=": CONTAINS_ATTRIBUTE_CONDITION,
+							"=": ATTRIBUTE_CONDITION
+						})[m[5]];
+						specified = true;
 						value = m[7] || m[8] || m[9];
-						switch(m[5]) {
-							case "~=": ci = createOneOfAttributeCondition(name, ns, true, value); break;
-							case "|=": ci = createBeginHyphenAttributeCondition(name, ns, true, value); break;
-							case "^=": ci = createStartsWithAttributeCondition(name, ns, true, value); break;
-							case "$=": ci = createEndsWithAttributeCondition(name, ns, true, value); break;
-							case "*=": ci = createContainsAttributeCondition(name, ns, true, value); break;
-							case "=": ci = createAttributeCondition(name, ns, true, value); break;
-						}
 					}
-					else {
-						ci = createAttributeCondition(name, ns, false, null);
-					}
-	
-					mergeCondition(ci);
-					state = 2;
-					text = text.substr(m[0].length);
-					break;
-				}
+					c = createAttributeCondition(name, ns, specified, value, type);	
+					mergeCondition(c);
+				});
 				
-				m = /^:not\(\s*/.exec(text);
-				if (m) {
-					state = 1;
+				test(/^:not\(\s*/, 1, function(m) {
 					invert = true;
-					text = text.substr(m[0].length);
-					break;
-				}
+				});
 				
 				// Pseudo-element. FIXME
-				m = /^::([a-zA-Z_-]+)/.exec(text) ||
-					/^:(first-line)/.exec(text) ||
-					/^:(first-letter)/.exec(text) ||
-					/^:(before)/.exec(text) ||
-					/^:(after)/.exec(text);	
-				if (m) {
-					ci = createPseudoElementCondition(m[1]);
-					mergeCondition(ci);
-					state = 3;
-					text = text.substr(m[0].length);
-					break;
-				}
+				test([ /^::([a-zA-Z_-]+)/, /^:(first-line|first-letter|before|after)/ ], 3, function(m) {
+					var c = createPseudoElementCondition(m[1]);
+					mergeCondition(c);
+				});
 				
 				// Pseudo-class.  FIXME
-				m = /^:([a-zA-Z_-]+)(?:\(([^)]*)\))?/.exec(text); // TODO robustness
-				if (m) {
-					ci = createPseudoClassCondition(m[1], m[2]);
-					mergeCondition(ci);
-					state = 2;
-					text = text.substr(m[0].length);
-					break;
-				}
+				test(/^:([a-zA-Z_-]+)(?:\(([^)]*)\))?/, 2, function(m) {
+					var c = createPseudoClassCondition(m[1], m[2]);
+					mergeCondition(c);
+				});
 				
 			case 3:
 				// Selector grouping
-				m = /^\s*,/.exec(text);
-				if (m) {
-					selector.addStep(relSelector);
+				test(/^\s*,/, 0, function(m) {
+					selector.steps.push(relSelector);
 					selectorList.push(selector);
 
 					relSelector = new RelativeSelector();
 					relSelector.relationType = DESCENDANT_RELATIVE;
 					selector = new Selector();
-
-					state = 0;
-					text = text.substr(m[0].length);
-					break;
-				}
+				});
 		
 			case 4:
 				// Combinators
-				m = /^\s*([\s>~+])/.exec(text);
-				if (m) {
-					selector.addStep(relSelector);
+				test(/^\s*([\s>~+])/, 0, function(m) {
+					selector.steps.push(relSelector);
 
 					relSelector = new RelativeSelector();
-					switch (m[1]) {
-						case ">": relSelector.relationType = CHILD_RELATIVE; break;
-						case "~": relSelector.relationType = INDIRECT_ADJACENT_RELATIVE; break;
-						case "+": relSelector.relationType = DIRECT_ADJACENT_RELATIVE; break;
-						default /* case "\s" */: relSelector.relationType = DESCENDANT_RELATIVE; break;
-					}
-					
-					state = 0;
-					text = text.substr(m[0].length);
-					break;
-				}
+					relSelector.relationType = ({
+						">": CHILD_RELATIVE,
+						"~": INDIRECT_ADJACENT_RELATIVE,
+						"+": DIRECT_ADJACENT_RELATIVE
+					})[m[1]] || DESCENDANT_RELATIVE;
+				});
 				
 				break;
-
 		}
 		
 		if (invert) {
-			m = /^\s*\)/.exec(text);
-			if (m) {
-				ci.negativeCondition = true;
-				state = 2;
-				text = text.substr(m[0].length);
-			}
-			else throw "Selector parsing failed in :not() at " + text;
+			if ( !test(/^\s*\)/, 2, function(m) {
+				currentCondition.negativeCondition = true;
+			}) ) throw "Selector parsing failed in :not() at " + text;
 		}
 		
-	} while (text.length && m);
+	} while (text.length && foundMatch);
 	
-	selector.addStep(relSelector);
+	selector.steps.push(relSelector);
 	selectorList.push(selector);
 	
 	return selectorList;
 }
 
 
-// FIXME how to implement SelectorList magic?
-var SelectorList = function() {}
-SelectorList.prototype.addSelector = function(selector) {
-	this.push(selector);
-}
-
-SelectorList.prototype.test = function(element) {
-	var n = this.length;
-	for (var i=0; i<n; i++) {
-		var selector = this[i];
-		var rc = selector.test(element);
-		if (rc) return true;
-	}
-	return false;
-}
-
-
 /*
 interface Selector {
 	RelativeSelector steps[];
-	Specificity specifity;
 }
 */
 var Selector = function() {
 	this.steps = [];
 }
 
-Selector.getSpecificity = function(selector) {
+extend(Selector, {
+	
+getSpecificity: function(selector) {
 	var idCount = 0, classCount = 0, typeCount = 0;
 	forEach(selector.steps, function(step) {
 		forEach(step.conditions, function(condition) {
@@ -255,17 +193,18 @@ Selector.getSpecificity = function(selector) {
 					idCount++;
 					break;
 				case PSEUDO_ELEMENT_CONDITION:
+				case PSEUDO_CLASS_CONDITION:
 					break;
-				default:
+				default: // Attribute conditions
 					classCount++;
 					break;
 			}
 		});
 	});
 	return [idCount, classCount, typeCount];
-}
+},
 
-Selector.cmpSpecificity = function(s1, s2) {
+cmpSpecificity: function(s1, s2) {
 	var c1 = Selector.getSpecificity(s1), c2 = Selector.getSpecificity(c2);
 	for (var n=c1.length, i=0; i<n; i++) {
 		var a = c1[i], b = c2[i];
@@ -275,10 +214,7 @@ Selector.cmpSpecificity = function(s1, s2) {
 	return 0;
 }
 
-Selector.prototype.addStep = function(step) {
-	if (step instanceof RelativeSelector) this.steps.push(step);
-	else throw "Error in Selector.addStep";
-}
+});
 
 // Selector.prototype.test contains the bottle-neck for matchesSelector performance.
 // It has been optimized by bringing tagName test inside the function
@@ -340,11 +276,6 @@ var CHILD_RELATIVE = 2;
 var DIRECT_ADJACENT_RELATIVE = 3;
 var INDIRECT_ADJACENT_RELATIVE = 4;
 
-RelativeSelector.prototype.addCondition = function(condition) {
-	if (condition instanceof Condition) this.conditions.push(condition);
-	else throw "Error in RelativeSelector.addCondition";
-}
-
 RelativeSelector.prototype.test = function(element) {
 	var n = this.conditions.length;
 	var i=n;
@@ -374,17 +305,63 @@ var BEGIN_HYPHEN_ATTRIBUTE_CONDITION = 7;
 var STARTS_WITH_ATTRIBUTE_CONDITION = 8;
 var ENDS_WITH_ATTRIBUTE_CONDITION = 9;
 var CONTAINS_ATTRIBUTE_CONDITION = 10;
+var PSEUDO_CLASS_CONDITION = 11;
 /* 
-var LANG_CONDITION = 11;
 var ONLY_CHILD_CONDITION = 12;
 var ONLY_TYPE_CONDITION = 13;
 var POSITIONAL_CONDITION = 14;
-*/
-var PSEUDO_CLASS_CONDITION = 15;
-/*
+var LANG_CONDITION = 15;
 var IS_ROOT_CONDITION = 16;
 var IS_EMPTY_CONDITION = 17;
 */
+
+function createNodeTestCondition(name, ns) {
+	var c = new Condition();
+	c.conditionType = NODE_TEST_CONDITION;
+	c.nodeType = 1 /* Node.ELEMENT_NODE */;
+	c.localName = name;
+	c.namespaceURI = ns;
+	return c;
+}
+
+function createIdCondition(value) {
+	var c = new Condition();
+	c.conditionType = ID_CONDITION;
+	c.value = value;
+	return c;
+}
+
+function createClassCondition(value) {
+	var c = new Condition();
+	c.conditionType = CLASS_CONDITION;
+	c.value = value;
+	return c;
+}
+
+function createAttributeCondition(name, ns, specified, value, conditionType) {
+	var c = new Condition();
+	c.conditionType = conditionType || ATTRIBUTE_CONDITION;
+	c.localName = name;
+	c.namespaceURI = ns;
+	c.specified = specified;
+	c.value = value;
+	return c;
+}
+
+function createPseudoClassCondition(type, value) {
+	var c = new Condition();
+	c.conditionType = PSEUDO_CLASS_CONDITION;
+	c.pseudoClass = type;
+	c.value = value;
+	return c;
+}
+
+function createPseudoElementCondition(type) {
+	var c = new Condition();
+	c.conditionType = PSEUDO_ELEMENT_CONDITION;
+	c.pseudoElement = type;
+	return c;
+}
 
 Condition.prototype.test = function(element) { // TODO namespace handling
 	var attrValue;
@@ -464,76 +441,6 @@ Condition.prototype.testAttributeCondition = function(element) {
 	if (regex.test(attrValue)) return success;
 	return failure;
 }
-
-function createNodeTestCondition(name, ns) {
-	var c = new Condition();
-	c.conditionType = NODE_TEST_CONDITION;
-	c.nodeType = 1 /* Node.ELEMENT_NODE */;
-	c.localName = name;
-	c.namespaceURI = ns;
-	return c;
-}
-
-function createIdCondition(value) {
-	var c = new Condition();
-	c.conditionType = ID_CONDITION;
-	c.value = value;
-	return c;
-}
-
-function createClassCondition(ns, value) {
-	var c = new Condition();
-	c.conditionType = CLASS_CONDITION;
-	c.namespaceURI = ns; // TODO is this relavent?
-	c.value = value;
-	return c;
-}
-
-function createAttributeCondition(name, ns, specified, value, conditionType) {
-	var c = new Condition();
-	c.conditionType = conditionType || ATTRIBUTE_CONDITION;
-	c.localName = name;
-	c.namespaceURI = ns;
-	c.specified = specified;
-	c.value = value;
-	return c;
-}
-
-function createBeginHyphenAttributeCondition(name, ns, specified, value) {
-	return createAttributeCondition(name, ns, specified, value, BEGIN_HYPHEN_ATTRIBUTE_CONDITION);
-}
-
-function createOneOfAttributeCondition(name, ns, specified, value) {
-	return createAttributeCondition(name, ns, specified, value, ONE_OF_ATTRIBUTE_CONDITION);
-}
-
-function createStartsWithAttributeCondition(name, ns, specified, value) {
-	return createAttributeCondition(name, ns, specified, value, STARTS_WITH_ATTRIBUTE_CONDITION);
-}
-
-function createEndsWithAttributeCondition(name, ns, specified, value) {
-	return createAttributeCondition(name, ns, specified, value, ENDS_WITH_ATTRIBUTE_CONDITION);
-}
-
-function createContainsAttributeCondition(name, ns, specified, value) {
-	return createAttributeCondition(name, ns, specified, value, CONTAINS_ATTRIBUTE_CONDITION);
-}
-
-function createPseudoClassCondition(type, value) {
-	var c = new Condition();
-	c.conditionType = PSEUDO_CLASS_CONDITION;
-	c.type = type;
-	c.value = value;
-	return c;
-}
-
-function createPseudoElementCondition(type) {
-	var c = new Condition();
-	c.conditionType = PSEUDO_ELEMENT_CONDITION;
-	c.type = type;
-	return c;
-}
-
 
 
 // FIXME querySelector* should capture errors and rethrow as DOM Exceptions
