@@ -100,11 +100,8 @@ var List = UI.List.evolve({
 	}
 });
 
-var TreeItem = UI.TreeItem.evolve({
-	List: List
-});
-
-sprockets.register('.menu > ul > li', TreeItem, {
+sprockets.register('.menu > ul > li > ul', List);
+sprockets.register('.menu > ul > li', UI.TreeItem, {
 
 handlers: [
 	{

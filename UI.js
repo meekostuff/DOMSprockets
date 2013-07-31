@@ -47,7 +47,6 @@ declareProperties(Box.prototype, 'hidden');
 
 var TreeItem = Base.evolve({
 
-List: List,
 getListElement: function() {
 
 	var element = this.boundElement;
@@ -72,12 +71,12 @@ getSelected: function() {
 setExpanded: function(state) {	
 	var listEl = this.getListElement();
 	if (!listEl) throw "";
-	this.List(listEl).setHidden(!state);
+	List(listEl).setHidden(!state);
 },
 getExpanded: function() {
 	var listEl = this.getListElement();
 	if (!listEl) throw "";
-	return this.List(listEl).getHidden();
+	return List(listEl).getHidden();
 }
 
 });
@@ -101,16 +100,14 @@ declareProperties(List.prototype, 'hidden');
 var Tree = Box.evolve({
 
 getListElement: TreeItem.prototype.getListElement,
-TreeItem: TreeItem,
-List: List,
 
 getSelectedItem: function() { // FIXME this only searches the top List, not the whole Tree
 
-	var items = this.List(this.getListElement()).getItems();
+	var items = List(this.getListElement()).getItems();
 	var n = items.length;
 	for (var i=0; i<n; i++) {
 		var node = items.item(i);
-		var binding = this.TreeItem(node);
+		var binding = TreeItem(node);
 		if (binding.getSelected()) return node;
 	}
 	return null;
@@ -120,11 +117,11 @@ selectItem: function(item) {
 
 	var listEl = this.getListElement();
 	if (item && item.parentNode != listEl) throw "Element doesn't exist in list";
-	var items = this.List(listEl).getItems();
+	var items = List(listEl).getItems();
 	var n = items.length;
 	for (var i=0; i<n; i++) {
 		var node = items[i];
-		var binding = this.TreeItem(node);
+		var binding = TreeItem(node);
 		if (node === item) binding.setSelected(true);
 		if (node !== item) binding.setSelected(false);
 	}
@@ -226,14 +223,13 @@ var SwitchBox = Box.evolve({
 getPanels: function() {
 	return this.boundElement.children;
 },
-Panel: Panel,
 setView: function(item) {
 	
 	var element = this.boundElement;
 	var panels = this.getPanels();
 	if (indexOf(panels, item) < 0) throw "setView failed: item is not child of SwitchBox";
 	forEach(panels, function(child) {
-		var binding = this.Panel(child);
+		var binding = Panel(child);
 		if (item == child) binding.setHidden(false);
 		else binding.setHidden(true);
 	}, this);
@@ -244,7 +240,7 @@ setViewByIndex: function(index) {
 	var panels = this.getPanels();
 	if (index >= panels.length) throw "setViewByIndex failed: index is not valid for SwitchBox";
 	forEach(panels, function(child, i) {
-		var binding = this.Panel(child);
+		var binding = Panel(child);
 		if (index == i) binding.setHidden(false);
 		else binding.setHidden(true);
 	}, this);

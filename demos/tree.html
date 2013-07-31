@@ -93,7 +93,7 @@ body {
 var sprockets = Meeko.sprockets, UI = Meeko.UI, DOM = Meeko.DOM;
 var _ = Meeko.stuff;
 
-sprockets.register('#tree ul', UI.List);
+//sprockets.register('#tree ul', UI.List);
 
 var TreeItem = UI.TreeItem.evolve(
 {
@@ -123,30 +123,27 @@ var TreeItem = UI.TreeItem.evolve(
 	}
 });
 
-sprockets.register('#tree li', TreeItem, {
+sprockets.register('#tree li', TreeItem);
+
+sprockets.register('#tree', UI.Tree, {
 handlers: [
 {
 	type: 'click',
+	delegator: 'li',
 	eventPhase: 2,
-	action: function(event) {
-		if (this.isEmpty()) this.setExpanded();
-		else this.setExpanded(!this.getExpanded());
+	action: function(event, delegator) {
+		var treeitem = UI.TreeItem(delegator);
+		if (treeitem.isEmpty()) treeitem.setExpanded();
+		else treeitem.setExpanded(!treeitem.getExpanded());
 	}
 }
-]
-});
-
-var Tree = UI.Tree.evolve({
-TreeItem: TreeItem
-});
-
-sprockets.register('#tree', Tree, {
+],
 callbacks: {
 	enteredDocument: function() {
 		_.forEach(this.$$('li > ul'), function(list) {
 			var parent = list.parentNode;
-			var item = this.TreeItem(parent);
-			if (item) item.setExpanded(false);	
+			var treeitem = UI.TreeItem(parent);
+			if (treeitem) treeitem.setExpanded(false);	
 		}, this);
 	}
 }

@@ -261,9 +261,20 @@ bind: function(element) {
 },
 cast: function(element) {
 	var binding = Binding.getInterface(element);
-	if (!binding) return this.bind(element);
-	if (!isPrototypeOf(this.prototype, binding.implementation)) throw "Attached sprocket doesn't match";
-	return binding.implementation;
+	if (binding) {
+		if (!isPrototypeOf(this.prototype, binding.implementation)) throw "Attached sprocket doesn't match";
+		return binding.implementation;
+	}
+	var implementation;
+	some(sprocketRules, function(rule) {
+		var prototype = rule.definition.implementation;
+		if (this.prototype !== prototype && !isPrototypeOf(this.prototype, prototype)) return false;
+		if (!DOM.match$(element, rule.selector)) return false;
+		implementation = createObject(prototype);
+		implementation.boundElement = element;
+		return true;
+	}, this);
+	return implementation;
 },
 evolve: function(properties) { // inherit this.prototype, extend with prototype and copy this.handlers and handlers
 	var prototype = createObject(this.prototype); 
@@ -675,7 +686,8 @@ deregister: function() { // FIXME
 
 });
 
-var cssRules = [];
+var bindingRules = [];
+var sprocketRules = [];
 var enteringRules = [];
 var leavingRules = [];
 
@@ -694,9 +706,18 @@ function applyRuleToTree(rule, root) {
 
 function applyEnteringRules() {
 	var rule; while (rule = enteringRules.shift()) {
-		applyRuleToTree(rule /* , document */);
-		cssRules.unshift(rule); // TODO splice in specificity order
+		var defn = rule.definition;
+		if (defn.handlers && defn.handlers.length || !isEmptyObject(defn.callbacks)) {
+			applyRuleToTree(rule /* , document */);
+			bindingRules.unshift(rule); // TODO splice in specificity order
+		}
+		else sprocketRules.unshift(rule);
 	}
+}
+
+function isEmptyObject(o) {
+	if (o) for (var p in o) if (o.hasOwnProperty(p)) return false;
+	return true;
 }
 
 extend(sprockets, {

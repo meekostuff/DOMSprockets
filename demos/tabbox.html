@@ -127,13 +127,8 @@ getHidden: function() {
 
 });
 
-var SwitchBox = UI.SwitchBox.evolve({
-
-Panel: Panel
-
-});
-
-sprockets.register('#tabboxPanels', SwitchBox);
+sprockets.register('#tabboxPanels > div', Panel);
+sprockets.register('#tabboxPanels', UI.SwitchBox);
 
 var NavTreeItem = UI.NavTreeItem.evolve(
 {
@@ -148,9 +143,7 @@ getSelected: function() {
 });
 
 sprockets.register('#tabbox .nav > ul > li', NavTreeItem);
-
 sprockets.register('#tabbox .nav > ul', UI.List);
-
 sprockets.register('#tabbox .nav', UI.NavTree, {
 callbacks: {
 	enteredDocument: function() {
