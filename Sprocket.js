@@ -274,6 +274,7 @@ cast: function(element) {
 		implementation.boundElement = element;
 		return true;
 	}, this);
+	if (!implementation) throw "No compatible sprocket declared";
 	return implementation;
 },
 evolve: function(properties) { // inherit this.prototype, extend with prototype and copy this.handlers and handlers
