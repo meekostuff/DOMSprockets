@@ -28,21 +28,11 @@ DOMSprockets is compatible with most current browsers, including IE9+.
 A legacy shim is available for some older browsers, including IE6/7/8.
 
 
-License
--------
-
-DOMSprockets is available under 
-[MPL 2.0](http://www.mozilla.org/MPL/2.0/ "Mozilla Public License version 2.0").
-See the [MPL 2.0 FAQ](http://www.mozilla.org/MPL/2.0/FAQ.html "Frequently Asked Questions")
-for your obligations if you intend to modify or distribute DOMSprockets or part thereof. 
-
-
 Installation
 ------------
 
 Copy or clone the DOMSprockets project files to a directory on your server, say 
-	
-		/path/to/DOMSprockets/
+	`/path/to/DOMSprockets/`
 
 
 Quick Start
@@ -188,6 +178,8 @@ It can contain the following filters, directives and methods:
 
 ### Evolving Sprockets
 
+**An Example**
+
 Start with `Meeko.sprockets.Base` and create a `Hideable` definition
 
 	var Hideable = Meeko.sprockets.Base.evolve({
@@ -285,3 +277,21 @@ which is a (partial) Javascript implementation of the
 XBL2 was perhaps too ambitious a goal to add to browsers in one hit. It is no longer recommended and anyway, XML is out of favor on the web. 
 
 The DOMSprockets API is an attempt at something more pragmatic; perhaps most appropriate as a base for an ARIA toolkit. 
+
+
+License
+-------
+
+DOMSprockets is available under 
+[MPL 2.0](http://www.mozilla.org/MPL/2.0/ "Mozilla Public License version 2.0").
+See the [MPL 2.0 FAQ](http://www.mozilla.org/MPL/2.0/FAQ.html "Frequently Asked Questions")
+for your obligations if you intend to modify or distribute DOMSprockets or part thereof. 
+
+
+Contact
+-------
+
+If you do find problems, or if you would like to know more, you can contact me at [twitter](https://twitter.com/Meekostuff)
+or on [my web-site](http://meekostuff.net).
+
+
