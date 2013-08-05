@@ -5,11 +5,11 @@
  Assumes Sprocket.js already loaded
 */
 
-Meeko.UI = (function() {
+Meeko.sprockets.UI = (function() {
 
 var _ = Meeko.stuff, extend = _.extend, forEach = _.forEach, indexOf = _.indexOf;
 var DOM = Meeko.DOM, $id = DOM.$id, $ = DOM.$, $$ = DOM.$$;
-var sprockets = Meeko.sprockets, Base = sprockets.BaseSprocket;
+var sprockets = Meeko.sprockets, Base = sprockets.Base;
 
 var declareProperties = (Object.defineProperty && Object.create) ? // IE8 supports defineProperty but only on DOM objects
 function(obj, props) {

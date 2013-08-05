@@ -89,7 +89,7 @@ in this case when the mouse is over the menu label or the menu.
 <script>
 (function() {
 
-var sprockets = Meeko.sprockets, UI = Meeko.UI;
+var sprockets = Meeko.sprockets, UI = sprockets.UI;
 var List = UI.List.evolve({
 	setHidden: function(state) {
 		this.toggleClass('hidden', state);

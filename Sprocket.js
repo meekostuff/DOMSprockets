@@ -11,6 +11,10 @@ element.querySelectorAll - IE8+
 element.addEventListener - IE9+
 */
 
+/* FIXME
+event modifiers aren't filtering
+*/
+
 if (!this.Meeko) this.Meeko = {};
 
 (function() {
@@ -559,7 +563,7 @@ var matchesEvent = function(handler, event, ignorePhase) {
 	if (event.type != handler.type) return false;
 
 	// phase
-	if (!ignorePhase && !phaseMatchesEvent(handler.phase, event)) return false;
+	if (!ignorePhase && !phaseMatchesEvent(handler.eventPhase, event)) return false;
 	
 	var evType = event.type;
 
@@ -759,7 +763,7 @@ refresh: function(node) { // NOTE called AFTER node inserted into document
 });
 
 var basePrototype = {};
-sprockets.BaseSprocket = new SprocketDefinition(basePrototype); // NOTE now we can extend basePrototype
+sprockets.Base = new SprocketDefinition(basePrototype); // NOTE now we can extend basePrototype
 
 sprockets.trigger = dispatchEvent;
 return sprockets;
@@ -773,7 +777,7 @@ return sprockets;
 
 var _ = Meeko.stuff, extend = _.extend, forEach = _.forEach, words = _.words, indexOf = _.indexOf;
 var DOM = Meeko.DOM;
-var sprockets = Meeko.sprockets, BaseSprocket = sprockets.BaseSprocket, basePrototype = BaseSprocket.prototype;
+var sprockets = Meeko.sprockets, basePrototype = sprockets.Base.prototype;
 
 
 extend(basePrototype, {
