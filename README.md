@@ -91,53 +91,53 @@ The DOMSprockets API is available under the `Meeko.sprockets` namespace.
 
 Sprockets are managed by the private `SprocketDefinition` class. Instances of this class have the following properties and methods:
 
-- **`prototype`** - the prototype for DOMElement proxies
+- **`prototype`** - the prototype for DOMElement proxies 
 
-- **`evolve(prototype)`** - returns a new `SprocketDefinition` instance.
+- **`evolve\(prototype\)`** - returns a new `SprocketDefinition` instance.
 	The `prototype` of the new instance inherits from the caller's `prototype`, and gains the properties and methods of the `prototype` argument.
 
-- **`bind(element)`** - returns a proxy object whose `boundElement` property is a ref to `element`, and
+- **`bind\(element\)`** - returns a proxy object whose `boundElement` property is a ref to `element`, and
 	whose prototype is the `prototype` of the caller.
 	
-- **`cast(element)`** - if the element matches a registered behavior, and the registration's defined socket inherits from the callers `prototype`,
+- **`cast\(element\)`** - if the element matches a registered behavior, and the registration's defined socket inherits from the callers `prototype`,
 	then returns the proxy object of the registered behavior.
 
 A sprocket is also a constructor of sorts:
 
-- **`new Sprocket(element)`** calls `.bind(element)` and returns the result
+- **`new Sprocket\(element\)`** calls `.bind\(element\)` and returns the result
 
-- **`Sprocket(element)`** calls `.cast(element)` and returns the result
+- **`Sprocket\(element\)`** calls `.cast\(element\)` and returns the result
 
 ### Base Sprocket
 
 Custom `SprocketDefinition`'s are *evolved* from `Meeko.sprockets.Base`, which has the following `prototype`:
 
-- **`$id(id)`**: returns the first descendant element of the `boundElement` with `@id` matching `id`
+- **`$id\(id\)`**: returns the first descendant element of the `boundElement` with `@id` matching `id`
 
-- **`$(selector)`**: returns the first descendant element of the `boundElement` which matches `selector`
+- **`$\(selector\)`**: returns the first descendant element of the `boundElement` which matches `selector`
 
-- **`$$(selector)`**: returns the array of descendant elements of the `boundElement` which match `selector`
+- **`$$\(selector\)`**: returns the array of descendant elements of the `boundElement` which match `selector`
 
-- **`match$(selector)`**: returns true if the `boundElement` matches `selector`; otherwise returns false
+- **`match$\(selector\)`**: returns true if the `boundElement` matches `selector`; otherwise returns false
 
-- **`contains(otherNode)`**: returns true if `otherNode` is a **descendant** of the `boundElement`; otherwise returns false
+- **`contains\(otherNode\)`**: returns true if `otherNode` is a **descendant** of the `boundElement`; otherwise returns false
 
-- **`hasClass(token)`**: returns true if the `boundElement` has a class of `token`
+- **`hasClass\(token\)`**: returns true if the `boundElement` has a class of `token`
 
-- **`addClass(token)`**: adds a class of `token` to `boundElement`, if not already present
+- **`addClass\(token\)`**: adds a class of `token` to `boundElement`, if not already present
 
-- **`removeClass(token)`**: remove all classes of `token` from `boundElement`, if any
+- **`removeClass\(token\)`**: remove all classes of `token` from `boundElement`, if any
 
-- **`toggleClass(token, force)`**:  
-	if `force` is boolean `false` then if `removeClass(token)`; otherwise  
-	if `force` is boolean `true` then `addClass(token)`;  
+- **`toggleClass\(token, force\)`**:  
+	if `force` is boolean `false` then if `removeClass\(token\)`; otherwise  
+	if `force` is boolean `true` then `addClass\(token\)`;  
 	otherwise  
-		if `hasClass(token)` is true then `removeClass(token)`; otherwise  
-		`addClass(token)`  
+		if `hasClass\(token\)` is true then `removeClass\(token\)`; otherwise  
+		`addClass\(token\)`  
 
-- **`trigger(event)`**: simulate dispatching `event` to the `boundElement`,
+- **`trigger\(event\)`**: simulate dispatching `event` to the `boundElement`,
 	calling applicable handlers of any registered behaviors on the element and its ancestors.
-	Default actions are not triggered, but the call returns `false` if any handler called `event.preventDefault()`.
+	Default actions are not triggered, but the call returns `false` if any handler called `event.preventDefault\(\)`.
 
 
 ### Basic UI Sprockets
@@ -159,11 +159,11 @@ Behaviors are registered with:
 	
 where:
 
-	- `selector` is a CSS selector, e.g. `table.sortable`
-	- `sprocket` is a base or evolved sprocket, e.g. `Meeko.sprockets.UI.Table`
-	- `extras` is an object of the form `{ handlers: [], callbacks: {}`, where
-		+ handlers is an optional array of `Handler` objects
-		+ callbacks is an optional object with status callbacks
+- `selector` is a CSS selector, e.g. `table.sortable`
+- `sprocket` is a base or evolved sprocket, e.g. `Meeko.sprockets.UI.Table`
+- `extras` is an optional object of the form `{ handlers: [], callbacks: {}`, where
+	+ handlers is an optional array of `Handler` objects
+	+ callbacks is an optional object with status callbacks
 		
 A **`Handler`** is an object which describes what events are to be handled and how.
 It can contain the following filters, directives and methods:
@@ -181,7 +181,7 @@ It can contain the following filters, directives and methods:
 - **`stopPropagation`** - prevent the event from bubbling
 
 **Methods**
-- **`action(event, delegator)`** - the action to take. This is called as a method of `sprocket`.
+- **`action\(event, delegator\)`** - the action to take. This is called as a method of `sprocket`.
 	The `delegator` argument is the element that matches the `delegator` filter.
 	If there was no `delegator` filter then this is the `boundElement`. 
 
@@ -223,7 +223,7 @@ Now, if you register `MyHideable` for certain elements
 
 	Meeko.sprockets.register('p.details', MyHideable);
 	
-but then call `Hideable.cast()` on one such element,
+but then call `Hideable.cast\(\)` on one such element,
 you still get a `MyHideable` sprocket for the element.
 
 	var detailEl = document.querySelector('p.details');
