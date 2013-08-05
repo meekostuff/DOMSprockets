@@ -1,27 +1,287 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8" /><link href="../decor/decor.html" rel="meeko-decor" /><script src="../HTMLDecor/boot.js"></script></head><body>
+<!DOCTYPE html><html><head><meta charset="UTF-8" /><link href="basic.css" rel="stylesheet" /></head><body>
 
-<div id="__main__" role="main"><h1>XBL</h1>
+<div id="__main__" role="main"><h1>DOMSprockets</h1>
 
-<p>A Javascript library providing a DOM binding / behavior engine.</p>
+<p>DOMSprockets is a Javascript engine for DOMElement proxies (sprockets)
+and behaviors (a sprocket combined with event handlers and status callbacks).</p>
 
-<h2>Background</h2>
+<p>Behaviors are applied to the page declaratively,
+by registering them with relevant CSS Selectors.</p>
 
-<p>XBL stands for XML Binding Language. 
-This code DOES NOT support currently support XML or XBL, 
-but it is derived from the <a href="http://www.meekostuff.net/projects/XBLUI/">XBLUI project</a> 
-which is a (partial) Javascript implementation of the 
-<a href="http://www.w3.org/TR/2007/CR-xbl-20070316/">initial XBL 2.0 specification</a>.</p>
+<p>Sprockets - and, by association, behaviors - are evolvable through prototypal inheritance.
+A Base sprocket with generic DOMElement methods is provided in the core library. 
+Additionaly, a few fundamental UI sprockets are available in an extra library. </p>
 
-<p>The name is not so appropriate now because XBL2 is no longer recommended 
-and XML is out of favor on the web. </p>
+<p>DOMSprockets is intended to be "as simple as possible, but no simpler".
+The core library is less than 5KB minified and gzipped,
+and even the combined size of core, legacy, and UI libraries is less than 10KB. </p>
 
-<p>The code now supports a Javascript API similar to that envisaged by the <a href="http://www.w3.org/TR/2012/NOTE-xbl-20120524/">XBL 2.0 working group note</a> of 2012. </p>
+<p><strong>WARNING:</strong> This is alpha quality software.
+The API is missing essential functions and is quite likely to change.
+The code contains bugs so bas they will probably eat you or at least your homework. 
+The documentation might be useless, mis-leading, out-of-date or, most likely, non-existant. </p>
+
+<h2>Browser Compatibility</h2>
+
+<p>DOMSprockets is compatible with most current browsers, including IE9+.
+A legacy shim is available for some older browsers, including IE6/7/8.</p>
+
+<h2>Installation</h2>
+
+<p>Copy or clone the DOMSprockets project files to a directory on your server, say 
+    <code>/path/to/DOMSprockets/</code></p>
+
+<h2>Quick Start</h2>
+
+<p>Say you want to enable table-sorting on specific tables in a page.
+You might use something like the following:</p>
+
+<pre><code>&lt;script src="/path/to/DOMSprockets/Sprocket.js"&gt;&lt;/script&gt;
+&lt;script src="/path/to/DOMSprockets/UI.js"&gt;&lt;/script&gt; 
+&lt;script&gt;
+(function() {
+
+var sprockets = Meeko.sprockets, UI = Meeko.UI;
+sprockets.register('table.sortable', UI.Table, { // apply the `UI.Table` sprocket to any &lt;table class="sortable"&gt;
+    handlers: [
+    {
+      type: 'click', // for click events ...
+      delegator: '&gt; thead &gt; tr &gt; th', // on table.sortable &gt; thead &gt; tr &gt; th ...
+      preventDefault: true, // prevent default actions ...
+      action: function(event, cell) { // and with the event and delegator element (a &lt;th&gt; table-cell) ...
+        this.toggleColumnSortState(cell.cellIndex); // sort the table according to the table-cell's column
+      }
+    }
+    ]
+});
+
+window.onload = function() { // when the page is ready ...
+    sprockets.domReady(); // notify the sprockets controller
+}
+
+})();
+&lt;/script&gt;
+</code></pre>
+
+<p>Check the <a href="demos/">demos</a> for more detailed examples. </p>
 
 <h2>Usage</h2>
 
-<h2>API</h2>
+<p>The DOMSprockets API is available under the <code>Meeko.sprockets</code> namespace.</p>
 
-<h2>Warnings</h2>
+<h3>Sprocket Definitions</h3>
+
+<p>Sprockets are managed by the private <code>SprocketDefinition</code> class. Instances of this class have the following properties and methods:</p>
+
+<ul>
+<li><p><strong>prototype :</strong> the prototype for DOMElement proxies </p></li>
+<li><p><strong>evolve(prototype) :</strong> returns a new <code>SprocketDefinition</code> instance.
+The <code>prototype</code> of the new instance inherits from the caller's <code>prototype</code>, and gains the properties and methods of the <code>prototype</code> argument.</p></li>
+<li><p><strong>bind(element) :</strong> returns a proxy object whose <code>boundElement</code> property is a ref to <code>element</code>, and
+whose prototype is the <code>prototype</code> of the caller.</p></li>
+<li><p><strong>cast(element) :</strong> if the element matches a registered behavior, and the registration's defined socket inherits from the callers <code>prototype</code>,
+then returns the proxy object of the registered behavior.</p></li>
+</ul>
+
+<p>A sprocket is also a constructor of sorts:</p>
+
+<ul>
+<li><p><strong>new Sprocket(element)</strong> calls <code>.bind(element)</code> and returns the result</p></li>
+<li><p><strong>Sprocket(element)</strong> calls <code>.cast(element)</code> and returns the result</p></li>
+</ul>
+
+<h3>Base Sprocket</h3>
+
+<p>Custom <code>SprocketDefinition</code>'s are <em>evolved</em> from <code>Meeko.sprockets.Base</code>, which has the following <code>prototype</code>:</p>
+
+<ul>
+<li><p><strong>$id(id) :</strong> returns the first descendant element of the <code>boundElement</code> with <code>@id</code> matching <code>id</code></p></li>
+<li><p><strong>$(selector) :</strong> returns the first descendant element of the <code>boundElement</code> which matches <code>selector</code></p></li>
+<li><p><strong>$$(selector) :</strong> returns the array of descendant elements of the <code>boundElement</code> which match <code>selector</code></p></li>
+<li><p><strong>match$(selector) :</strong> returns true if the <code>boundElement</code> matches <code>selector</code>; otherwise returns false</p></li>
+<li><p><strong>contains(otherNode) :</strong> returns true if <code>otherNode</code> is a <strong>descendant</strong> of the <code>boundElement</code>; otherwise returns false</p></li>
+<li><p><strong>hasClass(token) :</strong> returns true if the <code>boundElement</code> has a class of <code>token</code></p></li>
+<li><p><strong>addClass(token) :</strong> adds a class of <code>token</code> to <code>boundElement</code>, if not already present</p></li>
+<li><p><strong>removeClass(token) :</strong> remove all classes of <code>token</code> from <code>boundElement</code>, if any</p></li>
+<li><p><strong>toggleClass(token, force) :</strong> <br />
+if <code>force</code> is boolean <code>false</code> then <code>removeClass(token)</code>; otherwise <br />
+if <code>force</code> is boolean <code>true</code> then <code>addClass(token)</code>; <br />
+otherwise <br />
+    if <code>hasClass(token)</code> is true then <code>removeClass(token)</code>; otherwise <br />
+    <code>addClass(token)</code>  </p></li>
+<li><p><strong>trigger(event) :</strong> simulate dispatching <code>event</code> to the <code>boundElement</code>,
+calling applicable handlers of any registered behaviors on the element and its ancestors.
+Default actions are not triggered, but the call returns <code>false</code> if any handler called <code>event.preventDefault()</code>.</p></li>
+</ul>
+
+<h3>Basic UI Sprockets</h3>
+
+<p><code>UI.js</code> adds a few fundamental sprocket definitions under the <code>Meeko.sprockets.UI</code> namespace.
+These are vaguely modelled on <a href="http://www.w3.org/TR/wai-aria/roles">ARIA roles</a>, and include:</p>
+
+<ul>
+<li><strong>Box, ListItem, List, TreeItem, Tree, NavTreeItem, NavTree, Panel, SwitchBox, ScrollBox, Table</strong></li>
+</ul>
+
+<p>These are intended to be used as base classes for context specific sprockets and behaviors. 
+See the source for implementation details.</p>
+
+<h3>Registering Behaviors</h3>
+
+<p>Behaviors are registered with:</p>
+
+<pre><code>Meeko.sprockets.register(selector, sprocket, extras)
+</code></pre>
+
+<p>where:</p>
+
+<ul>
+<li><code>selector</code> is a CSS selector, e.g. <code>table.sortable</code></li>
+<li><code>sprocket</code> is a base or evolved sprocket, e.g. <code>Meeko.sprockets.UI.Table</code></li>
+<li><code>extras</code> is an optional object of the form <code>{ handlers: [], callbacks: {}</code>, where
+<ul>
+<li>handlers is an optional array of <code>Handler</code> objects</li>
+<li>callbacks is an optional object with status callbacks</li>
+</ul></li>
+</ul>
+
+<p>A <strong><code>Handler</code></strong> is an object which describes what events are to be handled and how.
+It can contain the following filters, directives and methods:</p>
+
+<p><strong>Filters</strong>: these determine if this handler should process the event
+- <strong>type :</strong> the event type to handle, e.g. "click", "change"
+- <strong>delegator :</strong> a relative CSS selector which is used to detected the deepest matching descendant through which the event bubbled through
+- <strong>eventPhase :</strong> <del>capturing</del> / target / bubbling. See https://developer.mozilla.org/en-US/docs/Web/API/event.eventPhase
+- <strong>button :</strong> if event type is "click", then it must be this button. See https://developer.mozilla.org/en-US/docs/Web/API/event.button
+- <strong>clickCount :</strong> if event type is "click", then the event <code>detail</code></p>
+
+<p><strong>Directives</strong>: these are processed after the handler action is called (if present)
+- <strong>preventDefault :</strong> prevent the default action of the event
+- <strong>stopPropagation :</strong> prevent the event from bubbling</p>
+
+<p><strong>Methods</strong>
+- <strong>action(event, delegator) :</strong> the action to take. This is called as a method of <code>sprocket</code>.
+    The <code>delegator</code> argument is the element that matches the <code>delegator</code> filter.
+    If there was no <code>delegator</code> filter then this is the <code>boundElement</code>. </p>
+
+<h3>Evolving Sprockets</h3>
+
+<p><strong>An Example</strong></p>
+
+<p>Start with <code>Meeko.sprockets.Base</code> and create a <code>Hideable</code> definition</p>
+
+<pre><code>var Hideable = Meeko.sprockets.Base.evolve({
+
+setHidden: function(state) {
+    var element = this.boundElement;
+    if (!state) element.style.display = 'none';
+    else element.style.display = '';
+},
+
+getHidden: function() {
+    var element = this.boundElement;
+    return element.style.display === 'none';
+}
+
+});
+</code></pre>
+
+<p>Next create a <code>MyHideable</code> definition that inherits from <code>Hideable</code>, but overrides <code>setHidden</code>, <code>getHidden</code> to use CSS classes</p>
+
+<pre><code>var MyHideable = Hideable.evolve({
+
+setHidden: function(state) {
+    this.toggleClass('hidden', state);
+},
+
+getHidden: function() {
+    return this.hasClass('hidden');
+}
+
+});
+</code></pre>
+
+<p>Now, if you register <code>MyHideable</code> for certain elements</p>
+
+<pre><code>Meeko.sprockets.register('p.details', MyHideable);
+</code></pre>
+
+<p>but then call <code>Hideable.cast()</code> on one such element,
+you still get a <code>MyHideable</code> sprocket for the element.</p>
+
+<pre><code>var detailEl = document.querySelector('p.details');
+var detail = Hideable.cast(detailEl);
+detail.setHidden(true);
+console.log(detailEl.className); // logs "details hidden"
+console.log(detailEl.style.display === 'none'); // logs false
+</code></pre>
+
+<p>This is most useful for composite widgets where the sprocket on one element acts as controller
+for several other (probably descendant) elements.
+For example, a tree might be represented by hierarchical <code>&lt;ul&gt;/&lt;li&gt;</code> markup such as:</p>
+
+<pre><code>&lt;div class="tree"&gt;
+    &lt;ul&gt;
+        &lt;li&gt;1&lt;/li&gt;
+        &lt;li&gt;2
+            &lt;ul&gt;
+                &lt;li&gt;2.1&lt;/li&gt;
+                &lt;li&gt;2.2&lt;/li&gt;
+            &lt;/ul&gt;
+        &lt;/li&gt;
+        &lt;li&gt;3&lt;/li&gt;
+    &lt;/ul&gt;
+&lt;/div&gt;
+</code></pre>
+
+<p>Behaviors might be registered like so</p>
+
+<pre><code>Meeko.sprockets.register('div.tree', UI.Tree, { handlers: [ ... ], callbacks: [ ... ] });
+Meeko.sprockets.register('div.tree li', UI.TreeItem);
+</code></pre>
+
+<p>In this case <code>UI.Tree</code> will control whether <code>TreeItem</code>'s are selected or expanded / collapsed. 
+But it isn't the responsibility of <code>UI.Tree</code> to decide how <code>TreeItem</code> should implement being selected or expanded.
+So, as long as the registered sprocket inherits from <code>UI.TreeItem</code> then UI.Tree will manage.
+Even the following - where the evolved <code>UI.TreeItem</code> delegates its expanded / collapse feature - is fine. </p>
+
+<pre><code>Meeko.sprockets.register('div.tree', UI.Tree, { handlers: [ ... ], callbacks: [ ... ] });
+Meeko.sprockets.register('div.tree li', UI.TreeItem.evolve({
+    setExpanded: function(state) {
+        var ul = this.$('ul');
+        var listBox = UI.List(ul);
+        listBox.setHidden(!state);
+    },
+    getExpanded: function() {
+        var ul = this.$('ul');
+        var listBox = UI.List(ul);
+        return listBox.getHidden();         
+    }
+});
+Meeko.sprockets.register('div.tre li &gt; ul', UI.List);
+</code></pre>
+
+<h2>History</h2>
+
+<p>This code is derived from the <a href="http://www.meekostuff.net/projects/XBLUI/">XBLUI project</a> 
+which is a (partial) Javascript implementation of the 
+<a href="http://www.w3.org/TR/2007/CR-xbl-20070316/">initial XBL 2.0 specification</a>. </p>
+
+<p>XBL2 was perhaps too ambitious a goal to add to browsers in one hit. It is no longer recommended and anyway, XML is out of favor on the web. </p>
+
+<p>The DOMSprockets API is an attempt at something more pragmatic; perhaps most appropriate as a base for an ARIA toolkit. </p>
+
+<h2>License</h2>
+
+<p>DOMSprockets is available under 
+<a href="http://www.mozilla.org/MPL/2.0/" title="Mozilla Public License version 2.0">MPL 2.0</a>.
+See the <a href="http://www.mozilla.org/MPL/2.0/FAQ.html" title="Frequently Asked Questions">MPL 2.0 FAQ</a>
+for your obligations if you intend to modify or distribute DOMSprockets or part thereof. </p>
+
+<h2>Contact</h2>
+
+<p>If you do find problems, or if you would like to know more, you can contact me at <a href="https://twitter.com/Meekostuff">twitter</a>
+or on <a href="http://meekostuff.net">my web-site</a>.</p>
 </div>
 
 
