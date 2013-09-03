@@ -134,7 +134,6 @@ DOM.match$ = function(element, selector) { throw "match$ not supported"; } // NO
 some(words('moz webkit ms o'), function(prefix) {
 	var method = prefix + "MatchesSelector";
 	if (document.documentElement[method]) DOM.match$ = function(element, selector) {
-		if (selector.indexOf(',') >= 0) throw "match$ does not support selectors that contain COMMA (,)";		
 		return element[method](selector);
 	};
 	else return false;
@@ -143,7 +142,6 @@ some(words('moz webkit ms o'), function(prefix) {
 
 DOM.$$ = document.querySelectorAll ?
 function(selector, node) {
-	if (selector.indexOf(',') >= 0) throw "$$ does not support selectors that contain COMMA (,)";
 	if (!node) node = document;
 	return [].slice.call(node.querySelectorAll(selector), 0);
 } :
@@ -152,7 +150,6 @@ function(selector, node) { throw "$$ not supported"; };
 DOM.$ = document.querySelector ?
 function(selector, node) {
 	if (!node) node = document;
-	if (selector.indexOf(',') >= 0) throw "$ does not support selectors that contain COMMA (,)";
 	return node.querySelector(selector);
 } :
 function(selector, node) { throw "$ not supported"; };
@@ -358,8 +355,10 @@ function handleEvent(event, handler) {
 	if (!matchesEvent(handler, event, true)) return; // NOTE the phase check is below
 	var delegator = current;
 	if (handler.delegator) {
+		var delegators = handler.delegator.split(',');
 		if (!current.id) current.id = nodeId;
-		var delegatorSelector = '#' + current.id + ' ' + handler.delegator; // FIXME doesn't assert current.id or that handler.delegator isn't a chain
+		var scope = '#' + current.id + ' ';
+		var delegatorSelector = scope + delegators.join(', ' + scope);
 		for (var el=target; el!=current; el=el.parentNode) {
 			if (DOM.match$(el, delegatorSelector)) break;
 		}
