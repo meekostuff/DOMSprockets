@@ -288,36 +288,86 @@ evolve: function(properties) { // inherit this.prototype, extend with prototype 
 });
 
 
-var Binding = function(definition) {
-	this.defintion = definition;
-}
-
 var redirectedWindowEvents = words('scroll resize'); // FIXME would be nice not to have this hack
 
-function attachBinding(definition, element) {
-	var binding = new Binding(definition);
-	nodeManager.setData(element, binding);
+var Binding = function(definition) {
+	this.definition = definition;
+}
+
+extend(Binding.prototype, {
+
+attach: function(element) {
+	var binding = this;
+	var definition = binding.definition;
 	var implementation = binding.implementation = createObject(definition.implementation);
 	implementation.boundElement = element;
 	binding.listeners = []; // FIXME should be in binding constructor??
 	forEach(definition.handlers, function(handler) {
-		var type = handler.type;
-		var capture = (handler.eventPhase == 1); // Event.CAPTURING_PHASE
-		var fn = function(event) {
-			if (fn.normalize) event = fn.normalize(event);
-			return handleEvent.call(implementation, event, handler);
-		}
-		fn.type = type;
-		fn.capture = capture;
-		var target = (element === document.documentElement && indexOf(redirectedWindowEvents, type) >= 0) ? window : element;
-		DOM.addEventListener(target, type, fn, capture);
-		binding.listeners.push(fn);
+		var listener = binding.addHandler(handler);
+		binding.listeners.push(listener);
 	});
 	var callbacks = definition.callbacks;
 	if (callbacks) {
 		if (callbacks.attached) callbacks.attached.call(implementation);
 		if (callbacks.enteredDocument) callbacks.enteredDocument.call(implementation);	
+	}	
+},
+
+detach: function(element) {
+	var binding = this;
+	var definition = binding.definition;
+	forEach(binding.listeners, binding.removeListener, binding);
+	binding.listeners.length = 0;
+	var callbacks = definition.callbacks;
+	if (callbacks) {
+		if (callbacks.leftDocument) callbacks.leftDocument.call(implementation);	
+		if (callbacks.detached) callbacks.detached.call(implementation);	
+	}	
+},
+
+addHandler: function(handler) {
+	var binding = this;
+	var implementation = binding.implementation;
+	var element = implementation.boundElement;
+	var type = handler.type;
+	var capture = (handler.eventPhase == 1); // Event.CAPTURING_PHASE
+	var fn = function(event) {
+		if (fn.normalize) event = fn.normalize(event);
+		return handleEvent.call(implementation, event, handler);
 	}
+	fn.type = type;
+	fn.capture = capture;
+	var target = (element === document.documentElement && indexOf(redirectedWindowEvents, type) >= 0) ? window : element;
+	DOM.addEventListener(target, type, fn, capture);
+	return fn;
+},
+
+removeListener: function(fn) {
+	var binding = this;
+	var implementation = binding.implementation;
+	var element = implementation.boundElement;
+	var type = fn.type;
+	var capture = fn.capture;
+	var target = (element === document.documentElement && indexOf(redirectedWindowEvents, type) >= 0) ? window : element; // FIXME duplicated from attachBinding
+	DOM.removeEventListener(target, type, fn, capture);	
+},
+
+triggerHandlers: function(event) {
+	var binding = this;
+	if (!binding || !binding.listeners) return;
+	forEach(binding.listeners, function(handler) {
+		if (handler.type !== event.type) return;
+		handler(event); // FIXME isolate
+	});
+}
+
+});
+
+
+function attachBinding(definition, element) {
+	var binding = new Binding(definition);
+	binding.attach(element);
+	nodeManager.setData(element, binding);
 	return binding;
 }
 
@@ -326,18 +376,7 @@ function detachBinding(definition, element) { // FIXME
 	if (!binding) throw 'No binding attached to element';
 	var implementation = binding.implementation;
 	if (isPrototypeOf(definition.implementation, implementation)) throw 'Mismatch between binding and the definition';
-	forEach(sprocket.listeners, function(fn) {
-		var type = fn.type;
-		var capture = fn.capture;
-		var target = (element === document.documentElement && indexOf(redirectedWindowEvents, type) >= 0) ? window : element; // FIXME duplicated from attachBinding
-		DOM.removeEventListener(target, type, fn, capture);
-	});
-	sprocket.listeners.length = 0;
-	var callbacks = definition.callbacks;
-	if (callbacks) {
-		if (callbacks.leftDocument) callbacks.leftDocument.call(implementation);	
-		if (callbacks.detached) callbacks.detached.call(implementation);	
-	}
+	binding.detach(element);
 	nodeManager.setData(element, null);
 	return null;
 }
@@ -351,9 +390,9 @@ getInterface: function(element) {
 });
 
 function handleEvent(event, handler) {
-	var binding = this;
+	var bindingImplementation = this;
 	var target = event.target;
-	var current = binding.boundElement;
+	var current = bindingImplementation.boundElement;
 	var nodeId = current[nodeIdProperty];
 	if (!nodeId) throw "Handler called on non-bound element";
 	if (!matchesEvent(handler, event, true)) return; // NOTE the phase check is below
@@ -392,7 +431,7 @@ function handleEvent(event, handler) {
 		else event.returnValue = false;
 	}
 	if (handler.action) {
-		var result = handler.action.call(binding, event, delegator);
+		var result = handler.action.call(bindingImplementation, event, delegator);
 		if (result === false) event.preventDefault();
 	}
 	return;
@@ -409,11 +448,14 @@ function dispatchEvent(target, event) {
 		event.currentTarget = current;
 		event.eventPhase = (current === target) ? 2 : 3;
 		var binding = Binding.getInterface(current);
+		binding.triggerHandlers(event);
+/*		
 		if (!binding || !binding.listeners) continue;
 		forEach(binding.listeners, function(handler) {
 			if (handler.type !== event.type) return;
 			handler(event); // FIXME isolate
 		});
+*/
 		if (event.propagationStopped) break; 
 	}
 	return !event.defaultPrevented;	
