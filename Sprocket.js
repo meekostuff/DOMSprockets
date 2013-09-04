@@ -292,6 +292,8 @@ var Binding = function(definition) {
 	this.defintion = definition;
 }
 
+var redirectedWindowEvents = words('scroll resize'); // FIXME would be nice not to have this hack
+
 function attachBinding(definition, element) {
 	var binding = new Binding(definition);
 	nodeManager.setData(element, binding);
@@ -307,7 +309,8 @@ function attachBinding(definition, element) {
 		}
 		fn.type = type;
 		fn.capture = capture;
-		DOM.addEventListener(element, type, fn, capture);
+		var target = (element === document.documentElement && indexOf(redirectedWindowEvents, type) >= 0) ? window : element;
+		DOM.addEventListener(target, type, fn, capture);
 		binding.listeners.push(fn);
 	});
 	var callbacks = definition.callbacks;
@@ -326,7 +329,8 @@ function detachBinding(definition, element) { // FIXME
 	forEach(sprocket.listeners, function(fn) {
 		var type = fn.type;
 		var capture = fn.capture;
-		DOM.removeEventListener(element, type, fn, capture);
+		var target = (element === document.documentElement && indexOf(redirectedWindowEvents, type) >= 0) ? window : element; // FIXME duplicated from attachBinding
+		DOM.removeEventListener(target, type, fn, capture);
 	});
 	sprocket.listeners.length = 0;
 	var callbacks = definition.callbacks;
