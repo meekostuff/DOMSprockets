@@ -289,6 +289,13 @@ evolve: function(properties) { // inherit this.prototype, extend with prototype 
 
 
 var redirectedWindowEvents = words('scroll resize'); // FIXME would be nice not to have this hack
+startStopTimeout = 500; // FIXME Config option
+var startStop = words('scroll resize');
+var startStopEvents = {};
+forEach(startStop, function(orgType) {
+	startStopEvents[orgType + 'start'] = { origin: orgType };
+	startStopEvents[orgType + 'stop'] = { origin: orgType };
+});
 
 var Binding = function(definition) {
 	this.definition = definition;
@@ -338,17 +345,37 @@ addHandler: function(handler) {
 	fn.type = type;
 	fn.capture = capture;
 	var target = (element === document.documentElement && indexOf(redirectedWindowEvents, type) >= 0) ? window : element;
-	DOM.addEventListener(target, type, fn, capture);
+	
+	var sim = startStopEvents[type];
+	if (sim) {
+		if (!binding[sim.origin]) (function(element, type) {
+			var binding = this;
+			binding[type] = true;
+			var target = (element === document.documentElement && indexOf(redirectedWindowEvents, type) >= 0) ? window : element;
+			var timerName = type + 'Timeout';
+			function listener(event) {
+				if (!binding[timerName]) binding.triggerHandlers({ type: type + 'start' });
+				else window.clearTimeout(binding[timerName]);
+				binding[timerName] = window.setTimeout(callback, startStopTimeout);
+			}
+			function callback() {
+				delete binding[timerName];
+				binding.triggerHandlers({ type: type + 'stop' });
+			}
+			DOM.addEventListener(target, type, listener, false);
+		}).call(binding, target, sim.origin);
+	}
+	else DOM.addEventListener(target, type, fn, capture);
 	return fn;
 },
 
-removeListener: function(fn) {
+removeListener: function(fn) { // FIXME doesn't handle simulated start/stop events 
 	var binding = this;
 	var implementation = binding.implementation;
 	var element = implementation.boundElement;
 	var type = fn.type;
 	var capture = fn.capture;
-	var target = (element === document.documentElement && indexOf(redirectedWindowEvents, type) >= 0) ? window : element; // FIXME duplicated from attachBinding
+	var target = (element === document.documentElement && indexOf(redirectedWindowEvents, type) >= 0) ? window : element; 
 	DOM.removeEventListener(target, type, fn, capture);	
 },
 
@@ -366,8 +393,8 @@ triggerHandlers: function(event) {
 
 function attachBinding(definition, element) {
 	var binding = new Binding(definition);
-	binding.attach(element);
 	nodeManager.setData(element, binding);
+	binding.attach(element);
 	return binding;
 }
 
@@ -375,7 +402,7 @@ function detachBinding(definition, element) { // FIXME
 	var binding = nodeManager.getData(element);
 	if (!binding) throw 'No binding attached to element';
 	var implementation = binding.implementation;
-	if (isPrototypeOf(definition.implementation, implementation)) throw 'Mismatch between binding and the definition';
+	if (!isPrototypeOf(definition.implementation, implementation)) throw 'Mismatch between binding and the definition';
 	binding.detach(element);
 	nodeManager.setData(element, null);
 	return null;
