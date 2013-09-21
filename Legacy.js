@@ -130,14 +130,14 @@ function parseSelectors(selectorText) {
 				
 			case 3:
 				// Selector grouping
-				test(/^\s*,/, 0, function(m) {
+				if (test(/^\s*,/, 0, function(m) {
 					selector.steps.push(relSelector);
 					selectorList.push(selector);
 
 					relSelector = new RelativeSelector();
 					relSelector.relationType = DESCENDANT_RELATIVE;
 					selector = new Selector();
-				});
+				}) ) break;
 		
 			case 4:
 				// Combinators
@@ -155,7 +155,7 @@ function parseSelectors(selectorText) {
 				break;
 		}
 		
-		if (invert) {
+		if (invert) { // FIXME :not() has several failure modes in this implementation
 			if ( !test(/^\s*\)/, 2, function(m) {
 				currentCondition.negativeCondition = true;
 			}) ) throw "Selector parsing failed in :not() at " + text;
