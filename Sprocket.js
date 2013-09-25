@@ -475,7 +475,7 @@ function dispatchEvent(target, event) {
 		event.currentTarget = current;
 		event.eventPhase = (current === target) ? 2 : 3;
 		var binding = Binding.getInterface(current);
-		binding.triggerHandlers(event);
+		if (binding) binding.triggerHandlers(event);
 /*		
 		if (!binding || !binding.listeners) continue;
 		forEach(binding.listeners, function(handler) {
