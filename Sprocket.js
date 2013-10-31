@@ -154,18 +154,26 @@ function(selector, node) {
 } :
 function(selector, node) { throw "$ not supported"; };
 
-DOM.$id = function(id, node) { // NOTE assumes node really is a Node in a Document
-	var doc;
-	if (!node) doc = document;
-	else if (node.nodeType === 9) doc = node;
-	else doc = node.ownerDocument;
-	var result = doc.getElementById(id);
-	if (!node || node === doc) return result;
-	if (node !== result && DOM.contains(node, result)) return result;
+DOM.$id = function(id, doc) { // NOTE assumes node really is a Node in a Document
+	doc = doc || document;
+	if (!doc.getElementById) throw 'Context for $id must be Document node';
+	var node = doc.getElementById(id);
+	if (!node) return;
+	if (node.id === id) return node;
+	// work around for broken getElementById in old IE
+	var nodeList = doc.getElementsByName(id);
+	for (var n=nodeList.length, i=0; i<n; i++) {
+		node = nodeList[i];
+		if (node.id == id) return node;
+	}
 };
 
 DOM.contains = // WARN `contains()` means "contains", not contains-or-isSameNode
-document.documentElement.contains && function(node, otherNode) { return node !== otherNode && node.contains(otherNode); } ||
+document.documentElement.contains && function(node, otherNode) {
+	if (node === otherNode) return false;
+	if (node.contains) return node.contains(otherNode);
+	if (node.documentElement) return node.documentElement.contains(otherNode); // FIXME won't be valid on pseudo-docs
+} ||
 document.documentElement.compareDocumentPosition && function(node, otherNode) { return !!(node.compareDocumentPosition(otherNode) & 16); } ||
 function(node, otherNode) { throw "contains not supported"; };
 
