@@ -173,6 +173,7 @@ document.documentElement.contains && function(node, otherNode) {
 	if (node === otherNode) return false;
 	if (node.contains) return node.contains(otherNode);
 	if (node.documentElement) return node.documentElement.contains(otherNode); // FIXME won't be valid on pseudo-docs
+	return false;
 } ||
 document.documentElement.compareDocumentPosition && function(node, otherNode) { return !!(node.compareDocumentPosition(otherNode) & 16); } ||
 function(node, otherNode) { throw "contains not supported"; };
