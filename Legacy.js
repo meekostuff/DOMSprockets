@@ -483,7 +483,7 @@ function getElementsBySelector(scope, selectorText, single) { // TODO namespaces
 	nodeList.item = function(index) { return this[index]; }
 	if (!selectorList) return (single) ? null : nodeList;
 	
-	var doc = scope.ownerDocument;
+	var doc = scope.documentElement ? scope : scope.ownerDocument;
 	
 	// First up check for ID selectors which result in instant evaluation
 	var id = selectorList.id;
@@ -638,7 +638,7 @@ function getSelectorTagName(selector) {
 var contains = document.documentElement.contains ?
 function(node, otherNode) {
 	if (node === otherNode) return false;
-	if (node.nodeType === 9) node = node.documentElement;
+	if (node.documentElement) node = node.documentElement;
 	return node.contains(otherNode);
 } :
 function(node, otherNode) { return !!(node.compareDocumentPosition(otherNode) & 16); } // Node.DOCUMENT_POSITION_CONTAINED_BY
