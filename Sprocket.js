@@ -836,8 +836,8 @@ domReady: function() { // FIXME find a way to allow progressive binding applicat
 refresh: function(node) { // NOTE called AFTER node inserted into document
 	if (!node) node = document;
 	if (!started) throw 'domReady() has not been called yet';
-	forEach(cssRules, function(rule) {
-		applySprocketToTree(rule.specification, rule.selector, node);
+	forEach(bindingRules, function(rule) {
+		applyRuleToTree(rule, node);
 	});
 }
 
