@@ -45,7 +45,7 @@ getHidden: function() {
 
 declareProperties(Box.prototype, 'hidden');
 
-var TreeItem = Base.evolve({
+var TreeItem = Box.evolve({
 
 getListElement: function() {
 
