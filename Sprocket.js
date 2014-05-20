@@ -870,6 +870,11 @@ match$: function(selector) { return DOM.match$(this.boundElement, selector); },
 
 contains: function(otherNode) { return DOM.contains(this.boundElement, otherNode); },
 
+attr: function(name, value) {
+	var element = this.boundElement;
+	if (typeof value === 'undefined') return element.getAttribute(name);
+	element.setAttribute(name, value); // TODO DWIM
+},
 hasClass: function(token) {
 	return indexOf(words(this.boundElement.className), token) >= 0;
 },
