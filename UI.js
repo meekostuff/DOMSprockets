@@ -89,7 +89,11 @@ var List = Box.evolve({
 
 getItems: function() {
 	var element = this.boundElement;
-	return element.children;
+	var items = [];
+	for (var node=element.firstChild; node; node=node.nextSibling) {
+		if (node.nodeType === 1) items.push(node);
+	}
+	return items;
 }
 
 });
@@ -101,9 +105,13 @@ var Tree = Box.evolve({
 
 getListElement: TreeItem.prototype.getListElement,
 
+getItems: function() {
+	return List(this.getListElement()).getItems();
+},
+
 getSelectedItem: function() { // FIXME this only searches the top List, not the whole Tree
 
-	var items = List(this.getListElement()).getItems();
+	var items = this.getItems();
 	var n = items.length;
 	for (var i=0; i<n; i++) {
 		var node = items.item(i);
@@ -115,9 +123,8 @@ getSelectedItem: function() { // FIXME this only searches the top List, not the 
 },
 selectItem: function(item) {
 
-	var listEl = this.getListElement();
-	if (item && item.parentNode != listEl) throw "Element doesn't exist in list";
-	var items = List(listEl).getItems();
+	var items = this.getItems();
+	if (indexOf(items, item) < 0) throw "Element doesn't exist in list";
 	var n = items.length;
 	for (var i=0; i<n; i++) {
 		var node = items[i];
