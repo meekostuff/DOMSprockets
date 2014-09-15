@@ -298,7 +298,7 @@ evolve: function(properties) { // inherit this.prototype, extend with prototype 
 
 
 var redirectedWindowEvents = words('scroll resize'); // FIXME would be nice not to have this hack
-startStopTimeout = 500; // FIXME Config option
+var startStopTimeout = 500; // FIXME Config option
 var startStop = words('scroll resize');
 var startStopEvents = {};
 forEach(startStop, function(orgType) {
