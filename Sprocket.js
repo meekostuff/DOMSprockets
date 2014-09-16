@@ -19,7 +19,10 @@ if (!this.Meeko) this.Meeko = {};
 
 (function() {
 
-var defaults = { // NOTE defaults also define the type of the associated config option
+var window = this;
+var document = window.document;
+
+var defaultOptions = { // NOTE defaults also define the type of the associated config option
 	"log_level": "warn"
 }
 
@@ -27,61 +30,88 @@ var vendorPrefix = 'meeko';
 
 /*
  ### Utility functions
+ These might (or might not) be lodash equivalents
  */
 
-var words = function(text) { return text.split(/\s+/); }
+var uc = function(str) { return str ? str.toUpperCase() : ''; }
+var lc = function(str) { return str ? str.toLowerCase() : ''; }
 
-var each = (Object.keys) ? // TODO is this feature detection worth-while?
-function(object, fn) {
-	var keys = Object.keys(object);
-	for (var n=keys.length, i=0; i<n; i++) {
-		var key = keys[i];
-		fn(key, object[key]);
-	}
-} : 
-function(object, fn) {
-	for (slot in object) {
-		if (object.hasOwnProperty && object.hasOwnProperty(slot)) fn(slot, object[slot]);
-	}
-}
+var trim = ''.trim ?
+function(str) { return str.trim(); } :
+function(str) { return str.replace(/^\s+/, '').replace(/\s+$/, ''); }
 
-var extend = (Object.defineProperty && Object.create) ? // IE8 supports defineProperty but only on DOM objects
-function(dest, src) {
-       each(src, function(key) { Object.defineProperty(dest, key, Object.getOwnPropertyDescriptor(src, key)); });
-       return dest;
-} :
-function(dest, src) {
-	each(src, function(key, val) { dest[key] = val; });
-	return dest;
-};
-
-function indexOf(a, item) {
-    for (var n=a.length, i=0; i<n; i++) if (a[i] == item) return i;
-    return -1;
-}
-
-function some(a, fn, context) { 
-	for (var n=a.length, i=0; i<n; i++) {
-		if (fn.call(context, a[i], i, a)) return true; 
-	}
+var contains = function(a, item) {
+	for (var n=a.length, i=0; i<n; i++) if (a[i] === item) return true;
 	return false;
 }
 
-function forEach(a, fn, context) {
+var toArray = function(coll) { var a = []; for (var n=coll.length, i=0; i<n; i++) a[i] = coll[i]; return a; }
+
+var forEach = function(a, fn, context) { for (var n=a.length, i=0; i<n; i++) fn.call(context, a[i], i, a); }
+
+var some = function(a, fn, context) { for (var n=a.length, i=0; i<n; i++) { if (fn.call(context, a[i], i, a)) return true; } return false; }
+
+var every = function(a, fn, context) { for (var n=a.length, i=0; i<n; i++) { if (!fn.call(context, a[i], i, a)) return false; } return true; }
+
+var map = function(a, fn, context) {
+	var output = [];
+	for (var n=a.length, i=0; i<n; i++) output[i] = fn.call(context, a[i], i, a);
+	return output;
+}
+
+var filter = function(a, fn, context) {
+	var output = [];
 	for (var n=a.length, i=0; i<n; i++) {
-		fn.call(context, a[i], i, a);
+		var success = fn.call(context, a[i], i, a);
+		if (success) output.push(a[i]);
+	}
+	return output;
+}
+
+var find = function(a, fn, context) {
+	for (var n=a.length, i=0; i<n; i++) {
+		var item = a[i];
+		var success = fn.call(context, item, i, a);
+		if (success) return item;
 	}
 }
 
-var createObject = Object.create ?
-Object.create :
-function(prototype) {
-	var constructor = function() {};
-	constructor.prototype = prototype;
-	var object = new constructor;
-	if (!object.__proto__) object.__proto__ = prototype;
-	return object;
+var words = function(text) { return text.split(/\s+/); }
+
+var forOwn = function(object, fn, context) {
+	var keys = Object.keys(object);
+	for (i=0, n=keys.length; i<n; i++) {
+		var key = keys[i];
+		fn.call(context, object[key], key, object);
+	}
 }
+
+var isEmpty = function(o) { // NOTE lodash supports arrays and strings too
+	if (o) for (var p in o) if (o.hasOwnProperty(p)) return false;
+	return true;
+}
+
+
+var defaults = function(dest, src) {
+	var keys = Object.keys(src);
+	for (i=0, n=keys.length; i<n; i++) {
+		var key = keys[i];
+		if (typeof dest[key] !== 'undefined') continue;
+		Object.defineProperty(dest, key, Object.getOwnPropertyDescriptor(src, key));
+	}
+	return dest;
+}
+
+var assign = function(dest, src) {
+	var keys = Object.keys(src);
+	for (i=0, n=keys.length; i<n; i++) {
+		var key = keys[i];
+		Object.defineProperty(dest, key, Object.getOwnPropertyDescriptor(src, key));
+	}
+	return dest;
+}
+
+var createObject = Object.create;
 
 var getPrototypeOf = Object.getPrototypeOf ?
 Object.getPrototypeOf :
@@ -95,10 +125,15 @@ function(prototype, object) {
 };
 
 
-if (!Meeko.stuff) Meeko.stuff = {}
-extend(Meeko.stuff, {
-	indexOf: indexOf, some: some, forEach: forEach, each: each, extend: extend, words: words
+
+var _ = Meeko.stuff = {};
+defaults(_, {
+	uc: uc, lc: lc, trim: trim, words: words, // string
+	contains: contains, toArray: toArray, forEach: forEach, some: some, every: every, map: map, filter: filter, find: find, // array
+	forOwn: forOwn, isEmpty: isEmpty, defaults: defaults, assign: assign, extend: assign, // object
+	create: createObject, getPrototypeOf: getPrototypeOf, isPrototypeOf: isPrototypeOf
 });
+
 
 /*
  ### DOM utility functions
@@ -131,7 +166,7 @@ DOM.cmpSpecificty = function(s1, s2) { // WARN no sanity checks
 }
 
 DOM.match$ = function(element, selector) { throw "match$ not supported"; } // NOTE fallback
-some(words('moz webkit ms o'), function(prefix) {
+_.some(words('moz webkit ms o'), function(prefix) {
 	var method = prefix + "MatchesSelector";
 	if (document.documentElement[method]) DOM.match$ = function(element, selector) {
 		return element[method](selector);
@@ -143,7 +178,7 @@ some(words('moz webkit ms o'), function(prefix) {
 DOM.$$ = document.querySelectorAll ?
 function(selector, node) {
 	if (!node) node = document;
-	return [].slice.call(node.querySelectorAll(selector), 0);
+	return _.toArray(node.querySelectorAll(selector));
 } :
 function(selector, node) { throw "$$ not supported"; };
 
@@ -186,11 +221,15 @@ DOM.removeEventListener =
 document.removeEventListener && function(node, type, listener, capture) { return node.removeEventListener(type, listener, capture); } ||
 function(node, type, listener, capture) { throw "removeEventListener not supported"; };
 
+
+/*
+ ### Logger (minimal implementation - can be over-ridden)
+ */
 var logger = Meeko.logger || (Meeko.logger = new function() {
 
-var levels = this.levels = words("none error warn info debug");
+var levels = this.levels = _.words("none error warn info debug");
 
-forEach(levels, function(name, num) {
+_.forEach(levels, function(name, num) {
 	
 levels[name] = num;
 this[name] = !window.console && function() {} ||
@@ -199,7 +238,7 @@ this[name] = !window.console && function() {} ||
 
 }, this);
 
-this.LOG_LEVEL = levels[defaults['log_level']]; // DEFAULT
+this.LOG_LEVEL = levels[defaultOptions['log_level']]; // DEFAULT
 
 }); // end logger defn
 
@@ -258,14 +297,14 @@ var SprocketDefinition = function(prototype) {
 		return constructor.cast(element);
 	}
 	constructor.prototype = prototype;
-	extend(constructor, SprocketDefinition.prototype);
+	_.assign(constructor, SprocketDefinition.prototype);
 	return constructor;
 }
 
-extend(SprocketDefinition.prototype, {
+_.assign(SprocketDefinition.prototype, {
 
 bind: function(element) {
-	var implementation = createObject(this.prototype);
+	var implementation = _.create(this.prototype);
 	implementation.boundElement = element;
 	return implementation;
 },
@@ -276,20 +315,20 @@ cast: function(element) {
 		return binding.implementation;
 	}
 	var implementation;
-	some(sprocketRules, function(rule) {
+	_.some(sprocketRules, function(rule) {
 		var prototype = rule.definition.implementation;
 		if (this.prototype !== prototype && !isPrototypeOf(this.prototype, prototype)) return false;
 		if (!DOM.match$(element, rule.selector)) return false;
-		implementation = createObject(prototype);
+		implementation = _.create(prototype);
 		implementation.boundElement = element;
 		return true;
 	}, this);
 	if (!implementation) throw "No compatible sprocket declared";
 	return implementation;
 },
-evolve: function(properties) { // inherit this.prototype, extend with prototype and copy this.handlers and handlers
-	var prototype = createObject(this.prototype); 
-	if (properties) extend(prototype, properties);
+evolve: function(properties) { // inherit this.prototype, extend with properties
+	var prototype = _.create(this.prototype); 
+	if (properties) _.assign(prototype, properties);
 	var sub = new SprocketDefinition(prototype);
 	return sub;
 }
@@ -301,7 +340,7 @@ var redirectedWindowEvents = words('scroll resize'); // FIXME would be nice not 
 var startStopTimeout = 500; // FIXME Config option
 var startStop = words('scroll resize');
 var startStopEvents = {};
-forEach(startStop, function(orgType) {
+_.forEach(startStop, function(orgType) {
 	startStopEvents[orgType + 'start'] = { origin: orgType };
 	startStopEvents[orgType + 'stop'] = { origin: orgType };
 });
@@ -310,15 +349,15 @@ var Binding = function(definition) {
 	this.definition = definition;
 }
 
-extend(Binding.prototype, {
+_.assign(Binding.prototype, {
 
 attach: function(element) {
 	var binding = this;
 	var definition = binding.definition;
-	var implementation = binding.implementation = createObject(definition.implementation);
+	var implementation = binding.implementation = _.create(definition.implementation);
 	implementation.boundElement = element;
 	binding.listeners = []; // FIXME should be in binding constructor??
-	forEach(definition.handlers, function(handler) {
+	_.forEach(definition.handlers, function(handler) {
 		var listener = binding.addHandler(handler);
 		binding.listeners.push(listener);
 	});
@@ -332,7 +371,7 @@ attach: function(element) {
 detach: function(element) {
 	var binding = this;
 	var definition = binding.definition;
-	forEach(binding.listeners, binding.removeListener, binding);
+	_.forEach(binding.listeners, binding.removeListener, binding);
 	binding.listeners.length = 0;
 	var callbacks = definition.callbacks;
 	if (callbacks) {
@@ -353,14 +392,14 @@ addHandler: function(handler) {
 	}
 	fn.type = type;
 	fn.capture = capture;
-	var target = (element === document.documentElement && indexOf(redirectedWindowEvents, type) >= 0) ? window : element;
+	var target = (element === document.documentElement && _.contains(redirectedWindowEvents, type)) ? window : element;
 	
 	var sim = startStopEvents[type];
 	if (sim) {
 		if (!binding[sim.origin]) (function(element, type) {
 			var binding = this;
 			binding[type] = true;
-			var target = (element === document.documentElement && indexOf(redirectedWindowEvents, type) >= 0) ? window : element;
+			var target = (element === document.documentElement && _.contains(redirectedWindowEvents, type)) ? window : element;
 			var timerName = type + 'Timeout';
 			function listener(event) {
 				if (!binding[timerName]) binding.triggerHandlers({ type: type + 'start' });
@@ -384,14 +423,14 @@ removeListener: function(fn) { // FIXME doesn't handle simulated start/stop even
 	var element = implementation.boundElement;
 	var type = fn.type;
 	var capture = fn.capture;
-	var target = (element === document.documentElement && indexOf(redirectedWindowEvents, type) >= 0) ? window : element; 
+	var target = (element === document.documentElement && _.contains(redirectedWindowEvents, type)) ? window : element; 
 	DOM.removeEventListener(target, type, fn, capture);	
 },
 
 triggerHandlers: function(event) {
 	var binding = this;
 	if (!binding || !binding.listeners) return;
-	forEach(binding.listeners, function(handler) {
+	_.forEach(binding.listeners, function(handler) {
 		if (handler.type !== event.type) return;
 		handler(event); // FIXME isolate
 	});
@@ -417,7 +456,7 @@ function detachBinding(definition, element) { // FIXME
 	return null;
 }
 
-extend(Binding, {
+_.assign(Binding, {
 
 getInterface: function(element) {
 	if (nodeManager.hasData(element)) return nodeManager.getData(element);
@@ -487,7 +526,7 @@ function dispatchEvent(target, event) {
 		if (binding) binding.triggerHandlers(event);
 /*		
 		if (!binding || !binding.listeners) continue;
-		forEach(binding.listeners, function(handler) {
+		_.forEach(binding.listeners, function(handler) {
 			if (handler.type !== event.type) return;
 			handler(event); // FIXME isolate
 		});
@@ -627,7 +666,7 @@ registerModule('UIEvents', 'load unload abort error select change submit reset r
 function registerModule(modName, evTypes) {
 	var mod = {};
 	EventModules[modName] = mod;
-	forEach(words(evTypes), registerEvent, mod);
+	_.forEach(words(evTypes), registerEvent, mod);
 }
 function registerEvent(evType) {
 	EventModules.AllEvents[evType] = true;
@@ -651,13 +690,13 @@ var matchesEvent = function(handler, event, ignorePhase) {
 	// MouseEvents
 	if (evType in xblMouseEvents) { // FIXME needs testing. Bound to be cross-platform issues still
 		if (handler.button && handler.button.length) {
-			if (handler.button.indexOf(event.button) == -1) return false;
+			if (!_.contains(handler.button, event.button) == -1) return false;
 		}
 		if (handler.clickCount && handler.clickCount.length) { 
 			var count = 1;
 			// if ("dblclick" == event.type) count = 2;
 			if ("click" == event.type) count = (event.detail) ? event.detail : 1;
-			if (handler.clickCount.indexOf(count) == -1) return false;
+			if (!_.contains(handler.clickCount, count)) return false;
 		}
 		if (handler.modifiers) {
 			if (!modifiersMatchEvent(handler.modifiers, event)) return false;
@@ -764,7 +803,7 @@ function BindingRule(selector, bindingDefn) {
 	this.definition = bindingDefn;
 }
 
-extend(BindingRule.prototype, {
+_.assign(BindingRule.prototype, {
 
 deregister: function() { // FIXME
 	
@@ -787,13 +826,13 @@ function applyRuleToElement(rule, element) { // FIXME compare current and new CS
 function applyRuleToTree(rule, root) {
 	if (!root || root === document) root = document.documentElement;
 	if (DOM.match$(root, rule.selector)) applyRuleToElement(rule, root);
-	forEach(DOM.$$(rule.selector, root), function(el) { applyRuleToElement(rule, el); });
+	_.forEach(DOM.$$(rule.selector, root), function(el) { applyRuleToElement(rule, el); });
 }
 
 function applyEnteringRules() {
 	var rule; while (rule = enteringRules.shift()) {
 		var defn = rule.definition;
-		if (defn.handlers && defn.handlers.length || !isEmptyObject(defn.callbacks)) {
+		if (defn.handlers && defn.handlers.length || !_.isEmpty(defn.callbacks)) {
 			applyRuleToTree(rule /* , document */);
 			bindingRules.unshift(rule); // TODO splice in specificity order
 		}
@@ -801,12 +840,7 @@ function applyEnteringRules() {
 	}
 }
 
-function isEmptyObject(o) {
-	if (o) for (var p in o) if (o.hasOwnProperty(p)) return false;
-	return true;
-}
-
-extend(sprockets, {
+_.assign(sprockets, {
 
 register: function(selector, sprocket, extras) {
 	var alreadyTriggered = (enteringRules.length > 0);
@@ -825,7 +859,7 @@ register: function(selector, sprocket, extras) {
 
 var started = false;
 
-extend(sprockets, {
+_.assign(sprockets, {
 
 domReady: function() { // FIXME find a way to allow progressive binding application
 	if (started) throw 'domReady() has already been called';
@@ -836,7 +870,7 @@ domReady: function() { // FIXME find a way to allow progressive binding applicat
 refresh: function(node) { // NOTE called AFTER node inserted into document
 	if (!node) node = document;
 	if (!started) throw 'domReady() has not been called yet';
-	forEach(bindingRules, function(rule) {
+	_.forEach(bindingRules, function(rule) {
 		applyRuleToTree(rule, node);
 	});
 }
@@ -856,12 +890,12 @@ return sprockets;
 /* Extend BaseSprocket.prototype */
 (function() {
 
-var _ = Meeko.stuff, extend = _.extend, forEach = _.forEach, words = _.words, indexOf = _.indexOf;
+var _ = Meeko.stuff;
 var DOM = Meeko.DOM;
 var sprockets = Meeko.sprockets, basePrototype = sprockets.Base.prototype;
 
 
-extend(basePrototype, {
+_.assign(basePrototype, {
 
 $: function(selector) { return DOM.$(selector, this.boundElement); },
 $id: function(id) { return DOM.$id(selector, this.boundElement); },
@@ -876,7 +910,7 @@ attr: function(name, value) {
 	element.setAttribute(name, value); // TODO DWIM
 },
 hasClass: function(token) {
-	return indexOf(words(this.boundElement.className), token) >= 0;
+	return _.contains(_.words(this.boundElement.className), token);
 },
 addClass: function(token) {
 	if (this.hasClass(token)) return this;
@@ -893,7 +927,7 @@ removeClass: function(token) {
 	var text = element.className;
 	var prev = text.split(/\s+/);
 	var next = [];
-	forEach(prev, function(str) { if (str !== token) next.push(str); });
+	_.forEach(prev, function(str) { if (str !== token) next.push(str); });
 	if (prev.length == next.length) return this;
 	element.className = next.join(" ");
 	return this;

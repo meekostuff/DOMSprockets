@@ -7,13 +7,13 @@
 
 Meeko.sprockets.UI = (function() {
 
-var _ = Meeko.stuff, extend = _.extend, forEach = _.forEach, indexOf = _.indexOf;
+var _ = Meeko.stuff;
 var DOM = Meeko.DOM, $id = DOM.$id, $ = DOM.$, $$ = DOM.$$;
 var sprockets = Meeko.sprockets, Base = sprockets.Base;
 
 var declareProperties = (Object.defineProperty && Object.create) ? // IE8 supports defineProperty but only on DOM objects
 function(obj, props) {
-	forEach(props.split(/\s+/), function(prop) {
+	_.forEach(_.words(props), function(prop) {
 		var Prop = ucFirst(prop);
 		var getter = 'get' + Prop, setter = 'set' + Prop;
 		Object.defineProperty(obj, prop, {
@@ -51,7 +51,7 @@ getListElement: function() {
 
 	var element = this.boundElement;
 	var children = element.children;
-	for (var node, i=0; node=children.item(i); i++) {
+	for (var node, i=0; node=children[i]; i++) {
 		switch (node.tagName.toLowerCase()) {
 			case "ol": case "ul": case "select": return node;	
 		}
@@ -114,7 +114,7 @@ getSelectedItem: function() { // FIXME this only searches the top List, not the 
 	var items = this.getItems();
 	var n = items.length;
 	for (var i=0; i<n; i++) {
-		var node = items.item(i);
+		var node = items[i];
 		var binding = TreeItem(node);
 		if (binding.getSelected()) return node;
 	}
@@ -124,7 +124,7 @@ getSelectedItem: function() { // FIXME this only searches the top List, not the 
 selectItem: function(item) {
 
 	var items = this.getItems();
-	if (indexOf(items, item) < 0) throw "Element doesn't exist in list";
+	if (!_.contains(items, item)) throw "Element doesn't exist in list";
 	var n = items.length;
 	for (var i=0; i<n; i++) {
 		var node = items[i];
@@ -234,8 +234,8 @@ setView: function(item) {
 	
 	var element = this.boundElement;
 	var panels = this.getPanels();
-	if (indexOf(panels, item) < 0) throw "setView failed: item is not child of SwitchBox";
-	forEach(panels, function(child) {
+	if (!_.contains(panels, item)) throw "setView failed: item is not child of SwitchBox";
+	_.forEach(panels, function(child) {
 		var binding = Panel(child);
 		if (item == child) binding.setHidden(false);
 		else binding.setHidden(true);
@@ -246,7 +246,7 @@ setViewByIndex: function(index) {
 
 	var panels = this.getPanels();
 	if (index >= panels.length) throw "setViewByIndex failed: index is not valid for SwitchBox";
-	forEach(panels, function(child, i) {
+	_.forEach(panels, function(child, i) {
 		var binding = Panel(child);
 		if (index == i) binding.setHidden(false);
 		else binding.setHidden(true);
@@ -345,7 +345,7 @@ var WF2FormElement = Base.evolve({
 encode: function() {
 
 var a = [];
-forEach(this.elements, function(el) {
+_.forEach(this.elements, function(el) {
 	if (el.name) a.push(el.name + "=" + encodeURIComponent(el.value));
 });
 var txt = a.join('&');
