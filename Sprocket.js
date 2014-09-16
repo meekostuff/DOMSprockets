@@ -203,14 +203,14 @@ DOM.$id = function(id, doc) { // NOTE assumes node really is a Node in a Documen
 	}
 };
 
-DOM.contains = // WARN `contains()` means "contains", not contains-or-isSameNode
+DOM.contains = // WARN `contains()` means contains-or-isSameNode
 document.documentElement.contains && function(node, otherNode) {
-	if (node === otherNode) return false;
+	if (node === otherNode) return true;
 	if (node.contains) return node.contains(otherNode);
 	if (node.documentElement) return node.documentElement.contains(otherNode); // FIXME won't be valid on pseudo-docs
 	return false;
 } ||
-document.documentElement.compareDocumentPosition && function(node, otherNode) { return !!(node.compareDocumentPosition(otherNode) & 16); } ||
+document.documentElement.compareDocumentPosition && function(node, otherNode) { return (node === otherNode) || !!(node.compareDocumentPosition(otherNode) & 16); } ||
 function(node, otherNode) { throw "contains not supported"; };
 
 DOM.addEventListener =

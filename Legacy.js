@@ -490,7 +490,7 @@ function getElementsBySelector(scope, selectorText, single) { // TODO namespaces
 	if (id == null) id = getId(selectorList); 
 	if (id) { // correlates to a single selector in the list
 		var el = doc.getElementById(id);
-		if (contains(scope, el)) {
+		if (scope !== el && contains(scope, el)) {
 			if (selectorList[0].test(el)) return (single) ? el : [ el ];
 			else return (single) ? null : nodeList;
 		}
@@ -504,7 +504,7 @@ function getElementsBySelector(scope, selectorText, single) { // TODO namespaces
 	if (ancestorId) {
 		var el = doc.getElementById(ancestorId);
 		if (!el) return (single) ? null : nodeList;
-		if (contains(scope, el)) scope = el; // FIXME IE
+		if (scope !== el && contains(scope, el)) scope = el; // FIXME IE
 	}
 	
 	// check if there is one className we are searching for
@@ -637,11 +637,11 @@ function getSelectorTagName(selector) {
 
 var contains = document.documentElement.contains ?
 function(node, otherNode) {
-	if (node === otherNode) return false;
+	if (node === otherNode) return true;
 	if (node.documentElement) node = node.documentElement;
 	return node.contains(otherNode);
 } :
-function(node, otherNode) { return !!(node.compareDocumentPosition(otherNode) & 16); } // Node.DOCUMENT_POSITION_CONTAINED_BY
+function(node, otherNode) { return node === otherNode || !!(node.compareDocumentPosition(otherNode) & 16); } // Node.DOCUMENT_POSITION_CONTAINED_BY
 
 
 var DOM = Meeko.DOM;
