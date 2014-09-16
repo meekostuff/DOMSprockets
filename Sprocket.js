@@ -33,6 +33,8 @@ var vendorPrefix = 'meeko';
  These might (or might not) be lodash equivalents
  */
 
+if (!Meeko.stuff) Meeko.stuff = (function() {
+
 var uc = function(str) { return str ? str.toUpperCase() : ''; }
 var lc = function(str) { return str ? str.toLowerCase() : ''; }
 
@@ -113,36 +115,25 @@ var assign = function(dest, src) {
 
 var createObject = Object.create;
 
-var getPrototypeOf = Object.getPrototypeOf ?
-Object.getPrototypeOf :
-function(object) { return object.__proto__; };
-
-var isPrototypeOf = {}.isPrototypeOf ?
-function(prototype, object) { return prototype.isPrototypeOf(object); } :
-function(prototype, object) {
-	for (var current=object.__proto__; current; current=current.__proto__) if (current === prototype) return true;
-	return false;
-};
-
-
-
-var _ = Meeko.stuff = {};
-defaults(_, {
+return {
 	uc: uc, lc: lc, trim: trim, words: words, // string
 	contains: contains, toArray: toArray, forEach: forEach, some: some, every: every, map: map, filter: filter, find: find, // array
 	forOwn: forOwn, isEmpty: isEmpty, defaults: defaults, assign: assign, extend: assign, // object
-	create: createObject, getPrototypeOf: getPrototypeOf, isPrototypeOf: isPrototypeOf
-});
+	create: createObject
+}
 
+})();
+
+var _ = _ || Meeko.stuff;
 
 /*
  ### DOM utility functions
  */
 
-var DOM = Meeko.DOM || (Meeko.DOM = {});
+if (!Meeko.DOM) Meeko.DOM = (function() {
 
 // WARN getSpecificity is for selectors, **but not** for selector-chains
-DOM.getSpecificity = function(selector) { // NOTE this fn is small but extremely naive (and wrongly counts attrs and pseudo-attrs with element-type)
+var getSpecificity = function(selector) { // NOTE this fn is small but extremely naive (and wrongly counts attrs and pseudo-attrs with element-type)
 	if (selector.indexOf(',') >= 0) throw "getSpecificity does not support selectors that contain COMMA (,)";		
 	var idCount = selector.split('#').length - 1;
 	var classCount = selector.split('.').length - 1;
@@ -155,7 +146,7 @@ DOM.getSpecificity = function(selector) { // NOTE this fn is small but extremely
 	return [idCount, classCount, typeCount];
 }
 
-DOM.cmpSpecificty = function(s1, s2) { // WARN no sanity checks
+var cmpSpecificty = function(s1, s2) { // WARN no sanity checks
 	var c1 = DOM.getSpecificity(s1), c2 = DOM.getSpecificity(c2);
 	for (var n=c1.length, i=0; i<n; i++) {
 		var a = c1[i], b = c2[i];
@@ -165,31 +156,31 @@ DOM.cmpSpecificty = function(s1, s2) { // WARN no sanity checks
 	return 0;
 }
 
-DOM.match$ = function(element, selector) { throw "match$ not supported"; } // NOTE fallback
-_.some(words('moz webkit ms o'), function(prefix) {
+var match$ = function(element, selector) { throw "match$ not supported"; } // NOTE fallback
+_.some(_.words('moz webkit ms o'), function(prefix) {
 	var method = prefix + "MatchesSelector";
-	if (document.documentElement[method]) DOM.match$ = function(element, selector) {
+	if (document.documentElement[method]) match$ = function(element, selector) {
 		return element[method](selector);
 	};
 	else return false;
 	return true;
 });
 
-DOM.$$ = document.querySelectorAll ?
+var $$ = document.querySelectorAll ?
 function(selector, node) {
 	if (!node) node = document;
 	return _.toArray(node.querySelectorAll(selector));
 } :
 function(selector, node) { throw "$$ not supported"; };
 
-DOM.$ = document.querySelector ?
+var $ = document.querySelector ?
 function(selector, node) {
 	if (!node) node = document;
 	return node.querySelector(selector);
 } :
 function(selector, node) { throw "$ not supported"; };
 
-DOM.$id = function(id, doc) { // NOTE assumes node really is a Node in a Document
+var $id = function(id, doc) { // NOTE assumes node really is a Node in a Document
 	doc = doc || document;
 	if (!doc.getElementById) throw 'Context for $id must be Document node';
 	var node = doc.getElementById(id);
@@ -203,7 +194,7 @@ DOM.$id = function(id, doc) { // NOTE assumes node really is a Node in a Documen
 	}
 };
 
-DOM.contains = // WARN `contains()` means contains-or-isSameNode
+var contains = // WARN `contains()` means contains-or-isSameNode
 document.documentElement.contains && function(node, otherNode) {
 	if (node === otherNode) return true;
 	if (node.contains) return node.contains(otherNode);
@@ -213,19 +204,29 @@ document.documentElement.contains && function(node, otherNode) {
 document.documentElement.compareDocumentPosition && function(node, otherNode) { return (node === otherNode) || !!(node.compareDocumentPosition(otherNode) & 16); } ||
 function(node, otherNode) { throw "contains not supported"; };
 
-DOM.addEventListener =
+var addEventListener =
 document.addEventListener && function(node, type, listener, capture) { return node.addEventListener(type, listener, capture); } ||
 function(node, type, listener, capture) { throw "addEventListener not supported"; };
 
-DOM.removeEventListener =
+var removeEventListener =
 document.removeEventListener && function(node, type, listener, capture) { return node.removeEventListener(type, listener, capture); } ||
 function(node, type, listener, capture) { throw "removeEventListener not supported"; };
 
+return {
+	getSpecificity: getSpecificity, cmpSpecificty: cmpSpecificty,
+	$id: $id, $: $, $$: $$, match$: match$,
+	contains: contains,
+	addEventListener: addEventListener, removeEventListener: removeEventListener
+}
+
+})();
+
+var DOM = DOM || Meeko.DOM;
 
 /*
  ### Logger (minimal implementation - can be over-ridden)
  */
-var logger = Meeko.logger || (Meeko.logger = new function() {
+if (!Meeko.logger) Meeko.logger = (function() {
 
 var levels = this.levels = _.words("none error warn info debug");
 
@@ -240,7 +241,9 @@ this[name] = !window.console && function() {} ||
 
 this.LOG_LEVEL = levels[defaultOptions['log_level']]; // DEFAULT
 
-}); // end logger defn
+})(); // end logger defn
+
+var logger = logger || Meeko.logger;
 
 
 this.Meeko.sprockets = (function() {
@@ -336,9 +339,9 @@ evolve: function(properties) { // inherit this.prototype, extend with properties
 });
 
 
-var redirectedWindowEvents = words('scroll resize'); // FIXME would be nice not to have this hack
+var redirectedWindowEvents = _.words('scroll resize'); // FIXME would be nice not to have this hack
 var startStopTimeout = 500; // FIXME Config option
-var startStop = words('scroll resize');
+var startStop = _.words('scroll resize');
 var startStopEvents = {};
 _.forEach(startStop, function(orgType) {
 	startStopEvents[orgType + 'start'] = { origin: orgType };
@@ -666,7 +669,7 @@ registerModule('UIEvents', 'load unload abort error select change submit reset r
 function registerModule(modName, evTypes) {
 	var mod = {};
 	EventModules[modName] = mod;
-	_.forEach(words(evTypes), registerEvent, mod);
+	_.forEach(_.words(evTypes), registerEvent, mod);
 }
 function registerEvent(evType) {
 	EventModules.AllEvents[evType] = true;
@@ -789,6 +792,13 @@ var modifiersMatchEvent = function(modifiers, event) {
 	}
 	return true;
 }
+
+var isPrototypeOf = {}.isPrototypeOf ?
+function(prototype, object) { return prototype.isPrototypeOf(object); } :
+function(prototype, object) {
+	for (var current=object.__proto__; current; current=current.__proto__) if (current === prototype) return true;
+	return false;
+};
 
 /* CSS Rules */
 
@@ -954,4 +964,4 @@ trigger: function(event) {
 });
 
 
-})();
+})(window);
