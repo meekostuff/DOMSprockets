@@ -25,7 +25,6 @@ Browser Compatibility
 ---------------------
 
 DOMSprockets is compatible with most current browsers, including IE9+.
-A legacy shim is available for some older browsers, including IE6/7/8.
 
 
 Installation
