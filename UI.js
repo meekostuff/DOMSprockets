@@ -15,10 +15,15 @@ var declareProperties = (Object.defineProperty && Object.create) ? // IE8 suppor
 function(obj, props) {
 	_.forEach(_.words(props), function(prop) {
 		var Prop = ucFirst(prop);
-		var getter = 'get' + Prop, setter = 'set' + Prop;
+		var getterName = 'get' + Prop;
+		var getter = obj[getterName];
+		if (typeof getter !== 'function') getter = function() { throw 'Attempt to read write-only property'; }
+		var setterName = 'set' + Prop;
+		var setter = obj[setterName];
+		if (typeof setter !== 'function') setter = function() { throw 'Attempt to write read-only property'; }
 		Object.defineProperty(obj, prop, {
-			get: obj[getter],
-			set: obj[setter]
+			get: getter,
+			set: setter
 		});
 	});
 } :
@@ -98,8 +103,7 @@ getItems: function() {
 
 });
 
-declareProperties(List.prototype, 'hidden');
-
+declareProperties(List.prototype, 'items');
 
 var Tree = Box.evolve({
 
@@ -143,7 +147,7 @@ signalChange: function() {
 
 });
 
-declareProperties(Tree.prototype, 'listElement selectedIndex selectedItem');
+declareProperties(Tree.prototype, 'listElement selectedItem');
 
 
 var NavTreeItem = TreeItem.evolve({
@@ -198,6 +202,8 @@ setView: function(item) {
 
 });
 
+declareProperties(ScrollBox.prototype, 'view');
+
 
 var ScrollBoxWithResize = Box.evolve({
 	
@@ -221,6 +227,9 @@ initialize: function() {
 }
 
 });
+
+
+declareProperties(ScrollBoxWithResize.prototype, 'view');
 
 
 var Panel = Box;
@@ -259,6 +268,8 @@ initialize: function() {
 }
 
 });
+
+declareProperties(SwitchBox.prototype, 'view');
 
 
 var Table = Box.evolve({ // FIXME uses className. This shouldn't be hard-wired
