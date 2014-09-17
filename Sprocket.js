@@ -233,7 +233,7 @@ function absolutizeSelector(selector, scope) {
 	var id = scope.id;
 	if (!id) id = scope.id = uniqueId(scope);
 	var scopePrefix = '#' + id + ' ';
-	var selectorPaths = selector.split(',');
+	var selectorPaths = selector.split(/,(?![^(]*\))/); // COMMA (,) that is not inside BRACKETS. Technically: not followed by a RHB ')' unless first followed by LHB '(' 
 	return scopePrefix + selectorPaths.join(', ' + scopePrefix);
 }
 
