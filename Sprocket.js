@@ -156,43 +156,110 @@ var cmpSpecificty = function(s1, s2) { // WARN no sanity checks
 	return 0;
 }
 
-var match$ = function(element, selector) { throw "match$ not supported"; } // NOTE fallback
+// TODO all this node manager stuff assumes that nodes are only released on unload
+// This might need revising
+
+var nodeIdProperty = vendorPrefix + 'ID';
+var nodeCount = 0; // used to generated node IDs
+var nodeTable = []; // list of tagged nodes
+var nodeStorage = {}; // hash of storage for nodes, keyed off `nodeIdProperty`
+
+var uniqueId = function(node) {
+	var nodeId = node[nodeIdProperty];
+	if (nodeId) return nodeId;
+	nodeId = '__' + vendorPrefix + '_' + nodeCount++;
+	node[nodeIdProperty] = new String(nodeId); // NOTE so that node cloning in IE doesn't copy the node ID property
+	nodeTable.push(node);
+	return nodeId;
+}
+
+var setData = function(node, data) { // FIXME assert node is element
+	var nodeId = uniqueId(node);
+	nodeStorage[nodeId] = data;
+}
+
+var hasData = function(node) {
+	var nodeId = node[nodeIdProperty];
+	return !nodeId ? false : nodeId in nodeStorage;
+}
+
+var getData = function(node, key) { // TODO should this throw if no data?
+	var nodeId = node[nodeIdProperty];
+	if (!nodeId) return;
+	return nodeStorage[nodeId];
+}
+
+var releaseNodes = function(callback, context) { // FIXME this is never called
+	for (var i=nodeTable.length-1; i>=0; i--) {
+		var node = nodeTable[i];
+		delete nodeTable[i];
+		if (callback) callback.call(context, node);
+		var nodeId = node[nodeIdProperty];
+		delete nodeStorage[nodeId];
+	}
+	nodeTable.length = 0;
+}
+
+
+var matchesSelector;
 _.some(_.words('moz webkit ms o'), function(prefix) {
 	var method = prefix + "MatchesSelector";
-	if (document.documentElement[method]) match$ = function(element, selector) {
-		return element[method](selector);
-	};
-	else return false;
-	return true;
+	if (document.documentElement[method]) {
+		matchesSelector = function(element, selector) { return element[method](selector); }
+		return true;
+	}
+	return false;
 });
 
+
+var matches = matchesSelector ?
+function(element, selector, scope) {
+	if (scope) selector = absolutizeSelector(selector, scope);
+	return matchesSelector(element, selector);
+} :
+function() { throw "matches not supported"; } // NOTE fallback
+
+var closest = matchesSelector ?
+function(element, selector, scope) {
+	if (scope) selector = absolutizeSelector(selector, scope);
+	for (var el=element; el && el!==scope; el=el.parentNode) {
+		if (matchesSelector(el, selector)) return el;
+	}
+	return;
+} :
+function() { throw "closest not supported"; } // NOTE fallback
+
+function absolutizeSelector(selector, scope) {
+	var id = scope.id;
+	if (!id) id = scope.id = uniqueId(scope);
+	var scopePrefix = '#' + id + ' ';
+	var selectorPaths = selector.split(',');
+	return scopePrefix + selectorPaths.join(', ' + scopePrefix);
+}
+
+var $id = function(id, doc) {
+	if (!id) return;
+	if (!doc) doc = document;
+	if (!doc.getElementById) throw 'Context for $id must be a Document node';
+	return doc.getElementById(id);
+	// WARN would need a work around for broken getElementById in IE <= 7
+}
+
 var $$ = document.querySelectorAll ?
-function(selector, node) {
+function(selector, node, isRelative) {
 	if (!node) node = document;
+	if (isRelative) selector = absolutizeSelector(selector, node);
 	return _.toArray(node.querySelectorAll(selector));
 } :
-function(selector, node) { throw "$$ not supported"; };
+function() { throw "$$ not supported"; };
 
 var $ = document.querySelector ?
-function(selector, node) {
+function(selector, node, isRelative) {
 	if (!node) node = document;
+	if (isRelative) selector = absolutizeSelector(selector, node);
 	return node.querySelector(selector);
 } :
-function(selector, node) { throw "$ not supported"; };
-
-var $id = function(id, doc) { // NOTE assumes node really is a Node in a Document
-	doc = doc || document;
-	if (!doc.getElementById) throw 'Context for $id must be Document node';
-	var node = doc.getElementById(id);
-	if (!node) return;
-	if (node.id === id) return node;
-	// work around for broken getElementById in old IE
-	var nodeList = doc.getElementsByName(id);
-	for (var n=nodeList.length, i=0; i<n; i++) {
-		node = nodeList[i];
-		if (node.id == id) return node;
-	}
-};
+function() { throw "$ not supported"; };
 
 var contains = // WARN `contains()` means contains-or-isSameNode
 document.documentElement.contains && function(node, otherNode) {
@@ -214,7 +281,8 @@ function(node, type, listener, capture) { throw "removeEventListener not support
 
 return {
 	getSpecificity: getSpecificity, cmpSpecificty: cmpSpecificty,
-	$id: $id, $: $, $$: $$, match$: match$,
+	uniqueId: uniqueId, setData: setData, getData: getData, hasData: hasData, // FIXME releaseNodes
+	$id: $id, $: $, $$: $$, matches: matches, closest: closest,
 	contains: contains,
 	addEventListener: addEventListener, removeEventListener: removeEventListener
 }
@@ -250,48 +318,6 @@ this.Meeko.sprockets = (function() {
 
 var sprockets = {};
 
-// TODO all this node manager stuff assumes that nodes are only released on unload
-// This might need revising
-
-var nodeIdProperty = vendorPrefix + 'ID';
-var nodeCount = 0; // used to generated node IDs
-var nodeTable = []; // list of nodes being managed
-var nodeStorage = {}; // hash of storage for nodes, keyed off `nodeIdProperty`
-
-var nodeManager = {
-
-setData: function(node, data) { // FIXME assert node is element
-	var nodeId = node[nodeIdProperty];
-	if (!nodeId) {
-		nodeId = '__' + vendorPrefix + '_' + nodeCount++;
-		node[nodeIdProperty] = new String(nodeId); // NOTE so that node cloning in IE doesn't copy the node ID property
-		nodeTable.push(node);
-	}
-	nodeStorage[nodeId] = data;
-},
-hasData: function(node) {
-	var nodeId = node[nodeIdProperty];
-	return !nodeId ? false : nodeId in nodeStorage;
-},
-getData: function(node, key) {
-	var nodeId = node[nodeIdProperty];
-	if (!nodeId) return;
-	return nodeStorage[nodeId];
-},
-releaseNodes: function(callback, context) {
-	for (var i=nodeTable.length-1; i>=0; i--) {
-		var node = nodeTable[i];
-		delete nodeTable[i];
-		if (callback) callback.call(context, node);
-		var nodeId = node[nodeIdProperty];
-		delete nodeStorage[nodeId];
-	}
-	nodeTable.length = 0;
-}
-
-}
-
-
 var activeListeners = {};
 
 var SprocketDefinition = function(prototype) {
@@ -321,7 +347,7 @@ cast: function(element) {
 	_.some(sprocketRules, function(rule) {
 		var prototype = rule.definition.implementation;
 		if (this.prototype !== prototype && !isPrototypeOf(this.prototype, prototype)) return false;
-		if (!DOM.match$(element, rule.selector)) return false;
+		if (!DOM.matches(element, rule.selector)) return false;
 		implementation = _.create(prototype);
 		implementation.boundElement = element;
 		return true;
@@ -444,25 +470,25 @@ triggerHandlers: function(event) {
 
 function attachBinding(definition, element) {
 	var binding = new Binding(definition);
-	nodeManager.setData(element, binding);
+	DOM.setData(element, binding);
 	binding.attach(element);
 	return binding;
 }
 
 function detachBinding(definition, element) { // FIXME
-	var binding = nodeManager.getData(element);
+	var binding = DOM.getData(element);
 	if (!binding) throw 'No binding attached to element';
 	var implementation = binding.implementation;
 	if (!isPrototypeOf(definition.implementation, implementation)) throw 'Mismatch between binding and the definition';
 	binding.detach(element);
-	nodeManager.setData(element, null);
+	DOM.setData(element, null);
 	return null;
 }
 
 _.assign(Binding, {
 
 getInterface: function(element) {
-	if (nodeManager.hasData(element)) return nodeManager.getData(element);
+	if (DOM.hasData(element)) return DOM.getData(element);
 }
 
 });
@@ -471,19 +497,12 @@ function handleEvent(event, handler) {
 	var bindingImplementation = this;
 	var target = event.target;
 	var current = bindingImplementation.boundElement;
-	var nodeId = current[nodeIdProperty];
-	if (!nodeId) throw "Handler called on non-bound element";
+	if (!DOM.hasData(current)) throw "Handler called on non-bound element";
 	if (!matchesEvent(handler, event, true)) return; // NOTE the phase check is below
 	var delegator = current;
 	if (handler.delegator) {
-		var delegators = handler.delegator.split(',');
-		if (!current.id) current.id = nodeId;
-		var scope = '#' + current.id + ' ';
-		var delegatorSelector = scope + delegators.join(', ' + scope);
-		for (var el=target; el!=current; el=el.parentNode) {
-			if (DOM.match$(el, delegatorSelector)) break;
-		}
-		if (el == current) return;
+		var el = DOM.closest(target, handler.delegator, current);
+		if (!el) return;
 		delegator = el;
 	}
 	switch (handler.eventPhase) {
@@ -835,7 +854,7 @@ function applyRuleToElement(rule, element) { // FIXME compare current and new CS
 
 function applyRuleToTree(rule, root) {
 	if (!root || root === document) root = document.documentElement;
-	if (DOM.match$(root, rule.selector)) applyRuleToElement(rule, root);
+	if (DOM.matches(root, rule.selector)) applyRuleToElement(rule, root);
 	_.forEach(DOM.$$(rule.selector, root), function(el) { applyRuleToElement(rule, el); });
 }
 
@@ -907,10 +926,10 @@ var sprockets = Meeko.sprockets, basePrototype = sprockets.Base.prototype;
 
 _.assign(basePrototype, {
 
-$: function(selector) { return DOM.$(selector, this.boundElement); },
-$id: function(id) { return DOM.$id(selector, this.boundElement); },
-$$: function(selector) { return DOM.$$(selector, this.boundElement); },
-match$: function(selector) { return DOM.match$(this.boundElement, selector); },
+$: function(selector, isRelative) { return DOM.$(selector, this.boundElement, isRelative); },
+$$: function(selector, isRelative) { return DOM.$$(selector, this.boundElement, isRelative); },
+matches: function(selector, scope) { return DOM.matches(this.boundElement, selector, scope); },
+closest: function(selector, scope) { return DOM.closest(this.boundElement, selector, scope); },
 
 contains: function(otherNode) { return DOM.contains(this.boundElement, otherNode); },
 
