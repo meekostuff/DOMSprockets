@@ -1,8 +1,14 @@
-/*
+/*!
  UI components 
- (c) Sean Hogan, 2008,2012
- All rights reserved.
- Assumes Sprocket.js already loaded
+ (c) Sean Hogan, 2008,2012,2014
+ Mozilla Public License v2.0 (http://mozilla.org/MPL/2.0/)
+*/
+
+/* NOTE
+	+ Assumes Sprocket.js already loaded
+*/
+/* TODO
+	+ Ideally this would be ARIA.js
 */
 
 Meeko.sprockets.UI = (function() {

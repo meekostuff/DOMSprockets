@@ -1,7 +1,7 @@
-/*
+/*!
  Sprocket
- (c) Sean Hogan, 2008,2012,2013
- All rights reserved.
+ (c) Sean Hogan, 2008,2012,2013,2014
+ Mozilla Public License v2.0 (http://mozilla.org/MPL/2.0/)
 */
 
 /* NOTE
@@ -22,7 +22,7 @@ if (!this.Meeko) this.Meeko = {};
 var window = this;
 var document = window.document;
 
-var defaultOptions = { // NOTE defaults also define the type of the associated config option
+var defaultOptions = {
 	"log_level": "warn"
 }
 

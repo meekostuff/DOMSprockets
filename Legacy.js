@@ -1,6 +1,6 @@
 /*!
 Legacy.js
-Copyright 2007, 2013 Sean Hogan (http://www.meekostuff.net/)
+Copyright 2007, 2013, 2014 Sean Hogan (http://www.meekostuff.net/)
 MIT License
 */
 
