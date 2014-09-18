@@ -229,12 +229,11 @@ function(element, selector, scope) {
 } :
 function() { throw "closest not supported"; } // NOTE fallback
 
-function absolutizeSelector(selector, scope) {
+function absolutizeSelector(selector, scope) { // WARN does not handle relative selectors that start with sibling selectors
 	var id = scope.id;
 	if (!id) id = scope.id = uniqueId(scope);
 	var scopePrefix = '#' + id + ' ';
-	var selectorPaths = selector.split(/,(?![^(]*\))/); // COMMA (,) that is not inside BRACKETS. Technically: not followed by a RHB ')' unless first followed by LHB '(' 
-	return scopePrefix + selectorPaths.join(', ' + scopePrefix);
+	return scopePrefix + selector.replace(/,(?![^(]*\))/g, ', ' + scopePrefix); // COMMA (,) that is not inside BRACKETS. Technically: not followed by a RHB ')' unless first followed by LHB '(' 
 }
 
 var $id = function(id, doc) {
