@@ -308,7 +308,7 @@ this[name] = !window.console && function() {} ||
 
 this.LOG_LEVEL = levels[defaultOptions['log_level']]; // DEFAULT
 
-})(); // end logger defn
+})(); // end logger definition
 
 var logger = logger || Meeko.logger;
 
@@ -342,17 +342,15 @@ cast: function(element) {
 		if (!isPrototypeOf(this.prototype, binding.implementation)) throw "Attached sprocket doesn't match";
 		return binding.implementation;
 	}
-	var implementation;
 	_.some(sprocketRules, function(rule) {
 		var prototype = rule.definition.implementation;
 		if (this.prototype !== prototype && !isPrototypeOf(this.prototype, prototype)) return false;
 		if (!DOM.matches(element, rule.selector)) return false;
-		implementation = _.create(prototype);
-		implementation.boundElement = element;
+		binding = attachBinding(rule.definition, element);
 		return true;
 	}, this);
-	if (!implementation) throw "No compatible sprocket declared";
-	return implementation;
+	if (!binding) throw "No compatible sprocket declared";
+	return binding.implementation;
 },
 evolve: function(properties) { // inherit this.prototype, extend with properties
 	var prototype = _.create(this.prototype); 
@@ -364,6 +362,23 @@ evolve: function(properties) { // inherit this.prototype, extend with properties
 });
 
 
+function attachBinding(definition, element) {
+	var binding = new Binding(definition);
+	DOM.setData(element, binding);
+	binding.attach(element);
+	return binding;
+}
+
+function detachBinding(definition, element) {
+	if (!DOM.hasData(element)) throw 'No binding attached to element';
+	var binding = DOM.getData(element);
+	if (definition !== binding.definition) throw 'Mismatch between binding and the definition';
+	if (binding.inDocument) binding.onleave();
+	binding.detach();
+	DOM.setData(element, null);
+}
+
+
 var redirectedWindowEvents = _.words('scroll resize'); // FIXME would be nice not to have this hack
 var startStopTimeout = 500; // FIXME Config option
 var startStop = _.words('scroll resize');
@@ -373,37 +388,78 @@ _.forEach(startStop, function(orgType) {
 	startStopEvents[orgType + 'stop'] = { origin: orgType };
 });
 
+
 var Binding = function(definition) {
-	this.definition = definition;
+	var binding = this;
+	binding.definition = definition;
+	binding.implementation = _.create(definition.implementation);
+	binding.listeners = [];
+	binding.inDocument = null; // TODO state assertions in attach/onenter/onleave/detach
 }
+
+_.assign(Binding, {
+
+getInterface: function(element) {
+	if (DOM.hasData(element)) return DOM.getData(element);
+}
+
+});
 
 _.assign(Binding.prototype, {
 
 attach: function(element) {
 	var binding = this;
 	var definition = binding.definition;
-	var implementation = binding.implementation = _.create(definition.implementation);
+	var implementation = binding.implementation;
+
 	implementation.boundElement = element;
-	binding.listeners = []; // FIXME should be in binding constructor??
 	_.forEach(definition.handlers, function(handler) {
 		var listener = binding.addHandler(handler);
 		binding.listeners.push(listener);
 	});
+	
+	binding.inDocument = false;
 	var callbacks = definition.callbacks;
 	if (callbacks) {
-		if (callbacks.attached) callbacks.attached.call(implementation);
+		if (callbacks.attached) callbacks.attached.call(implementation); // FIXME try/catch
+	}
+},
+
+onenter: function() {
+	var binding = this;
+	var definition = binding.definition;
+	var implementation = binding.implementation;
+
+	binding.inDocument = true;
+	var callbacks = definition.callbacks;
+	if (callbacks) {
 		if (callbacks.enteredDocument) callbacks.enteredDocument.call(implementation);	
 	}	
 },
 
-detach: function(element) {
+onleave: function() {
 	var binding = this;
 	var definition = binding.definition;
-	_.forEach(binding.listeners, binding.removeListener, binding);
-	binding.listeners.length = 0;
+	var implementation = binding.implementation;
+
+	binding.inDocument = false;
 	var callbacks = definition.callbacks;
 	if (callbacks) {
 		if (callbacks.leftDocument) callbacks.leftDocument.call(implementation);	
+	}	
+},
+
+detach: function() {
+	var binding = this;
+	var definition = binding.definition;
+	var implementation = binding.implementation;
+
+	_.forEach(binding.listeners, binding.removeListener, binding);
+	binding.listeners.length = 0;
+	
+	binding.inDocument = null;
+	var callbacks = definition.callbacks;
+	if (callbacks) {
 		if (callbacks.detached) callbacks.detached.call(implementation);	
 	}	
 },
@@ -462,32 +518,6 @@ triggerHandlers: function(event) {
 		if (handler.type !== event.type) return;
 		handler(event); // FIXME isolate
 	});
-}
-
-});
-
-
-function attachBinding(definition, element) {
-	var binding = new Binding(definition);
-	DOM.setData(element, binding);
-	binding.attach(element);
-	return binding;
-}
-
-function detachBinding(definition, element) { // FIXME
-	var binding = DOM.getData(element);
-	if (!binding) throw 'No binding attached to element';
-	var implementation = binding.implementation;
-	if (!isPrototypeOf(definition.implementation, implementation)) throw 'Mismatch between binding and the definition';
-	binding.detach(element);
-	DOM.setData(element, null);
-	return null;
-}
-
-_.assign(Binding, {
-
-getInterface: function(element) {
-	if (DOM.hasData(element)) return DOM.getData(element);
 }
 
 });
@@ -845,23 +875,27 @@ var enteringRules = [];
 var leavingRules = [];
 
 // FIXME BIG BALL OF MUD
-function applyRuleToElement(rule, element) { // FIXME compare current and new CSS specifities
+function applyRuleToEnteredElement(rule, element) { // FIXME compare current and new CSS specifities
 	var binding = Binding.getInterface(element);
-	if (binding) detachBinding(binding.definition, element);
-	attachBinding(rule.definition, element);
+	if (binding && binding.definition !== rule.definition) {
+		detachBinding(binding.definition, element); // FIXME logger.warn
+		binding = undefined;
+	}
+	if (!binding) binding = attachBinding(rule.definition, element);
+	if (!binding.inDocument) binding.onenter();
 }
 
-function applyRuleToTree(rule, root) {
+function applyRuleToEnteredTree(rule, root) {
 	if (!root || root === document) root = document.documentElement;
-	if (DOM.matches(root, rule.selector)) applyRuleToElement(rule, root);
-	_.forEach(DOM.$$(rule.selector, root), function(el) { applyRuleToElement(rule, el); });
+	if (DOM.matches(root, rule.selector)) applyRuleToEnteredElement(rule, root);
+	_.forEach(DOM.$$(rule.selector, root), function(el) { applyRuleToEnteredElement(rule, el); });
 }
 
 function applyEnteringRules() {
 	var rule; while (rule = enteringRules.shift()) {
-		var defn = rule.definition;
-		if (defn.handlers && defn.handlers.length || !_.isEmpty(defn.callbacks)) {
-			applyRuleToTree(rule /* , document */);
+		var definition = rule.definition;
+		if (definition.handlers && definition.handlers.length || !_.isEmpty(definition.callbacks)) {
+			applyRuleToEnteredTree(rule /* , document */);
 			bindingRules.unshift(rule); // TODO splice in specificity order
 		}
 		else sprocketRules.unshift(rule);
