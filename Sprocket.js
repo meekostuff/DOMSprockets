@@ -222,7 +222,7 @@ function() { throw "matches not supported"; } // NOTE fallback
 var closest = matchesSelector ?
 function(element, selector, scope) {
 	if (scope) selector = absolutizeSelector(selector, scope);
-	for (var el=element; el && el!==scope; el=el.parentNode) {
+	for (var el=element; el && el.nodeType === 1 && el!==scope; el=el.parentNode) {
 		if (matchesSelector(el, selector)) return el;
 	}
 	return;
@@ -933,7 +933,7 @@ refresh: function(node) { // NOTE called AFTER node inserted into document
 	if (!node) node = document;
 	if (!started) throw 'domReady() has not been called yet';
 	_.forEach(bindingRules, function(rule) {
-		applyRuleToTree(rule, node);
+		applyRuleToEnteredTree(rule, node);
 	});
 }
 
