@@ -923,21 +923,55 @@ var started = false;
 
 _.assign(sprockets, {
 
-domReady: function() { // FIXME find a way to allow progressive binding application
-	if (started) throw 'domReady() has already been called';
+start: function() { // FIXME find a way to allow progressive binding application
+	if (started) throw 'sprockets management has already started';
 	started = true;
+	observe();
 	applyEnteringRules();
 },
 
-refresh: function(node) { // NOTE called AFTER node inserted into document
-	if (!node) node = document;
-	if (!started) throw 'domReady() has not been called yet';
+nodeInserted: function(node) { // NOTE called AFTER node inserted into document
+	if (!started) throw 'sprockets management has not started yet';
+	if (node.nodeType !== 1) return;
 	_.forEach(bindingRules, function(rule) {
 		applyRuleToEnteredTree(rule, node);
 	});
+},
+
+nodeRemoved: function(node) { // NOTE called AFTER node inserted into document
+	if (!started) throw 'sprockets management has not started yet';
+	// FIXME
 }
 
 });
+
+// FIXME the following should be called from start()
+var observe = (MutationObserver) ?
+function() {
+	var observer = new MutationObserver(function(mutations, observer) {
+		if (!started) return;
+		_.forEach(mutations, function(record) {
+			if (record.type !== 'childList') return;
+			_.forEach(record.addedNodes, sprockets.nodeInserted, sprockets);
+			// FIXME record.removedNodes
+		});
+	});
+	observer.observe(document.body, { childList: true, subtree: true });
+	
+	// FIXME when to call observer.disconnect() ??
+} :
+function() { // assume MutationEvents
+	document.body.addEventListener('DOMNodeInserted', function(e) {
+		e.stopPropagation();
+		if (!started) return;
+		sprockets.nodeInserted(e.target);
+	}, true);
+	document.body.addEventListener('DOMNodeRemoved', function(e) {
+		e.stopPropagation();
+		if (!started) return;
+		// FIXME
+	}, true);
+};
 
 var basePrototype = {};
 sprockets.Base = new SprocketDefinition(basePrototype); // NOTE now we can extend basePrototype
