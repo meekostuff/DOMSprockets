@@ -82,7 +82,7 @@ var words = function(text) { return text.split(/\s+/); }
 
 var forOwn = function(object, fn, context) {
 	var keys = Object.keys(object);
-	for (i=0, n=keys.length; i<n; i++) {
+	for (var i=0, n=keys.length; i<n; i++) {
 		var key = keys[i];
 		fn.call(context, object[key], key, object);
 	}
@@ -96,7 +96,7 @@ var isEmpty = function(o) { // NOTE lodash supports arrays and strings too
 
 var defaults = function(dest, src) {
 	var keys = Object.keys(src);
-	for (i=0, n=keys.length; i<n; i++) {
+	for (var i=0, n=keys.length; i<n; i++) {
 		var key = keys[i];
 		if (typeof dest[key] !== 'undefined') continue;
 		Object.defineProperty(dest, key, Object.getOwnPropertyDescriptor(src, key));
@@ -106,7 +106,7 @@ var defaults = function(dest, src) {
 
 var assign = function(dest, src) {
 	var keys = Object.keys(src);
-	for (i=0, n=keys.length; i<n; i++) {
+	for (var i=0, n=keys.length; i<n; i++) {
 		var key = keys[i];
 		Object.defineProperty(dest, key, Object.getOwnPropertyDescriptor(src, key));
 	}
