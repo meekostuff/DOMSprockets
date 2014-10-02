@@ -373,7 +373,7 @@ function detachBinding(definition, element) {
 	if (!DOM.hasData(element)) throw 'No binding attached to element';
 	var binding = DOM.getData(element);
 	if (definition !== binding.definition) throw 'Mismatch between binding and the definition';
-	if (binding.inDocument) binding.onleave();
+	if (binding.inDocument) binding.leftDocumentCallback();
 	binding.detach();
 	DOM.setData(element, null);
 }
@@ -394,13 +394,25 @@ var Binding = function(definition) {
 	binding.definition = definition;
 	binding.implementation = _.create(definition.implementation);
 	binding.listeners = [];
-	binding.inDocument = null; // TODO state assertions in attach/onenter/onleave/detach
+	binding.inDocument = null; // TODO state assertions in attach/onenter/leftDocumentCallback/detach
 }
 
 _.assign(Binding, {
 
 getInterface: function(element) {
 	if (DOM.hasData(element)) return DOM.getData(element);
+},
+
+enteredDocumentCallback: function(element) {
+	var binding = Binding.getInterface(element);
+	if (!binding) return;
+	binding.enteredDocumentCallback();
+},
+
+leftDocumentCallback: function(element) {
+	var binding = Binding.getInterface(element);
+	if (!binding) return;
+	binding.leftDocumentCallback();
 }
 
 });
@@ -418,6 +430,14 @@ attach: function(element) {
 		binding.listeners.push(listener);
 	});
 	
+	binding.attachedCallback();
+},
+
+attachedCallback: function() {
+	var binding = this;
+	var definition = binding.definition;
+	var implementation = binding.implementation;
+
 	binding.inDocument = false;
 	var callbacks = definition.callbacks;
 	if (callbacks) {
@@ -425,7 +445,7 @@ attach: function(element) {
 	}
 },
 
-onenter: function() {
+enteredDocumentCallback: function() {
 	var binding = this;
 	var definition = binding.definition;
 	var implementation = binding.implementation;
@@ -437,7 +457,7 @@ onenter: function() {
 	}	
 },
 
-onleave: function() {
+leftDocumentCallback: function() {
 	var binding = this;
 	var definition = binding.definition;
 	var implementation = binding.implementation;
@@ -446,7 +466,7 @@ onleave: function() {
 	var callbacks = definition.callbacks;
 	if (callbacks) {
 		if (callbacks.leftDocument) callbacks.leftDocument.call(implementation);	
-	}	
+	}
 },
 
 detach: function() {
@@ -456,6 +476,14 @@ detach: function() {
 
 	_.forEach(binding.listeners, binding.removeListener, binding);
 	binding.listeners.length = 0;
+	
+	binding.detachedCallback();
+},
+
+detachedCallback: function() {
+	var binding = this;
+	var definition = binding.definition;
+	var implementation = binding.implementation;
 	
 	binding.inDocument = null;
 	var callbacks = definition.callbacks;
@@ -882,7 +910,7 @@ function applyRuleToEnteredElement(rule, element) { // FIXME compare current and
 		binding = undefined;
 	}
 	if (!binding) binding = attachBinding(rule.definition, element);
-	if (!binding.inDocument) binding.onenter();
+	if (!binding.inDocument) binding.enteredDocumentCallback();
 }
 
 function applyRuleToEnteredTree(rule, root) {
@@ -938,14 +966,15 @@ nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 	});
 },
 
-nodeRemoved: function(node) { // NOTE called AFTER node inserted into document
+nodeRemoved: function(node) { // NOTE called AFTER node removed document
 	if (!started) throw 'sprockets management has not started yet';
-	// FIXME
+	
+	Binding.leftDocumentCallback(node);
+	_.forEach(DOM.$$('*', node), Binding.leftDocumentCallback);
 }
 
 });
 
-// FIXME the following should be called from start()
 var observe = (MutationObserver) ?
 function() {
 	var observer = new MutationObserver(function(mutations, observer) {
@@ -953,14 +982,14 @@ function() {
 		_.forEach(mutations, function(record) {
 			if (record.type !== 'childList') return;
 			_.forEach(record.addedNodes, sprockets.nodeInserted, sprockets);
-			// FIXME record.removedNodes
+			_.forEach(record.removedNodes, sprockets.nodeRemoved, sprockets);
 		});
 	});
 	observer.observe(document.body, { childList: true, subtree: true });
 	
 	// FIXME when to call observer.disconnect() ??
 } :
-function() { // assume MutationEvents
+function() { // otherwise assume MutationEvents. TODO is this assumption safe?
 	document.body.addEventListener('DOMNodeInserted', function(e) {
 		e.stopPropagation();
 		if (!started) return;
@@ -969,6 +998,7 @@ function() { // assume MutationEvents
 	document.body.addEventListener('DOMNodeRemoved', function(e) {
 		e.stopPropagation();
 		if (!started) return;
+		setTimeout(function() { sprockets.nodeRemoved(e.target); }); // FIXME potentially many timeouts. Should use Promises
 		// FIXME
 	}, true);
 };
@@ -1005,7 +1035,7 @@ attr: function(name, value) {
 	if (typeof value === 'undefined') return element.getAttribute(name);
 	element.setAttribute(name, value); // TODO DWIM
 },
-hasClass: function(token) {
+hasClass: function(token) { // FIXME use @class instead of .className
 	return _.contains(_.words(this.boundElement.className), token);
 },
 addClass: function(token) {
