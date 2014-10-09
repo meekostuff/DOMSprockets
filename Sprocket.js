@@ -565,11 +565,10 @@ function handleEvent(event, handler) {
 	return;
 }
 
-function dispatchEvent(target, event) {
+function dispatchEvent(target, event) { // FIXME should just use target.dispatchEvent() but need to convert event into a real DOM Event
 	event.defaultPrevented = false;
 	event.preventDefault = function() { this.defaultPrevented = true; }
-	event.propagationStopped = true;
-	event.stopPropagation = function() { this.propagationStopped = true; }
+	event.stopPropagation = function() { logger.warn('event.stopPropagation() is a no-op'); }
 	event.target = target;
 	event.eventPhase = 2;
 	for (var current=target; current!=document; current=current.parentNode) {
@@ -584,7 +583,6 @@ function dispatchEvent(target, event) {
 			handler(event); // FIXME isolate
 		});
 */
-		if (event.propagationStopped) break; 
 	}
 	return !event.defaultPrevented;	
 }
