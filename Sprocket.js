@@ -426,8 +426,8 @@ attach: function(element) {
 
 	implementation.boundElement = element;
 	_.forEach(definition.handlers, function(handler) {
-		var listener = binding.addHandler(handler);
-		binding.listeners.push(listener);
+		var listener = binding.addHandler(handler); // handler might be ignored ...
+		if (listener) binding.listeners.push(listener);// ... resulting in an undefined listener
 	});
 	
 	binding.attachedCallback();
@@ -498,6 +498,10 @@ addHandler: function(handler) {
 	var element = implementation.boundElement;
 	var type = handler.type;
 	var capture = (handler.eventPhase == 1); // Event.CAPTURING_PHASE
+	if (capture) {
+		logger.warn('Capturing events not supported');
+		return; // FIXME should this convert to bubbling instead??
+	}
 	var fn = function(event) {
 		if (fn.normalize) event = fn.normalize(event);
 		return handleEvent.call(implementation, event, handler);
@@ -562,7 +566,7 @@ function handleEvent(event, handler) {
 		if (!el) return;
 		delegator = el;
 	}
-	switch (handler.eventPhase) {
+	switch (handler.eventPhase) { // FIXME DOMSprockets doesn't intend to support eventPhase
 	case 1:
 		throw "Capturing not supported";
 		break;
@@ -576,13 +580,14 @@ function handleEvent(event, handler) {
 		break;
 	}
 
-	if (handler.stopPropagation) { // FIXME
-		if (event.stopPropagation) event.stopPropagation();
-		else event.cancelBubble = true;
+	if (!event._stopPropagation) { // NOTE stopPropagation() prevents custom default-handlers from running. DOMSprockets nullifies it.
+		event._stopPropagation = event.stopPropagation;
+		event.stopPropagation = function() { logger.warn('event.stopPropagation() is a no-op'); }
 	}
-	if (handler.preventDefault) { // FIXME
-		if (event.preventDefault) event.preventDefault();
-		else event.returnValue = false;
+	if (!('defaultPrevented' in event)) { // NOTE ensure defaultPrevented works
+		event.defaultPrevented = false;
+		event._preventDefault = event.preventDefault;
+		event.preventDefault = function() { this.defaultPrevented = true; this._preventDefault(); }
 	}
 	if (handler.action) {
 		var result = handler.action.call(bindingImplementation, event, delegator);
