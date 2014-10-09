@@ -985,12 +985,12 @@ function() {
 			_.forEach(record.removedNodes, sprockets.nodeRemoved, sprockets);
 		});
 	});
-	observer.observe(document.body, { childList: true, subtree: true });
+	observer.observe(document, { childList: true, subtree: true });
 	
 	// FIXME when to call observer.disconnect() ??
 } :
 function() { // otherwise assume MutationEvents. TODO is this assumption safe?
-	document.body.addEventListener('DOMNodeInserted', function(e) {
+	document.addEventListener('DOMNodeInserted', function(e) {
 		e.stopPropagation();
 		if (!started) return;
 		sprockets.nodeInserted(e.target);
