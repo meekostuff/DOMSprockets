@@ -379,16 +379,6 @@ function detachBinding(definition, element) {
 }
 
 
-var redirectedWindowEvents = _.words('scroll resize'); // FIXME would be nice not to have this hack
-var startStopTimeout = 500; // FIXME Config option
-var startStop = _.words('scroll resize');
-var startStopEvents = {};
-_.forEach(startStop, function(orgType) {
-	startStopEvents[orgType + 'start'] = { origin: orgType };
-	startStopEvents[orgType + 'stop'] = { origin: orgType };
-});
-
-
 var Binding = function(definition) {
 	var binding = this;
 	binding.definition = definition;
@@ -508,32 +498,11 @@ addHandler: function(handler) {
 	}
 	fn.type = type;
 	fn.capture = capture;
-	var target = (element === document.documentElement && _.contains(redirectedWindowEvents, type)) ? window : element;
-	
-	var sim = startStopEvents[type];
-	if (sim) {
-		if (!binding[sim.origin]) (function(element, type) {
-			var binding = this;
-			binding[type] = true;
-			var target = (element === document.documentElement && _.contains(redirectedWindowEvents, type)) ? window : element;
-			var timerName = type + 'Timeout';
-			function listener(event) {
-				if (!binding[timerName]) binding.triggerHandlers({ type: type + 'start' });
-				else window.clearTimeout(binding[timerName]);
-				binding[timerName] = window.setTimeout(callback, startStopTimeout);
-			}
-			function callback() {
-				delete binding[timerName];
-				binding.triggerHandlers({ type: type + 'stop' });
-			}
-			DOM.addEventListener(target, type, listener, false);
-		}).call(binding, target, sim.origin);
-	}
-	else DOM.addEventListener(target, type, fn, capture);
+	DOM.addEventListener(element, type, fn, capture);
 	return fn;
 },
 
-removeListener: function(fn) { // FIXME doesn't handle simulated start/stop events 
+removeListener: function(fn) {
 	var binding = this;
 	var implementation = binding.implementation;
 	var element = implementation.boundElement;
