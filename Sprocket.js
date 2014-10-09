@@ -512,15 +512,6 @@ removeListener: function(fn) {
 	DOM.removeEventListener(target, type, fn, capture);	
 },
 
-triggerHandlers: function(event) {
-	var binding = this;
-	if (!binding || !binding.listeners) return;
-	_.forEach(binding.listeners, function(handler) {
-		if (handler.type !== event.type) return;
-		handler(event); // FIXME isolate
-	});
-}
-
 });
 
 function handleEvent(event, handler) {
@@ -563,28 +554,6 @@ function handleEvent(event, handler) {
 		if (result === false) event.preventDefault();
 	}
 	return;
-}
-
-function dispatchEvent(target, event) { // FIXME should just use target.dispatchEvent() but need to convert event into a real DOM Event
-	event.defaultPrevented = false;
-	event.preventDefault = function() { this.defaultPrevented = true; }
-	event.stopPropagation = function() { logger.warn('event.stopPropagation() is a no-op'); }
-	event.target = target;
-	event.eventPhase = 2;
-	for (var current=target; current!=document; current=current.parentNode) {
-		event.currentTarget = current;
-		event.eventPhase = (current === target) ? 2 : 3;
-		var binding = Binding.getInterface(current);
-		if (binding) binding.triggerHandlers(event);
-/*		
-		if (!binding || !binding.listeners) continue;
-		_.forEach(binding.listeners, function(handler) {
-			if (handler.type !== event.type) return;
-			handler(event); // FIXME isolate
-		});
-*/
-	}
-	return !event.defaultPrevented;	
 }
 
 
@@ -978,7 +947,19 @@ function() { // otherwise assume MutationEvents. TODO is this assumption safe?
 var basePrototype = {};
 sprockets.Base = new SprocketDefinition(basePrototype); // NOTE now we can extend basePrototype
 
-sprockets.trigger = dispatchEvent;
+sprockets.trigger = function(target, type, params) { // NOTE every JS initiated event is a custom-event
+	if (typeof type === 'object') {
+		params = type;
+		type = params.type;
+	}
+	if (typeof type !== 'string') throw 'trigger() called with invalid event type';
+	var detail = params && params.detail;
+	var event = document.createEvent('CustomEvent');
+	event.initCustomEvent(type, true, true, detail);
+	if (params) _.defaults(event, params);
+	return target.dispatchEvent(event);
+}
+
 return sprockets;
 
 })(); // END sprockets
@@ -1044,8 +1025,8 @@ toggleClass: function(token, force) {
 	}
 },
 
-trigger: function(event) {
-	return sprockets.trigger(this.boundElement, event);
+trigger: function() {
+	return sprockets.trigger.apply(sprockets, this.boundElement, arguments);
 }
 
 
