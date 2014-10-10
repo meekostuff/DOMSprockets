@@ -489,7 +489,7 @@ addHandler: function(handler) {
 	var type = handler.type;
 	var capture = (handler.eventPhase == 1); // Event.CAPTURING_PHASE
 	if (capture) {
-		logger.warn('Capturing events not supported');
+		logger.warn('Capture phase for events not supported');
 		return; // FIXME should this convert to bubbling instead??
 	}
 	var fn = function(event) {
@@ -528,7 +528,7 @@ function handleEvent(event, handler) {
 	}
 	switch (handler.eventPhase) { // FIXME DOMSprockets doesn't intend to support eventPhase
 	case 1:
-		throw "Capturing not supported";
+		throw 'Capture phase for events not supported';
 		break;
 	case 2:
 		if (delegator !== target) return;
@@ -543,6 +543,10 @@ function handleEvent(event, handler) {
 	if (!event._stopPropagation) { // NOTE stopPropagation() prevents custom default-handlers from running. DOMSprockets nullifies it.
 		event._stopPropagation = event.stopPropagation;
 		event.stopPropagation = function() { logger.warn('event.stopPropagation() is a no-op'); }
+	}
+	if (!event._stopImmediatePropagation) { // NOTE stopPropagation() prevents custom default-handlers from running. DOMSprockets nullifies it.
+		event._stopImmediatePropagation = event.stopImmediatePropagation;
+		event.stopImmediatePropagation = function() { logger.warn('event.stopImmediatePropagation() is a no-op'); }
 	}
 	if (!('defaultPrevented' in event)) { // NOTE ensure defaultPrevented works
 		event.defaultPrevented = false;
