@@ -403,6 +403,18 @@ leftDocumentCallback: function(element) {
 	var binding = Binding.getInterface(element);
 	if (!binding) return;
 	binding.leftDocumentCallback();
+},
+
+managedEvents: [],
+
+manageEvent: function(type) {
+	if (_.contains(this.managedEvents, type)) return;
+	this.managedEvents.push(type);
+	window.addEventListener(type, function(event) {
+		// NOTE stopPropagation() prevents custom default-handlers from running. DOMSprockets nullifies it.
+		event.stopPropagation = function() { logger.warn('event.stopPropagation() is a no-op'); }
+		event.stopImmediatePropagation = function() { logger.warn('event.stopImmediatePropagation() is a no-op'); }
+	}, true);
 }
 
 });
@@ -492,6 +504,8 @@ addHandler: function(handler) {
 		logger.warn('Capture phase for events not supported');
 		return; // FIXME should this convert to bubbling instead??
 	}
+
+	Binding.manageEvent(type);
 	var fn = function(event) {
 		if (fn.normalize) event = fn.normalize(event);
 		return handleEvent.call(implementation, event, handler);
@@ -514,13 +528,7 @@ removeListener: function(fn) {
 
 });
 
-// WARN over-riding default behaviors of Event#stopPropagation, etc
-// NOTE stopPropagation() prevents custom default-handlers from running. DOMSprockets nullifies it.
-Event.prototype._stopPropagation = Event.prototype.stopPropagation; // WARN back-door for emulating MutationObserver with MutationEvent
-Event.prototype.stopPropagation = function() { logger.warn('event.stopPropagation() is a no-op'); }
-Event.prototype._stopImmediatePropagation = Event.prototype.stopImmediatePropagation;
-Event.prototype.stopImmediatePropagation = function() { logger.warn('event.stopImmediatePropagation() is a no-op'); }
-
+// WARN polyfill Event#preventDefault
 if (!('defaultPrevented' in Event.prototype)) { // NOTE ensure defaultPrevented works
 	Event.prototype.defaultPrevented = false;
 	Event.prototype._preventDefault = Event.prototype.preventDefault;
@@ -936,12 +944,12 @@ function() {
 } :
 function() { // otherwise assume MutationEvents. TODO is this assumption safe?
 	document.addEventListener('DOMNodeInserted', function(e) {
-		e._stopPropagation();
+		e.stopPropagation();
 		if (!started) return;
 		sprockets.nodeInserted(e.target);
 	}, true);
 	document.body.addEventListener('DOMNodeRemoved', function(e) {
-		e._stopPropagation();
+		e.stopPropagation();
 		if (!started) return;
 		setTimeout(function() { sprockets.nodeRemoved(e.target); }); // FIXME potentially many timeouts. Should use Promises
 		// FIXME
