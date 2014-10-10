@@ -514,6 +514,17 @@ removeListener: function(fn) {
 
 });
 
+// WARN over-riding default behaviors of Event#stopPropagation, etc
+// NOTE stopPropagation() prevents custom default-handlers from running. DOMSprockets nullifies it.
+Event.prototype.stopPropagation = function() { logger.warn('event.stopPropagation() is a no-op'); }
+Event.prototype.stopImmediatePropagation = function() { logger.warn('event.stopImmediatePropagation() is a no-op'); }
+
+if (!('defaultPrevented' in Event.prototype)) { // NOTE ensure defaultPrevented works
+	Event.prototype.defaultPrevented = false;
+	Event.prototype._preventDefault = Event.prototype.preventDefault;
+	Event.prototype.preventDefault = function() { this.defaultPrevented = true; this._preventDefault(); }
+}
+
 function handleEvent(event, handler) {
 	var bindingImplementation = this;
 	var target = event.target;
@@ -540,19 +551,6 @@ function handleEvent(event, handler) {
 		break;
 	}
 
-	if (!event._stopPropagation) { // NOTE stopPropagation() prevents custom default-handlers from running. DOMSprockets nullifies it.
-		event._stopPropagation = event.stopPropagation;
-		event.stopPropagation = function() { logger.warn('event.stopPropagation() is a no-op'); }
-	}
-	if (!event._stopImmediatePropagation) { // NOTE stopPropagation() prevents custom default-handlers from running. DOMSprockets nullifies it.
-		event._stopImmediatePropagation = event.stopImmediatePropagation;
-		event.stopImmediatePropagation = function() { logger.warn('event.stopImmediatePropagation() is a no-op'); }
-	}
-	if (!('defaultPrevented' in event)) { // NOTE ensure defaultPrevented works
-		event.defaultPrevented = false;
-		event._preventDefault = event.preventDefault;
-		event.preventDefault = function() { this.defaultPrevented = true; this._preventDefault(); }
-	}
 	if (handler.action) {
 		var result = handler.action.call(bindingImplementation, event, delegator);
 		if (result === false) event.preventDefault();
