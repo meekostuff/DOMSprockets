@@ -916,7 +916,7 @@ nodeRemoved: function(node) { // NOTE called AFTER node removed document
 
 });
 
-var observe = (MutationObserver) ?
+var observe = (window.MutationObserver) ?
 function() {
 	var observer = new MutationObserver(function(mutations, observer) {
 		if (!started) return;
