@@ -516,7 +516,9 @@ removeListener: function(fn) {
 
 // WARN over-riding default behaviors of Event#stopPropagation, etc
 // NOTE stopPropagation() prevents custom default-handlers from running. DOMSprockets nullifies it.
+Event.prototype._stopPropagation = Event.prototype.stopPropagation; // WARN back-door for emulating MutationObserver with MutationEvent
 Event.prototype.stopPropagation = function() { logger.warn('event.stopPropagation() is a no-op'); }
+Event.prototype._stopImmediatePropagation = Event.prototype.stopImmediatePropagation;
 Event.prototype.stopImmediatePropagation = function() { logger.warn('event.stopImmediatePropagation() is a no-op'); }
 
 if (!('defaultPrevented' in Event.prototype)) { // NOTE ensure defaultPrevented works
@@ -934,12 +936,12 @@ function() {
 } :
 function() { // otherwise assume MutationEvents. TODO is this assumption safe?
 	document.addEventListener('DOMNodeInserted', function(e) {
-		e.stopPropagation();
+		e._stopPropagation();
 		if (!started) return;
 		sprockets.nodeInserted(e.target);
 	}, true);
 	document.body.addEventListener('DOMNodeRemoved', function(e) {
-		e.stopPropagation();
+		e._stopPropagation();
 		if (!started) return;
 		setTimeout(function() { sprockets.nodeRemoved(e.target); }); // FIXME potentially many timeouts. Should use Promises
 		// FIXME
