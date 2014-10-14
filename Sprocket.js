@@ -956,6 +956,7 @@ function() { // otherwise assume MutationEvents. TODO is this assumption safe?
 	}, true);
 };
 
+
 var basePrototype = {};
 sprockets.Base = new SprocketDefinition(basePrototype); // NOTE now we can extend basePrototype
 
@@ -1037,8 +1038,8 @@ toggleClass: function(token, force) {
 	}
 },
 
-trigger: function() {
-	return sprockets.trigger.apply(sprockets, this.boundElement, arguments);
+trigger: function(type, params) {
+	return sprockets.trigger(this.boundElement, type, params);
 }
 
 
