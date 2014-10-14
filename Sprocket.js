@@ -965,10 +965,12 @@ sprockets.trigger = function(target, type, params) { // NOTE every JS initiated 
 		params = type;
 		type = params.type;
 	}
+	var bubbles = 'bubbles' in params ? !!params.bubbles : true;
+	var cancelable = 'cancelable' in params ? !!params.cancelable : true;
 	if (typeof type !== 'string') throw 'trigger() called with invalid event type';
 	var detail = params && params.detail;
 	var event = document.createEvent('CustomEvent');
-	event.initCustomEvent(type, true, true, detail);
+	event.initCustomEvent(type, bubbles, cancelable, detail);
 	if (params) _.defaults(event, params);
 	return target.dispatchEvent(event);
 }
@@ -1045,5 +1047,70 @@ trigger: function(type, params) {
 
 });
 
+// Element.prototype.hidden and visibilitychange event
+var Element = window.Element || window.HTMLElement;
+
+if (!('hidden' in document.documentElement)) {
+
+	var head = document.head;
+	var fragment = document.createDocumentFragment();
+	var style = document.createElement("style");
+	fragment.appendChild(style); // NOTE on IE this realizes style.styleSheet 
+	
+	var cssText = '*[hidden] { display: none; }\n';
+	if (style.styleSheet) style.styleSheet.cssText = cssText;
+	else style.textContent = cssText;
+	
+	head.insertBefore(style, head.firstChild);
+
+	Object.defineProperty(Element.prototype, 'hidden', {
+		get: function() { return this.hasAttribute('hidden'); },
+		set: function(value) {
+			if (!!value) this.setAttribute('hidden', '');
+			else this.removeAttribute('hidden');
+			
+			// IE9 has a reflow bug. The following forces a reflow
+			var elementDisplayStyle = this.style.display;
+			var computedDisplayStyle = window.getComputedStyle(this, null);
+			this.style.display = computedDisplayStyle;
+			this.style.display = elementDisplayStyle;
+		}
+	});
+
+}
+
+var SUPPORTS_ATTRMODIFIED = (function() {
+	var supported = false;
+	var div = document.createElement('div');
+	div.addEventListener('DOMAttrModified', function(e) { supported = true; }, false);
+	div.setAttribute('hidden', '');
+	return supported;
+})();
+
+if (window.MutationObserver) {
+
+	var observer = new MutationObserver(function(mutations, observer) {
+		_.forEach(mutations, function(entry) {
+			triggerVisibilityChangeEvent(entry.target);
+		});
+	});
+	observer.observe(document, { attributes: true, attributeFilter: ['hidden'], subtree: true });
+	
+}
+else if (SUPPORTS_ATTRMODIFIED) {
+	
+	document.addEventListener('DOMAttrModified', function(e) {
+		e.stopPropagation();
+		if (e.attrName !== 'hidden') return;
+		triggerVisibilityChangeEvent(e.target);
+	}, true);
+	
+}
+else logger.warn('element.visibilitychange event will not be supported');
+
+function triggerVisibilityChangeEvent(target) {
+	var visibilityState = target.hidden ? 'hidden' : 'visible';
+	sprockets.trigger(target, 'visibilitychange', { bubbles: false, detail: visibilityState }); // NOTE doesn't bubble to avoid clash with same event on document
+}
 
 })(window);
