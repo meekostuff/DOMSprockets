@@ -259,10 +259,11 @@ sprockets.register('table.sortable', UI.Table, {
 handlers: [
 {
   type: 'click',
-  preventDefault: true,
   delegator: '> thead > tr > th',
   action: function(event, cell) {
-	this.toggleColumnSortState(cell.cellIndex);	
+	if (event.defaultPrevented) return;
+	this.toggleColumnSortState(cell.cellIndex);
+	event.preventDefault();
   }
 }
 ]

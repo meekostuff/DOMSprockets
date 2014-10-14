@@ -151,9 +151,10 @@ handlers: [
 {
 	type: "click",
 	delegator: 'li',
-	preventDefault: true,
 	action: function(event, item) {
+		if (event.defaultPrevented) return;
 		this.selectItem(item);
+		event.preventDefault();
 	}
 },
 {
