@@ -1069,7 +1069,7 @@ if (!('hidden' in document.documentElement)) {
 			if (!!value) this.setAttribute('hidden', '');
 			else this.removeAttribute('hidden');
 			
-			// IE9 has a reflow bug. The following forces a reflow
+			// IE9 has a reflow bug. The following forces a reflow. TODO surely there's another work-around??
 			var elementDisplayStyle = this.style.display;
 			var computedDisplayStyle = window.getComputedStyle(this, null);
 			this.style.display = computedDisplayStyle;
