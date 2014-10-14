@@ -946,7 +946,7 @@ function() { // otherwise assume MutationEvents. TODO is this assumption safe?
 	document.addEventListener('DOMNodeInserted', function(e) {
 		e.stopPropagation();
 		if (!started) return;
-		sprockets.nodeInserted(e.target);
+		sprockets.nodeInserted(e.target); // FIXME should be asynchronous
 	}, true);
 	document.body.addEventListener('DOMNodeRemoved', function(e) {
 		e.stopPropagation();
@@ -1108,9 +1108,9 @@ else if (SUPPORTS_ATTRMODIFIED) {
 }
 else logger.warn('element.visibilitychange event will not be supported');
 
-function triggerVisibilityChangeEvent(target) {
+function triggerVisibilityChangeEvent(target) { // FIXME this should be asynchronous
 	var visibilityState = target.hidden ? 'hidden' : 'visible';
-	sprockets.trigger(target, 'visibilitychange', { bubbles: false, detail: visibilityState }); // NOTE doesn't bubble to avoid clash with same event on document
+	sprockets.trigger(target, 'visibilitychange', { bubbles: false, cancelable: false, detail: visibilityState }); // NOTE doesn't bubble to avoid clash with same event on document
 }
 
 })(window);
