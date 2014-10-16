@@ -1003,27 +1003,27 @@ attr: function(name, value) {
 	if (typeof value === 'undefined') return element.getAttribute(name);
 	element.setAttribute(name, value); // TODO DWIM
 },
-hasClass: function(token) { // FIXME use @class instead of .className
-	return _.contains(_.words(this.boundElement.className), token);
+hasClass: function(token) {
+	return _.contains(_.words(this.boundElement.getAttribute('class')), token);
 },
 addClass: function(token) {
 	if (this.hasClass(token)) return this;
 	var element = this.boundElement;
-	var text = element.className;
+	var text = element.getAttribute('class');
 	var n = text.length,
 		space = (n && text.charAt(n-1) !== " ") ? " " : "";
 	text += space + token;
-	element.className = text;
+	element.setAttribute('class', text);
 	return this;
 },
 removeClass: function(token) {
 	var element = this.boundElement;
-	var text = element.className;
+	var text = element.getAttribute('class');
 	var prev = text.split(/\s+/);
 	var next = [];
 	_.forEach(prev, function(str) { if (str !== token) next.push(str); });
 	if (prev.length == next.length) return this;
-	element.className = next.join(" ");
+	element.setAttribute('class', next.join(" "));
 	return this;
 },
 toggleClass: function(token, force) {
