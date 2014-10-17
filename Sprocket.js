@@ -1001,30 +1001,31 @@ contains: function(otherNode) { return DOM.contains(this.boundElement, otherNode
 attr: function(name, value) {
 	var element = this.boundElement;
 	if (typeof value === 'undefined') return element.getAttribute(name);
-	element.setAttribute(name, value); // TODO DWIM
+	if (value == null) element.removeAttribute(name);
+	else element.setAttribute(name, value);
 },
 hasClass: function(token) {
-	return _.contains(_.words(this.boundElement.getAttribute('class')), token);
-},
-addClass: function(token) {
-	if (this.hasClass(token)) return this;
 	var element = this.boundElement;
 	var text = element.getAttribute('class');
+	return _.contains(_.words(text), token);
+},
+addClass: function(token) {
+	var element = this.boundElement;
+	var text = element.getAttribute('class');
+	if (_.contains(_.words(text), token)) return;
 	var n = text.length,
-		space = (n && text.charAt(n-1) !== " ") ? " " : "";
+		space = (n && text.charAt(n-1) !== ' ') ? ' ' : '';
 	text += space + token;
 	element.setAttribute('class', text);
-	return this;
 },
 removeClass: function(token) {
 	var element = this.boundElement;
 	var text = element.getAttribute('class');
-	var prev = text.split(/\s+/);
+	var prev = _.words(text);
 	var next = [];
 	_.forEach(prev, function(str) { if (str !== token) next.push(str); });
-	if (prev.length == next.length) return this;
-	element.setAttribute('class', next.join(" "));
-	return this;
+	if (prev.length === next.length) return;
+	element.setAttribute('class', next.join(' '));
 },
 toggleClass: function(token, force) {
 	var found = this.hasClass(token);
