@@ -1007,11 +1007,16 @@ attr: function(name, value) {
 hasClass: function(token) {
 	var element = this.boundElement;
 	var text = element.getAttribute('class');
+	if (!text) return false;
 	return _.contains(_.words(text), token);
 },
 addClass: function(token) {
 	var element = this.boundElement;
 	var text = element.getAttribute('class');
+	if (!text) {
+		element.setAttribute('class', token);
+		return;
+	}
 	if (_.contains(_.words(text), token)) return;
 	var n = text.length,
 		space = (n && text.charAt(n-1) !== ' ') ? ' ' : '';
@@ -1021,6 +1026,7 @@ addClass: function(token) {
 removeClass: function(token) {
 	var element = this.boundElement;
 	var text = element.getAttribute('class');
+	if (!text) return;
 	var prev = _.words(text);
 	var next = [];
 	_.forEach(prev, function(str) { if (str !== token) next.push(str); });
