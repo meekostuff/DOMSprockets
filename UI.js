@@ -15,7 +15,7 @@ Meeko.sprockets.UI = (function() {
 
 var _ = Meeko.stuff;
 var DOM = Meeko.DOM, $id = DOM.$id, $ = DOM.$, $$ = DOM.$$;
-var sprockets = Meeko.sprockets, Base = sprockets.Base;
+var sprockets = Meeko.sprockets, Base = sprockets.Base, BasePrototype = Base.prototype;
 
 var declareProperties = (Object.defineProperty && Object.create) ? // IE8 supports defineProperty but only on DOM objects
 function(obj, props) {
@@ -39,67 +39,70 @@ function ucFirst(text) {
 	return text.substr(0,1).toUpperCase() + text.substr(1);
 }
 
-var Box = Base.evolve({
+var BoxPrototype = _.create(BasePrototype, {
 
 setHidden: function(state) {
-	var element = this.boundElement;
+	var element = this.element;
 	if (!state) element.removeAttribute('hidden');
 	else element.setAttribute('hidden', '');
 },
 
 getHidden: function() {
-	var element = this.boundElement;
-	return element.getAttribute('hidden') !== null;
+	var element = this.element;
+	return element.hasAttribute('hidden');
 }
 
 });
 
-declareProperties(Box.prototype, 'hidden');
+declareProperties(BoxPrototype, 'hidden');
+var Box = sprockets.register('ui-box', { prototype: BoxPrototype });
+sprockets.register('[is=ui-box]', { prototype: BoxPrototype });
 
-var TreeItem = Box.evolve({
+var TreeItemPrototype = _.create(BoxPrototype, {
 
 getListElement: function() {
 
-	var element = this.boundElement;
-	var children = element.children;
-	for (var node, i=0; node=children[i]; i++) {
-		switch (node.tagName.toLowerCase()) {
-			case "ol": case "ul": case "select": return node;	
-		}
-	}	
-	return null;
-		
+	var element = this.element;
+	return this.$('ul');
+
 },
 setSelected: function(state) { // NOTE TreeItem is ignorant of whether multiple TreeItems can be selected
-	var element = this.boundElement;
-	element.setAttribute("aria-selected", !!state);
+	var element = this.element;
+	if (!state) element.removeAttribute('aria-selected');
+	else element.setAttribute("aria-selected", 'true');
 },
 getSelected: function() {
-	var element = this.boundElement;
+	var element = this.element;
 	var state = element.getAttribute("aria-selected");
+	if (!state) return false;
 	return (/^true$/i.test(state));	
 },
 setExpanded: function(state) {	
 	var listEl = this.getListElement();
-	if (!listEl) throw "";
+	if (!listEl) throw "Item not expandable";
+	this.element.setAttribute('aria-expanded', !!state);
 	List(listEl).setHidden(!state);
 },
 getExpanded: function() {
 	var listEl = this.getListElement();
-	if (!listEl) throw "";
-	return List(listEl).getHidden();
+	if (!listEl) return;
+	return !List(listEl).getHidden();
 }
 
 });
 
-declareProperties(TreeItem.prototype, 'listElement selected expanded');
+declareProperties(TreeItemPrototype, 'listElement selected expanded');
+var TreeItem = sprockets.register('ui-treeitem', { prototype: TreeItemPrototype });
+sprockets.register('[is=ui-treeitem]', { prototype: TreeItemPrototype });
 
-var ListItem = TreeItem;
+var ListItemPrototype = TreeItemPrototype;
+var ListItem = sprockets.register('ui-listitem', { prototype: ListItemPrototype });
+sprockets.register('[is=ui-listitem]', { prototype: ListItemPrototype });
 
-var List = Box.evolve({
+var ListPrototype = _.create(BoxPrototype, {
 
 getItems: function() {
-	var element = this.boundElement;
+	var element = this.element;
 	var items = [];
 	for (var node=element.firstChild; node; node=node.nextSibling) {
 		if (node.nodeType === 1) items.push(node);
@@ -109,11 +112,13 @@ getItems: function() {
 
 });
 
-declareProperties(List.prototype, 'items');
+declareProperties(ListPrototype, 'items');
+var List = sprockets.register('ui-list', { prototype: ListPrototype });
+sprockets.register('[is=ui-list]', { prototype: ListPrototype });
 
-var Tree = Box.evolve({
+var TreePrototype = _.create(BoxPrototype, {
 
-getListElement: TreeItem.prototype.getListElement,
+getListElement: TreeItemPrototype.getListElement,
 
 getItems: function() {
 	return List(this.getListElement()).getItems();
@@ -153,54 +158,16 @@ signalChange: function() {
 
 });
 
-declareProperties(Tree.prototype, 'listElement selectedItem');
+declareProperties(TreePrototype, 'listElement selectedItem');
+var Tree = sprockets.register('ui-tree', { prototype: TreePrototype });
+sprockets.register('[is=ui-tree]', { prototype: TreePrototype });
 
 
-var NavTreeItem = TreeItem.evolve({
-
-getView: function() {
-	
-	var element = this.boundElement;
-	var document = element.ownerDocument;
-	for (var ref=this.boundElement.firstChild; ref; ref=ref.nextSibling) if (ref.nodeType === 1) break;
-	var tagName = ref && ref.tagName.toLowerCase();
-	switch(tagName) {
-	case "a":
-		if (!ref.getAttribute("href")) break;
-		var href = ref.href;
-		var base = document.URL.replace(/#.*$/, '')  + "#";
-		if (href.indexOf(base) != 0) break;
-		var id = href.replace(base, "");
-		return $id(id);
-		break;
-	case "label":
-		var id = ref.htmlFor;
-		if (id) return $id(id);
-		break;
-	}
-	return null;
-			
-}
-	
-});
-
-declareProperties(NavTreeItem.prototype, 'view');
-
-
-var NavTree = Tree.evolve({
-
-getView: NavTreeItem.prototype.getView
-	
-});
-
-declareProperties(NavTree.prototype, 'view');
-
-
-var ScrollBox = Box.evolve({
+var ScrollBoxPrototype = _.create(BoxPrototype, {
 	
 setView: function(item) {
 
-	var element = this.boundElement;
+	var element = this.element;
 	if (element === item || !this.contains(item)) throw "setView failed: item is not descendant of ScrollBox";
 	element.scrollTop = item.offsetTop - element.offsetTop;
 
@@ -208,14 +175,16 @@ setView: function(item) {
 
 });
 
-declareProperties(ScrollBox.prototype, 'view');
+declareProperties(ScrollBoxPrototype, 'view');
+var ScrollBox = sprockets.register('ui-scrollbox', { prototype: ScrollBoxPrototype });
+sprockets.register('[is=ui-scrollbox]', { prototype: ScrollBoxPrototype });
 
 
-var ScrollBoxWithResize = Box.evolve({
+var ScrollBoxWithResizePrototype = _.create(BoxPrototype, {
 	
 setView: function(item) {
 
-	var element = this.boundElement;
+	var element = this.element;
 	var document = element.ownerDocument;
 	if (element === item || !this.contains(node)) {
 		throw "setView failed: item is not descendant of ScrollBoxWithResize";
@@ -226,7 +195,7 @@ setView: function(item) {
 },
 initialize: function() {
 	
-	var element = this.boundElement;
+	var element = this.element;
 	element.style.overflow = "hidden";
 	element.style.height = "0px";
 
@@ -235,19 +204,23 @@ initialize: function() {
 });
 
 
-declareProperties(ScrollBoxWithResize.prototype, 'view');
+declareProperties(ScrollBoxWithResizePrototype, 'view');
+var ScrollBoxWithResize = sprockets.register('ui-scrollboxwithresize', { prototype: ScrollBoxWithResizePrototype });
+sprockets.register('[is=ui-scrollboxwithresize]', { prototype: ScrollBoxWithResizePrototype });
 
 
-var Panel = Box;
+var PanelPrototype = BoxPrototype;
+var Panel = sprockets.register('ui-panel', { prototype: PanelPrototype });
+sprockets.register('[is=ui-panel]', { prototype: PanelPrototype });
 
-var SwitchBox = Box.evolve({
+var SwitchBoxPrototype = _.create(BoxPrototype, {
 
 getPanels: function() {
-	return this.boundElement.children;
+	return this.element.children;
 },
 setView: function(item) {
 	
-	var element = this.boundElement;
+	var element = this.element;
 	var panels = this.getPanels();
 	if (!_.contains(panels, item)) throw "setView failed: item is not child of SwitchBox";
 	_.forEach(panels, function(child) {
@@ -275,21 +248,22 @@ initialize: function() {
 
 });
 
-declareProperties(SwitchBox.prototype, 'view');
+declareProperties(SwitchBoxPrototype, 'view');
+var SwitchBox = sprockets.register('ui-switchbox', { prototype: SwitchBoxPrototype });
+sprockets.register('[is=ui-switchbox]', { prototype: SwitchBoxPrototype });
 
 
-var Table = Box.evolve({ // FIXME uses className. This shouldn't be hard-wired
+var TablePrototype = _.create(BoxPrototype, { // FIXME uses className. This shouldn't be hard-wired
 	
 getColumns: function() {
 	
-	var element = this.boundElement;
+	var element = this.element;
 	return element.tHead.rows.item(0).cells;
 			
 },
 sort: function(column, type, reverse) {
 	
-
-	var element = this.boundElement;
+	var element = this.element;
 	var tBodies = element.tBodies;
 	for (var j=0, m=tBodies.length; j<m; j++) {
 		var tBody = tBodies.item(j);
@@ -358,19 +332,8 @@ toggleColumnSortState: function(column) { // TODO shouldn't have hard-wired clas
 
 });
 
-var WF2FormElement = Base.evolve({
-encode: function() {
-
-var a = [];
-_.forEach(this.elements, function(el) {
-	if (el.name) a.push(el.name + "=" + encodeURIComponent(el.value));
-});
-var txt = a.join('&');
-return txt;
-			
-}
-});
-
+var Table = sprockets.register('ui-table', { prototype: TablePrototype });
+sprockets.register('[is=ui-table]', { prototype: TablePrototype });
 
 return {
 	Base: Base,
@@ -378,14 +341,11 @@ return {
 	List: List,
 	TreeItem: TreeItem, 
 	Tree: Tree, 
-	NavTreeItem: NavTreeItem, 
-	NavTree: NavTree,
 	Panel: Panel,
 	ScrollBox: ScrollBox, 
 	ScrollBoxWithResize: ScrollBoxWithResize, 
 	SwitchBox: SwitchBox, 
-	Table: Table, 
-	WF2FormElement: WF2FormElement	
+	Table: Table
 }
 
 })();

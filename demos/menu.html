@@ -22,20 +22,81 @@ body { width: 480px; height: 100%; }
 #edit { background-color: #ffffff; margin: 0px; padding: 1em; }
 	</style>
 	
+<script src="../Sprocket.js"></script>
+<script src="../UI.js"></script>
 <style>
 .menu { height: auto; overflow: visible; }
 .menu ul { list-style: none outside; margin: 0px; padding: 0px; border: 1px outset #dddddd; background-color: #dddddd; }
 .menu li { list-style: none outside; margin: 0px; padding: 0px; }
 .menu li { display: inline; position: relative; top: 0px; left: 0px; }
-.menu li ul { position: absolute; top: 1em; left: 0; width: auto; ~width: 0; }
-.menu li li { display: block; position: static; white-space: nowrap; ~height: 0; ~padding-left: 0.5em; }
+.menu li ul { position: absolute; top: 1em; left: 0; width: auto; }
+.menu li li { display: block; position: static; white-space: nowrap; }
 .menu button, .menu a { border: none; background-color: transparent; color: #000000; margin: 0; padding: 0.1em 0.5em; text-decoration: none; }
 
-.menu li ul.hidden { height: 0; overflow: hidden; border: none; }
 .menu li button:hover, .menu a:hover { background-color: #0033cc; color: #dddddd; }
 </style>
-<script src="../Sprocket.js"></script>
-<script src="../UI.js"></script>
+<script>
+(function() {
+
+var _ = Meeko.stuff;
+var sprockets = Meeko.sprockets, UI = sprockets.UI;
+
+sprockets.register('.menu li', {
+	
+prototype: UI.TreeItem.prototype
+});
+
+sprockets.register('.menu ul', {
+	
+prototype: UI.List.prototype
+
+});
+
+sprockets.register('.menu', {
+prototype: UI.Tree.prototype,
+callbacks: {
+	enteredDocument: function() {
+		_.forEach(this.$$('ul'), function(el) {
+			var list = UI.List(el);
+			var parent = list.closest('li', this.element);
+			if (!parent) return;
+			var treeitem = UI.TreeItem(parent);
+			if (!treeitem) return;
+			var state = treeitem.getExpanded();
+			if (state === false || state == null) return;
+			treeitem.setExpanded(false);
+		}, this);
+	}
+},
+handlers: [
+	{
+		type: 'mouseover',
+		delegator: 'li[aria-expanded=false]',
+		action: function(event, delegator) {
+			var treeitem = UI.TreeItem(delegator);
+			treeitem.setExpanded(true);
+		}
+	},
+	{
+		type: 'mouseout',
+		delegator: 'li[aria-expanded=true]',
+		action: function(event, delegator) {
+			var treeitem = UI.TreeItem(delegator);
+			if (delegator !== event.target && treeitem.contains(event.relatedTarget)) return;
+			treeitem.setExpanded(false);
+		}
+	}
+]
+
+
+});
+
+
+window.onload = function() { sprockets.start(); }
+
+})();
+</script>
+
 </head>
 <body id="menu">
 	<div class="menu">
@@ -83,45 +144,5 @@ in this case when the mouse is over the menu label or the menu.
 		<p>CSS does the rest.</p>
 	</div>
 
-<script>
-(function() {
-
-var sprockets = Meeko.sprockets, UI = sprockets.UI;
-var List = UI.List.evolve({
-	setHidden: function(state) {
-		this.toggleClass('hidden', state);
-	},
-	
-	getHidden: function() {
-		return this.hasClass('hidden');
-	}
-});
-
-sprockets.register('.menu > ul > li > ul', List);
-sprockets.register('.menu > ul > li', UI.TreeItem, {
-
-handlers: [
-	{
-		type: 'mouseover',
-		phase: 2,
-		action: function(event) {
-			this.setExpanded(true);
-		}
-	},
-	{
-		type: 'mouseout',
-		phase: 2,
-		action: function(event) {
-			this.setExpanded(false);
-		}
-	}
-]
-
-});
-
-sprockets.start();
-
-})();
-</script>
 </body>
 </html>

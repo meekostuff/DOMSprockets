@@ -15,31 +15,74 @@ body {
 	margin: 0px;
 	padding: 0px;
 }
+	</style>
+	
+<script src="../Sprocket.js"></script>
+<script src="../UI.js"></script>
+<style>
 #tree {
 	margin: 0px;
 	padding: 0px;
 }
 #tree label { display: block; background-color: #dddddd; border: 1px outset #dddddd; }
-	</style>
-	
-<style>
 #tree ul { margin-left: 0px; padding-left: 1em; }
-#tree li.closed ul { display: none; }
+#tree ul, #tree li { -moz-user-select: none; }
+#tree li > * { -moz-user-select: text; }
 
 /* pseudo list-style-image */
+#tree ul { list-style-image: none; } /* IE <= 8 */
 #tree li { list-style: outside disc; margin-left: 0px; padding-left: 0px; }
-#tree li.open { list-style-image: url(arrow-dn.gif); }
-#tree li.closed { list-style-image: url(arrow-rit.gif); }
-#tree li.open ul, #tree li.closed ul { list-style-image: none; } /* IE <= 8 */
-#tree li { -moz-user-select: none; }
-#tree li > * { -moz-user-select: text; }
+#tree li[aria-expanded=false] { list-style-image: url(arrow-rit.gif); }
+#tree li[aria-expanded=true] { list-style-image: url(arrow-dn.gif); }
 </style>
-<script src="../Sprocket.js"></script>
-<script src="../UI.js"></script>
+<script>
+(function() {
+
+var sprockets = Meeko.sprockets, UI = sprockets.UI, DOM = Meeko.DOM;
+var _ = Meeko.stuff;
+
+sprockets.register('#tree li', {
+prototype: UI.TreeItem.prototype
+});
+sprockets.register('#tree ul', {
+prototype: UI.List.prototype
+});
+sprockets.register('#tree', {
+prototype: UI.Tree.prototype,
+callbacks: {
+	enteredDocument: function() {
+		_.forEach(this.$$('ul'), function(el) {
+			var list = UI.List(el);
+			var parent = list.closest('li', this.element);
+			if (!parent) return;
+			var treeitem = UI.TreeItem(parent);
+			if (treeitem) treeitem.setExpanded(false);
+		}, this);
+	}
+},
+handlers: [
+{
+	type: 'click',
+	delegator: 'li',
+	action: function(event, delegator) {
+		var treeitem = UI.TreeItem(delegator);
+		var state =  treeitem.getExpanded();
+		if (state == null) return;
+		treeitem.setExpanded(!state);
+	}
+}
+]
+});
+
+window.onload = function() { sprockets.start(); }
+
+})();
+</script>
+
 </head>
 
 <body>
-	<div id="tree" class="nav">
+	<div id="tree">
 		<label>Plants</label>
 <ul>
 	<li><a>Green algae</a>
@@ -84,72 +127,6 @@ body {
 </ul>
 	</div>
 
-<script>
-(function() {
-
-var sprockets = Meeko.sprockets, UI = sprockets.UI, DOM = Meeko.DOM;
-var _ = Meeko.stuff;
-
-//sprockets.register('#tree ul', UI.List);
-
-var TreeItem = UI.TreeItem.evolve(
-{
-	setExpanded: function(state) {
-		if (state == null) {
-			this.removeClass('open');
-			this.removeClass('closed');
-		}
-		else {
-			this.toggleClass('open', !!state);
-			this.toggleClass('closed', !state);
-		}
-	},
-	getExpanded: function() {
-		var state =
-			this.hasClass('open') ? true :
-			this.hasClass('closed') ? false :
-			null;
-		return state;
-	},
-	isEmpty: function() {
-		var element = this.boundElement;
-		for (var node=element.firstChild; node; node=node.nextSibling) {
-			if (node.nodeType === 1 && node.tagName === 'UL') return false;
-		}
-		return true;
-	}
-});
-
-sprockets.register('#tree li', TreeItem);
-
-sprockets.register('#tree', UI.Tree, {
-handlers: [
-{
-	type: 'click',
-	delegator: 'li',
-	eventPhase: 2,
-	action: function(event, delegator) {
-		var treeitem = UI.TreeItem(delegator);
-		if (treeitem.isEmpty()) treeitem.setExpanded();
-		else treeitem.setExpanded(!treeitem.getExpanded());
-	}
-}
-],
-callbacks: {
-	enteredDocument: function() {
-		_.forEach(this.$$('li > ul'), function(list) {
-			var parent = list.parentNode;
-			var treeitem = UI.TreeItem(parent);
-			if (treeitem) treeitem.setExpanded(false);	
-		}, this);
-	}
-}
-});
-
-})();
-
-sprockets.start();
-</script>
 
 </body>
 </html>

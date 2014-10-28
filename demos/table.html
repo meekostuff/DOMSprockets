@@ -42,6 +42,8 @@ thead th button {
 }
   </style>
  
+<script src="../Sprocket.js"></script>
+<script src="../UI.js"></script>
   <style>
 thead th.sorted button {
   background-position: center right;
@@ -52,8 +54,35 @@ thead th.reversed button {
   background-image: url(arrow-up.gif);
 }
   </style>
-<script src="../Sprocket.js"></script>
-<script src="../UI.js"></script>
+<script>
+(function() {
+
+var _ = Meeko.stuff;
+var sprockets = Meeko.sprockets, UI = sprockets.UI;
+
+sprockets.register('table.sortable', {
+
+prototype: UI.Table.prototype,
+
+handlers: [
+{
+  type: 'click',
+  delegator: '> thead > tr > th',
+  action: function(event, cell) {
+	if (event.defaultPrevented) return;
+	this.toggleColumnSortState(cell.cellIndex);
+	event.preventDefault();
+  }
+}
+]
+
+});
+
+window.onload = function() { sprockets.start(); } 
+
+})();
+</script>
+
 
 </head>
 <body>
@@ -250,29 +279,6 @@ thead th.reversed button {
     </tr>
   </tbody>
 </table>
-
-<script>
-(function() {
-
-var sprockets = Meeko.sprockets, UI = sprockets.UI;
-sprockets.register('table.sortable', UI.Table, {
-handlers: [
-{
-  type: 'click',
-  delegator: '> thead > tr > th',
-  action: function(event, cell) {
-	if (event.defaultPrevented) return;
-	this.toggleColumnSortState(cell.cellIndex);
-	event.preventDefault();
-  }
-}
-]
-});
-
-sprockets.start();
-
-})();
-</script>
 
 </body>
 </html>

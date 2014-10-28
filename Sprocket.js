@@ -113,7 +113,12 @@ var assign = function(dest, src) {
 	return dest;
 }
 
-var createObject = Object.create;
+var createObject = function(prototype, extras) {
+	var object = Object.create(prototype);
+	if (extras) _.assign(object, extras);
+	return object;
+}
+	
 
 return {
 	uc: uc, lc: lc, trim: trim, words: words, // string
@@ -319,12 +324,14 @@ var sprockets = {};
 
 var activeListeners = {};
 
-var SprocketDefinition = function(prototype) {
+var SprocketDefinition = function(options) {
 	var constructor = function(element) {
 		if (this instanceof constructor) return constructor.bind(element);
 		return constructor.cast(element);
 	}
-	constructor.prototype = prototype;
+	constructor.prototype = options.prototype || {};
+	constructor.handlers = options.handlers ? _.toArray(options.handlers) : [];
+	constructor.callbacks = options.callbacks && _.assign({}, options.callbacks);
 	_.assign(constructor, SprocketDefinition.prototype);
 	return constructor;
 }
@@ -333,43 +340,36 @@ _.assign(SprocketDefinition.prototype, {
 
 bind: function(element) {
 	var implementation = _.create(this.prototype);
-	implementation.boundElement = element;
+	implementation.element = element;
 	return implementation;
 },
 cast: function(element) {
-	var binding = Binding.getInterface(element);
+	var binding = Sprocket.getInterface(element); 
 	if (binding) {
 		if (!isPrototypeOf(this.prototype, binding.implementation)) throw "Attached sprocket doesn't match";
 		return binding.implementation;
 	}
 	_.some(sprocketRules, function(rule) {
-		var prototype = rule.definition.implementation;
+		var prototype = rule.definition.prototype;
 		if (this.prototype !== prototype && !isPrototypeOf(this.prototype, prototype)) return false;
 		if (!DOM.matches(element, rule.selector)) return false;
-		binding = attachBinding(rule.definition, element);
+		binding = attachSprocket(rule.definition, element);
 		return true;
 	}, this);
 	if (!binding) throw "No compatible sprocket declared";
 	return binding.implementation;
-},
-evolve: function(properties) { // inherit this.prototype, extend with properties
-	var prototype = _.create(this.prototype); 
-	if (properties) _.assign(prototype, properties);
-	var sub = new SprocketDefinition(prototype);
-	return sub;
 }
 
 });
 
-
-function attachBinding(definition, element) {
-	var binding = new Binding(definition);
+function attachSprocket(definition, element) {
+	var binding = new Sprocket(definition);
 	DOM.setData(element, binding);
 	binding.attach(element);
 	return binding;
 }
 
-function detachBinding(definition, element) {
+function detachSprocket(definition, element) {
 	if (!DOM.hasData(element)) throw 'No binding attached to element';
 	var binding = DOM.getData(element);
 	if (definition !== binding.definition) throw 'Mismatch between binding and the definition';
@@ -379,28 +379,28 @@ function detachBinding(definition, element) {
 }
 
 
-var Binding = function(definition) {
+var Sprocket = function(definition) {
 	var binding = this;
 	binding.definition = definition;
-	binding.implementation = _.create(definition.implementation);
+	binding.implementation = _.create(definition.prototype);
 	binding.listeners = [];
 	binding.inDocument = null; // TODO state assertions in attach/onenter/leftDocumentCallback/detach
 }
 
-_.assign(Binding, {
-
+_.assign(Sprocket, {
+	
 getInterface: function(element) {
 	if (DOM.hasData(element)) return DOM.getData(element);
 },
 
 enteredDocumentCallback: function(element) {
-	var binding = Binding.getInterface(element);
+	var binding = Sprocket.getInterface(element);
 	if (!binding) return;
 	binding.enteredDocumentCallback();
 },
 
 leftDocumentCallback: function(element) {
-	var binding = Binding.getInterface(element);
+	var binding = Sprocket.getInterface(element);
 	if (!binding) return;
 	binding.leftDocumentCallback();
 },
@@ -419,14 +419,15 @@ manageEvent: function(type) {
 
 });
 
-_.assign(Binding.prototype, {
+
+_.assign(Sprocket.prototype, {
 
 attach: function(element) {
 	var binding = this;
 	var definition = binding.definition;
 	var implementation = binding.implementation;
 
-	implementation.boundElement = element;
+	implementation.element = element;
 	_.forEach(definition.handlers, function(handler) {
 		var listener = binding.addHandler(handler); // handler might be ignored ...
 		if (listener) binding.listeners.push(listener);// ... resulting in an undefined listener
@@ -497,7 +498,7 @@ detachedCallback: function() {
 addHandler: function(handler) {
 	var binding = this;
 	var implementation = binding.implementation;
-	var element = implementation.boundElement;
+	var element = implementation.element;
 	var type = handler.type;
 	var capture = (handler.eventPhase == 1); // Event.CAPTURING_PHASE
 	if (capture) {
@@ -505,7 +506,7 @@ addHandler: function(handler) {
 		return; // FIXME should this convert to bubbling instead??
 	}
 
-	Binding.manageEvent(type);
+	Sprocket.manageEvent(type);
 	var fn = function(event) {
 		if (fn.normalize) event = fn.normalize(event);
 		return handleEvent.call(implementation, event, handler);
@@ -519,7 +520,7 @@ addHandler: function(handler) {
 removeListener: function(fn) {
 	var binding = this;
 	var implementation = binding.implementation;
-	var element = implementation.boundElement;
+	var element = implementation.element;
 	var type = fn.type;
 	var capture = fn.capture;
 	var target = (element === document.documentElement && _.contains(redirectedWindowEvents, type)) ? window : element; 
@@ -538,7 +539,7 @@ if (!('defaultPrevented' in Event.prototype)) { // NOTE ensure defaultPrevented 
 function handleEvent(event, handler) {
 	var bindingImplementation = this;
 	var target = event.target;
-	var current = bindingImplementation.boundElement;
+	var current = bindingImplementation.element;
 	if (!DOM.hasData(current)) throw "Handler called on non-bound element";
 	if (!matchesEvent(handler, event, true)) return; // NOTE the phase check is below
 	var delegator = current;
@@ -831,24 +832,10 @@ function(prototype, object) {
 
 /* CSS Rules */
 
-function BindingDefinition(desc) {
-	this.implementation = desc.implementation;
-	this.handlers = desc.handlers && desc.handlers.length ? desc.handlers.slice(0) : [];
-	this.callbacks = desc.callbacks;
-}
-
-function BindingRule(selector, bindingDefn) {
+function BindingRule(selector, sprocketDefn) {
 	this.selector = selector;
-	this.definition = bindingDefn;
+	this.definition = sprocketDefn;
 }
-
-_.assign(BindingRule.prototype, {
-
-deregister: function() { // FIXME
-	
-}
-
-});
 
 var bindingRules = [];
 var sprocketRules = [];
@@ -857,12 +844,12 @@ var leavingRules = [];
 
 // FIXME BIG BALL OF MUD
 function applyRuleToEnteredElement(rule, element) { // FIXME compare current and new CSS specifities
-	var binding = Binding.getInterface(element);
+	var binding = Sprocket.getInterface(element);
 	if (binding && binding.definition !== rule.definition) {
-		detachBinding(binding.definition, element); // FIXME logger.warn
+		detachSprocket(binding.definition, element); // FIXME logger.warn
 		binding = undefined;
 	}
-	if (!binding) binding = attachBinding(rule.definition, element);
+	if (!binding) binding = attachSprocket(rule.definition, element);
 	if (!binding.inDocument) binding.enteredDocumentCallback();
 }
 
@@ -885,17 +872,13 @@ function applyEnteringRules() {
 
 _.assign(sprockets, {
 
-register: function(selector, sprocket, extras) {
+register: function(selector, options) {
 	var alreadyTriggered = (enteringRules.length > 0);
-	var bindingDefn = new BindingDefinition({
-		implementation: sprocket.prototype,
-		handlers: extras && extras.handlers,
-		callbacks: extras && extras.callbacks
-	});
-	var rule = new BindingRule(selector, bindingDefn);
+	var sprocketDefn = new SprocketDefinition(options);
+	var rule = new BindingRule(selector, sprocketDefn);
 	enteringRules.push(rule);
 	if (!alreadyTriggered) setTimeout(applyEnteringRules);
-	return rule;
+	return sprocketDefn;
 }
 
 });
@@ -922,8 +905,8 @@ nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 nodeRemoved: function(node) { // NOTE called AFTER node removed document
 	if (!started) throw 'sprockets management has not started yet';
 	
-	Binding.leftDocumentCallback(node);
-	_.forEach(DOM.$$('*', node), Binding.leftDocumentCallback);
+	Sprocket.leftDocumentCallback(node);
+	_.forEach(DOM.$$('*', node), Sprocket.leftDocumentCallback);
 }
 
 });
@@ -957,9 +940,6 @@ function() { // otherwise assume MutationEvents. TODO is this assumption safe?
 };
 
 
-var basePrototype = {};
-sprockets.Base = new SprocketDefinition(basePrototype); // NOTE now we can extend basePrototype
-
 sprockets.trigger = function(target, type, params) { // NOTE every JS initiated event is a custom-event
 	if (typeof type === 'object') {
 		params = type;
@@ -986,32 +966,40 @@ return sprockets;
 
 var _ = Meeko.stuff;
 var DOM = Meeko.DOM;
-var sprockets = Meeko.sprockets, basePrototype = sprockets.Base.prototype;
+var sprockets = Meeko.sprockets;
 
+sprockets.Base = sprockets.register('*', { prototype: {} });
+
+var basePrototype = sprockets.Base.prototype;
 
 _.assign(basePrototype, {
 
-$: function(selector, isRelative) { return DOM.$(selector, this.boundElement, isRelative); },
-$$: function(selector, isRelative) { return DOM.$$(selector, this.boundElement, isRelative); },
-matches: function(selector, scope) { return DOM.matches(this.boundElement, selector, scope); },
-closest: function(selector, scope) { return DOM.closest(this.boundElement, selector, scope); },
+$: function(selector, isRelative) { return DOM.$(selector, this.element, isRelative); },
+$$: function(selector, isRelative) { return DOM.$$(selector, this.element, isRelative); },
+matches: function(selector, scope) { return DOM.matches(this.element, selector, scope); },
+closest: function(selector, scope) { return DOM.closest(this.element, selector, scope); },
 
-contains: function(otherNode) { return DOM.contains(this.boundElement, otherNode); },
+contains: function(otherNode) { return DOM.contains(this.element, otherNode); },
 
 attr: function(name, value) {
-	var element = this.boundElement;
+	var element = this.element;
 	if (typeof value === 'undefined') return element.getAttribute(name);
 	if (value == null) element.removeAttribute(name);
 	else element.setAttribute(name, value);
 },
 hasClass: function(token) {
-	var element = this.boundElement;
+	var element = this.element;
 	var text = element.getAttribute('class');
+	if (!text) return false;
 	return _.contains(_.words(text), token);
 },
 addClass: function(token) {
-	var element = this.boundElement;
+	var element = this.element;
 	var text = element.getAttribute('class');
+	if (!text) {
+		element.setAttribute('class', token);
+		return;
+	}
 	if (_.contains(_.words(text), token)) return;
 	var n = text.length,
 		space = (n && text.charAt(n-1) !== ' ') ? ' ' : '';
@@ -1019,8 +1007,9 @@ addClass: function(token) {
 	element.setAttribute('class', text);
 },
 removeClass: function(token) {
-	var element = this.boundElement;
+	var element = this.element;
 	var text = element.getAttribute('class');
+	if (!text) return;
 	var prev = _.words(text);
 	var next = [];
 	_.forEach(prev, function(str) { if (str !== token) next.push(str); });
@@ -1042,7 +1031,7 @@ toggleClass: function(token, force) {
 },
 
 trigger: function(type, params) {
-	return sprockets.trigger(this.boundElement, type, params);
+	return sprockets.trigger(this.element, type, params);
 }
 
 

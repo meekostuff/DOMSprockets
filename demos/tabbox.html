@@ -48,7 +48,7 @@ body { width: 480px; height: 100%; }
 	position: relative;
 	bottom: -1px;
 }
-#tabboxTabs li.current a, #tabboxTabs li.current a:active, #tabboxTabs li.current a:visited {
+#tabboxTabs li[aria-selected] a {
 	background-color: #ffffff;
 }
 
@@ -58,14 +58,77 @@ body { width: 480px; height: 100%; }
 	padding: 1em;
 }
 
-#tabboxPanels div.hidden {
-	display: none;
-}
-
 #tabboxPanels ul { margin-left: 0px; padding-left: 2em;  }
 	</style>
 <script src="../Sprocket.js"></script>
 <script src="../UI.js"></script>
+<script>
+(function() {
+
+var _ = Meeko.stuff, DOM = Meeko.DOM;
+var sprockets = Meeko.sprockets, UI = sprockets.UI;
+
+sprockets.register('#tabboxPanels > div', {
+prototype: UI.Panel.prototype
+});
+sprockets.register('#tabboxPanels', {
+prototype: UI.SwitchBox.prototype
+});
+
+sprockets.register('#tabbox .nav > ul > li', {
+prototype: UI.TreeItem.prototype
+});
+sprockets.register('#tabbox .nav > ul', {
+prototype: UI.List.prototype
+});
+
+sprockets.register('#tabbox .nav', {
+prototype: _.create(UI.Tree.prototype, {
+	getView: function(el) {
+		var element = el || this.element;
+		var document = element.ownerDocument;
+		var link = DOM.$('a', element);
+		if (!link) return;
+		var href = link.href;
+		if (!href || href === document.URL) return;
+		// FIXME the following should use Meeko.URL
+		var base = document.URL.split('#')[0];
+		if (href.indexOf(base + '#') !== 0) return;
+		var id = href.split('#')[1];
+		if (!id) return;
+		return DOM.$id(id);
+	}
+}),
+callbacks: {
+	enteredDocument: function() {
+	  this.selectItem(this.$('li'));
+	}
+},
+handlers: [
+{
+	type: "click",
+	delegator: 'li',
+	action: function(event, item) {
+		if (event.defaultPrevented) return;
+		this.selectItem(item);
+		event.preventDefault();
+	}
+},
+{
+	type: "change",
+	action: function(event) {
+		var viewer = this.getView();
+		var target = this.getView(this.selectedItem);
+		UI.SwitchBox(viewer).setView(target);
+	}
+}
+]
+});
+
+window.onload = function() { sprockets.start(); }
+
+})();
+</script>
 </head>
 <body id="tabbox">
 	
@@ -108,69 +171,5 @@ The tabbox implementation matches a list of skip links, where each link referenc
 			</p>
 		</div>
 	</div>
-<script>
-(function() {
-
-var sprockets = Meeko.sprockets, UI = sprockets.UI;
-
-var Panel = UI.Panel.evolve({
-
-setHidden: function(state) {
-	this.toggleClass('hidden', state);
-},
-getHidden: function() {
-	return this.hasClass('hidden');
-}
-
-});
-
-sprockets.register('#tabboxPanels > div', Panel);
-sprockets.register('#tabboxPanels', UI.SwitchBox);
-
-var NavTreeItem = UI.NavTreeItem.evolve(
-{
-
-setSelected: function(state) { // NOTE treeitem is ignorant of whether multiple treeitems can be selected
-	this.toggleClass('current', state);
-},
-getSelected: function() {
-	return this.hasClass('current');
-}
-
-});
-
-sprockets.register('#tabbox .nav > ul > li', NavTreeItem);
-sprockets.register('#tabbox .nav > ul', UI.List);
-sprockets.register('#tabbox .nav', UI.NavTree, {
-callbacks: {
-	enteredDocument: function() {
-	  this.selectItem(this.getListElement().children[0]);
-	}
-},
-handlers: [
-{
-	type: "click",
-	delegator: 'li',
-	action: function(event, item) {
-		if (event.defaultPrevented) return;
-		this.selectItem(item);
-		event.preventDefault();
-	}
-},
-{
-	type: "change",
-	action: function(event) {
-		var viewer = this.getView();
-		var target = UI.NavTreeItem(this.getSelectedItem()).getView();
-		UI.SwitchBox(viewer).setView(target);
-	}
-}
-]
-});
-
-sprockets.start();
-
-})();
-</script>
 </body>
 </html>
