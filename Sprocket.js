@@ -319,49 +319,6 @@ var sprockets = {};
 
 var activeListeners = {};
 
-var SprocketDefinition = function(prototype) {
-	var constructor = function(element) {
-		if (this instanceof constructor) return constructor.bind(element);
-		return constructor.cast(element);
-	}
-	constructor.prototype = prototype;
-	_.assign(constructor, SprocketDefinition.prototype);
-	return constructor;
-}
-
-_.assign(SprocketDefinition.prototype, {
-
-bind: function(element) {
-	var implementation = _.create(this.prototype);
-	implementation.boundElement = element;
-	return implementation;
-},
-cast: function(element) {
-	var binding = Binding.getInterface(element);
-	if (binding) {
-		if (!isPrototypeOf(this.prototype, binding.implementation)) throw "Attached sprocket doesn't match";
-		return binding.implementation;
-	}
-	_.some(sprocketRules, function(rule) {
-		var prototype = rule.definition.implementation;
-		if (this.prototype !== prototype && !isPrototypeOf(this.prototype, prototype)) return false;
-		if (!DOM.matches(element, rule.selector)) return false;
-		binding = attachBinding(rule.definition, element);
-		return true;
-	}, this);
-	if (!binding) throw "No compatible sprocket declared";
-	return binding.implementation;
-},
-evolve: function(properties) { // inherit this.prototype, extend with properties
-	var prototype = _.create(this.prototype); 
-	if (properties) _.assign(prototype, properties);
-	var sub = new SprocketDefinition(prototype);
-	return sub;
-}
-
-});
-
-
 function attachBinding(definition, element) {
 	var binding = new Binding(definition);
 	DOM.setData(element, binding);
@@ -850,6 +807,23 @@ deregister: function() { // FIXME
 
 });
 
+
+sprockets.trigger = function(target, type, params) { // NOTE every JS initiated event is a custom-event
+	if (typeof type === 'object') {
+		params = type;
+		type = params.type;
+	}
+	var bubbles = 'bubbles' in params ? !!params.bubbles : true;
+	var cancelable = 'cancelable' in params ? !!params.cancelable : true;
+	if (typeof type !== 'string') throw 'trigger() called with invalid event type';
+	var detail = params && params.detail;
+	var event = document.createEvent('CustomEvent');
+	event.initCustomEvent(type, bubbles, cancelable, detail);
+	if (params) _.defaults(event, params);
+	return target.dispatchEvent(event);
+}
+
+
 var bindingRules = [];
 var sprocketRules = [];
 var enteringRules = [];
@@ -957,23 +931,51 @@ function() { // otherwise assume MutationEvents. TODO is this assumption safe?
 };
 
 
+var SprocketDefinition = function(prototype) {
+	var constructor = function(element) {
+		if (this instanceof constructor) return constructor.bind(element);
+		return constructor.cast(element);
+	}
+	constructor.prototype = prototype;
+	_.assign(constructor, SprocketDefinition.prototype);
+	return constructor;
+}
+
+_.assign(SprocketDefinition.prototype, {
+
+bind: function(element) {
+	var implementation = _.create(this.prototype);
+	implementation.boundElement = element;
+	return implementation;
+},
+cast: function(element) {
+	var binding = Binding.getInterface(element);
+	if (binding) {
+		if (!isPrototypeOf(this.prototype, binding.implementation)) throw "Attached sprocket doesn't match";
+		return binding.implementation;
+	}
+	_.some(sprocketRules, function(rule) {
+		var prototype = rule.definition.implementation;
+		if (this.prototype !== prototype && !isPrototypeOf(this.prototype, prototype)) return false;
+		if (!DOM.matches(element, rule.selector)) return false;
+		binding = attachBinding(rule.definition, element);
+		return true;
+	}, this);
+	if (!binding) throw "No compatible sprocket declared";
+	return binding.implementation;
+},
+evolve: function(properties) { // inherit this.prototype, extend with properties
+	var prototype = _.create(this.prototype); 
+	if (properties) _.assign(prototype, properties);
+	var sub = new SprocketDefinition(prototype);
+	return sub;
+}
+
+});
+
+
 var basePrototype = {};
 sprockets.Base = new SprocketDefinition(basePrototype); // NOTE now we can extend basePrototype
-
-sprockets.trigger = function(target, type, params) { // NOTE every JS initiated event is a custom-event
-	if (typeof type === 'object') {
-		params = type;
-		type = params.type;
-	}
-	var bubbles = 'bubbles' in params ? !!params.bubbles : true;
-	var cancelable = 'cancelable' in params ? !!params.cancelable : true;
-	if (typeof type !== 'string') throw 'trigger() called with invalid event type';
-	var detail = params && params.detail;
-	var event = document.createEvent('CustomEvent');
-	event.initCustomEvent(type, bubbles, cancelable, detail);
-	if (params) _.defaults(event, params);
-	return target.dispatchEvent(event);
-}
 
 return sprockets;
 
