@@ -42,13 +42,13 @@ function ucFirst(text) {
 var Box = Base.evolve({
 
 setHidden: function(state) {
-	var element = this.boundElement;
+	var element = this.element;
 	if (!state) element.removeAttribute('hidden');
 	else element.setAttribute('hidden', '');
 },
 
 getHidden: function() {
-	var element = this.boundElement;
+	var element = this.element;
 	return element.getAttribute('hidden') !== null;
 }
 
@@ -60,7 +60,7 @@ var TreeItem = Box.evolve({
 
 getListElement: function() {
 
-	var element = this.boundElement;
+	var element = this.element;
 	var children = element.children;
 	for (var node, i=0; node=children[i]; i++) {
 		switch (node.tagName.toLowerCase()) {
@@ -71,11 +71,11 @@ getListElement: function() {
 		
 },
 setSelected: function(state) { // NOTE TreeItem is ignorant of whether multiple TreeItems can be selected
-	var element = this.boundElement;
+	var element = this.element;
 	element.setAttribute("aria-selected", !!state);
 },
 getSelected: function() {
-	var element = this.boundElement;
+	var element = this.element;
 	var state = element.getAttribute("aria-selected");
 	return (/^true$/i.test(state));	
 },
@@ -99,7 +99,7 @@ var ListItem = TreeItem;
 var List = Box.evolve({
 
 getItems: function() {
-	var element = this.boundElement;
+	var element = this.element;
 	var items = [];
 	for (var node=element.firstChild; node; node=node.nextSibling) {
 		if (node.nodeType === 1) items.push(node);
@@ -160,9 +160,9 @@ var NavTreeItem = TreeItem.evolve({
 
 getView: function() {
 	
-	var element = this.boundElement;
+	var element = this.element;
 	var document = element.ownerDocument;
-	for (var ref=this.boundElement.firstChild; ref; ref=ref.nextSibling) if (ref.nodeType === 1) break;
+	for (var ref=this.element.firstChild; ref; ref=ref.nextSibling) if (ref.nodeType === 1) break;
 	var tagName = ref && ref.tagName.toLowerCase();
 	switch(tagName) {
 	case "a":
@@ -200,7 +200,7 @@ var ScrollBox = Box.evolve({
 	
 setView: function(item) {
 
-	var element = this.boundElement;
+	var element = this.element;
 	if (element === item || !this.contains(item)) throw "setView failed: item is not descendant of ScrollBox";
 	element.scrollTop = item.offsetTop - element.offsetTop;
 
@@ -215,7 +215,7 @@ var ScrollBoxWithResize = Box.evolve({
 	
 setView: function(item) {
 
-	var element = this.boundElement;
+	var element = this.element;
 	var document = element.ownerDocument;
 	if (element === item || !this.contains(node)) {
 		throw "setView failed: item is not descendant of ScrollBoxWithResize";
@@ -226,7 +226,7 @@ setView: function(item) {
 },
 initialize: function() {
 	
-	var element = this.boundElement;
+	var element = this.element;
 	element.style.overflow = "hidden";
 	element.style.height = "0px";
 
@@ -243,11 +243,11 @@ var Panel = Box;
 var SwitchBox = Box.evolve({
 
 getPanels: function() {
-	return this.boundElement.children;
+	return this.element.children;
 },
 setView: function(item) {
 	
-	var element = this.boundElement;
+	var element = this.element;
 	var panels = this.getPanels();
 	if (!_.contains(panels, item)) throw "setView failed: item is not child of SwitchBox";
 	_.forEach(panels, function(child) {
@@ -282,14 +282,14 @@ var Table = Box.evolve({ // FIXME uses className. This shouldn't be hard-wired
 	
 getColumns: function() {
 	
-	var element = this.boundElement;
+	var element = this.element;
 	return element.tHead.rows.item(0).cells;
 			
 },
 sort: function(column, type, reverse) {
 	
 
-	var element = this.boundElement;
+	var element = this.element;
 	var tBodies = element.tBodies;
 	for (var j=0, m=tBodies.length; j<m; j++) {
 		var tBody = tBodies.item(j);

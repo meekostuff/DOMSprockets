@@ -112,7 +112,7 @@ var TreeItem = UI.TreeItem.evolve(
 		return state;
 	},
 	isEmpty: function() {
-		var element = this.boundElement;
+		var element = this.element;
 		for (var node=element.firstChild; node; node=node.nextSibling) {
 			if (node.nodeType === 1 && node.tagName === 'UL') return false;
 		}

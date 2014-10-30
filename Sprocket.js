@@ -383,7 +383,7 @@ attach: function(element) {
 	var definition = binding.definition;
 	var implementation = binding.implementation;
 
-	implementation.boundElement = element;
+	implementation.element = element;
 	_.forEach(definition.handlers, function(handler) {
 		var listener = binding.addHandler(handler); // handler might be ignored ...
 		if (listener) binding.listeners.push(listener);// ... resulting in an undefined listener
@@ -454,7 +454,7 @@ detachedCallback: function() {
 addHandler: function(handler) {
 	var binding = this;
 	var implementation = binding.implementation;
-	var element = implementation.boundElement;
+	var element = implementation.element;
 	var type = handler.type;
 	var capture = (handler.eventPhase == 1); // Event.CAPTURING_PHASE
 	if (capture) {
@@ -476,7 +476,7 @@ addHandler: function(handler) {
 removeListener: function(fn) {
 	var binding = this;
 	var implementation = binding.implementation;
-	var element = implementation.boundElement;
+	var element = implementation.element;
 	var type = fn.type;
 	var capture = fn.capture;
 	var target = (element === document.documentElement && _.contains(redirectedWindowEvents, type)) ? window : element; 
@@ -495,7 +495,7 @@ if (!('defaultPrevented' in Event.prototype)) { // NOTE ensure defaultPrevented 
 function handleEvent(event, handler) {
 	var bindingImplementation = this;
 	var target = event.target;
-	var current = bindingImplementation.boundElement;
+	var current = bindingImplementation.element;
 	if (!DOM.hasData(current)) throw "Handler called on non-bound element";
 	if (!matchesEvent(handler, event, true)) return; // NOTE the phase check is below
 	var delegator = current;
@@ -799,15 +799,6 @@ function BindingRule(selector, bindingDefn) {
 	this.definition = bindingDefn;
 }
 
-_.assign(BindingRule.prototype, {
-
-deregister: function() { // FIXME
-	
-}
-
-});
-
-
 sprockets.trigger = function(target, type, params) { // NOTE every JS initiated event is a custom-event
 	if (typeof type === 'object') {
 		params = type;
@@ -945,7 +936,7 @@ _.assign(SprocketDefinition.prototype, {
 
 bind: function(element) {
 	var implementation = _.create(this.prototype);
-	implementation.boundElement = element;
+	implementation.element = element;
 	return implementation;
 },
 cast: function(element) {
@@ -993,27 +984,27 @@ var sprockets = Meeko.sprockets, basePrototype = sprockets.Base.prototype;
 
 _.assign(basePrototype, {
 
-$: function(selector, isRelative) { return DOM.$(selector, this.boundElement, isRelative); },
-$$: function(selector, isRelative) { return DOM.$$(selector, this.boundElement, isRelative); },
-matches: function(selector, scope) { return DOM.matches(this.boundElement, selector, scope); },
-closest: function(selector, scope) { return DOM.closest(this.boundElement, selector, scope); },
+$: function(selector, isRelative) { return DOM.$(selector, this.element, isRelative); },
+$$: function(selector, isRelative) { return DOM.$$(selector, this.element, isRelative); },
+matches: function(selector, scope) { return DOM.matches(this.element, selector, scope); },
+closest: function(selector, scope) { return DOM.closest(this.element, selector, scope); },
 
-contains: function(otherNode) { return DOM.contains(this.boundElement, otherNode); },
+contains: function(otherNode) { return DOM.contains(this.element, otherNode); },
 
 attr: function(name, value) {
-	var element = this.boundElement;
+	var element = this.element;
 	if (typeof value === 'undefined') return element.getAttribute(name);
 	if (value == null) element.removeAttribute(name);
 	else element.setAttribute(name, value);
 },
 hasClass: function(token) {
-	var element = this.boundElement;
+	var element = this.element;
 	var text = element.getAttribute('class');
 	if (!text) return false;
 	return _.contains(_.words(text), token);
 },
 addClass: function(token) {
-	var element = this.boundElement;
+	var element = this.element;
 	var text = element.getAttribute('class');
 	if (!text) {
 		element.setAttribute('class', token);
@@ -1026,7 +1017,7 @@ addClass: function(token) {
 	element.setAttribute('class', text);
 },
 removeClass: function(token) {
-	var element = this.boundElement;
+	var element = this.element;
 	var text = element.getAttribute('class');
 	if (!text) return;
 	var prev = _.words(text);
@@ -1050,7 +1041,7 @@ toggleClass: function(token, force) {
 },
 
 trigger: function(type, params) {
-	return sprockets.trigger(this.boundElement, type, params);
+	return sprockets.trigger(this.element, type, params);
 }
 
 
