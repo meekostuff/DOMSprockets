@@ -818,7 +818,6 @@ sprockets.trigger = function(target, type, params) { // NOTE every JS initiated 
 var bindingRules = [];
 var sprocketRules = [];
 var enteringRules = [];
-var leavingRules = [];
 
 // FIXME BIG BALL OF MUD
 function applyRuleToEnteredElement(rule, element) { // FIXME compare current and new CSS specifities
@@ -861,6 +860,17 @@ register: function(selector, sprocket, extras) {
 	enteringRules.push(rule);
 	if (!alreadyTriggered) setTimeout(applyEnteringRules);
 	return rule;
+},
+
+registerComponent: function(tagName, sprocket, extras) {
+	this.register(tagName, sprocket, extras);
+	this.register('[is=' + tagName + ']', sprocket, extras);
+},
+
+registerElement: function(options, sprocket) {
+	var selector = options.scope + ' ' + options.matches;
+	this.register(selector, sprocket);
+	this.register('[is=' + options.scope + ']' + ' ' + options.matches, sprocket);
 }
 
 });

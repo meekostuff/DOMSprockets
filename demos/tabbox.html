@@ -31,6 +31,11 @@ body { width: 480px; height: 100%; }
 	border-bottom: 0.2em solid #ffffff;
 	padding: 0px;
 }
+	</style>
+<script src="../Sprocket.js"></script>
+<script src="../UI.js"></script>
+
+	<style>
 #tabboxTabs .skip {
 	display: none;
 }
@@ -58,56 +63,12 @@ body { width: 480px; height: 100%; }
 	padding: 1em;
 }
 
-#tabboxPanels div.hidden {
+#tabboxPanels > .hidden {
 	display: none;
 }
 
 #tabboxPanels ul { margin-left: 0px; padding-left: 2em;  }
 	</style>
-<script src="../Sprocket.js"></script>
-<script src="../UI.js"></script>
-</head>
-<body id="tabbox">
-	
-	<div class="nav" id="tabboxTabs">
-		<a class="skip" rel="target" href="#tabboxPanels">The Tabbox</a>
-		<ul>
-			<li id="Tab1"><a href="#tabboxPanel1">Description</a></li>
-			<li id="Tab2"><a href="#tabboxPanel2">Implementation</a></li>
-			<li id="Tab3"><a href="#tabboxPanel3">Semantics</a></li>
-		</ul>
-	</div>
-	<div id="tabboxPanels">
-		<div id="tabboxPanel1">
-			<p>
-A tabbox is a list of blocks (panels) only one of which is displayed at a time.
-The currently displayed panel is controlled by a set of tabs
-at the top, bottom or on side of the panels.
-			</p>
-			<p>
-The tabbox allows visual presentation to highlight structure, 
-especially where content doesn't naturally flow from panel to panel.
-			</p>
-		</div>
-		<div id="tabboxPanel2">
-			<p>
-A tabbox is implemented using:
-			</p>
-			<ul>
-				<li>a list of block elements (the panels) inside a container block which has a switchBox behavior applied.  This is preceded by</li>
-				<li>a list of links (the tabs) to the panels inside the container. This list has a menu behavior similar to the select element</li>
-			</ul>
-			<p>
-When one of the tabs is activated, a change event is sent to the menu.
-The menu grabs the href of the activated tab and commands the switchBox to display referenced panel.
-			</p>
-		</div>
-		<div id="tabboxPanel3">
-			<p>
-The tabbox implementation matches a list of skip links, where each link references the content of one of the panels
-			</p>
-		</div>
-	</div>
 <script>
 (function() {
 
@@ -124,8 +85,8 @@ getHidden: function() {
 
 });
 
-sprockets.register('#tabboxPanels > div', Panel);
-sprockets.register('#tabboxPanels', UI.SwitchBox);
+sprockets.registerComponent('ui-panel', Panel);
+sprockets.registerComponent('ui-switchbox', UI.SwitchBox);
 
 var NavTreeItem = UI.NavTreeItem.evolve(
 {
@@ -139,9 +100,9 @@ getSelected: function() {
 
 });
 
-sprockets.register('#tabbox .nav > ul > li', NavTreeItem);
-sprockets.register('#tabbox .nav > ul', UI.List);
-sprockets.register('#tabbox .nav', UI.NavTree, {
+sprockets.registerElement({ scope: 'ui-navtree', matches: 'li' }, NavTreeItem);
+sprockets.registerElement({ scope: 'ui-navtree', matches: 'ul' }, UI.List);
+sprockets.registerComponent('ui-navtree', UI.NavTree, {
 callbacks: {
 	enteredDocument: function() {
 	  this.selectItem(this.getListElement().children[0]);
@@ -168,9 +129,52 @@ handlers: [
 ]
 });
 
-sprockets.start();
+window.onload = function() { sprockets.start(); }
 
 })();
 </script>
+
+</head>
+<body id="tabbox">
+	
+	<ui-navtree id="tabboxTabs">
+		<a class="skip" rel="target" href="#tabboxPanels">The Tabbox</a>
+		<ul>
+			<li id="Tab1"><a href="#tabboxPanel1">Description</a></li>
+			<li id="Tab2"><a href="#tabboxPanel2">Implementation</a></li>
+			<li id="Tab3"><a href="#tabboxPanel3">Semantics</a></li>
+		</ul>
+	</ui-navtree>
+	<ui-switchbox id="tabboxPanels">
+		<ui-panel id="tabboxPanel1">
+			<p>
+A tabbox is a list of blocks (panels) only one of which is displayed at a time.
+The currently displayed panel is controlled by a set of tabs
+at the top, bottom or on side of the panels.
+			</p>
+			<p>
+The tabbox allows visual presentation to highlight structure, 
+especially where content doesn't naturally flow from panel to panel.
+			</p>
+		</ui-panel>
+		<ui-panel id="tabboxPanel2">
+			<p>
+A tabbox is implemented using:
+			</p>
+			<ul>
+				<li>a list of block elements (the panels) inside a container block which has a switchBox behavior applied.  This is preceded by</li>
+				<li>a list of links (the tabs) to the panels inside the container. This list has a menu behavior similar to the select element</li>
+			</ul>
+			<p>
+When one of the tabs is activated, a change event is sent to the menu.
+The menu grabs the href of the activated tab and commands the switchBox to display referenced panel.
+			</p>
+		</ui-panel>
+		<ui-panel id="tabboxPanel3">
+			<p>
+The tabbox implementation matches a list of skip links, where each link references the content of one of the panels
+			</p>
+		</ui-panel>
+	</ui-switchbox>
 </body>
 </html>
