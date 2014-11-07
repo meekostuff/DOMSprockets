@@ -74,7 +74,7 @@ body { width: 480px; height: 100%; }
 
 var sprockets = Meeko.sprockets, UI = sprockets.UI;
 
-var Panel = UI.Panel.evolve({
+var Panel = sprockets.evolve(UI.Panel, {
 
 setHidden: function(state) {
 	this.toggleClass('hidden', state);
@@ -88,8 +88,7 @@ getHidden: function() {
 sprockets.registerComponent('ui-panel', Panel);
 sprockets.registerComponent('ui-switchbox', UI.SwitchBox);
 
-var NavTreeItem = UI.NavTreeItem.evolve(
-{
+var NavTreeItem = sprockets.evolve(UI.NavTreeItem, {
 
 setSelected: function(state) { // NOTE treeitem is ignorant of whether multiple treeitems can be selected
 	this.toggleClass('current', state);
@@ -100,14 +99,18 @@ getSelected: function() {
 
 });
 
-sprockets.registerElement({ scope: 'ui-navtree', matches: 'li' }, NavTreeItem);
-sprockets.registerElement({ scope: 'ui-navtree', matches: 'ul' }, UI.List);
+// sprockets.registerElement({ scope: 'ui-navtree', matches: 'li' }, NavTreeItem);
+// sprockets.registerElement({ scope: 'ui-navtree', matches: 'ul' }, UI.List);
 sprockets.registerComponent('ui-navtree', UI.NavTree, {
 callbacks: {
 	enteredDocument: function() {
 	  this.selectItem(this.getListElement().children[0]);
 	}
 },
+sprockets: [
+	{ matches: 'li', sprocket: NavTreeItem },
+	{ matches: 'ul', sprocket: UI.List }
+],
 handlers: [
 {
 	type: "click",

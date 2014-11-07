@@ -43,7 +43,7 @@ body { width: 480px; height: 100%; }
 var DOM = Meeko.DOM;
 var sprockets = Meeko.sprockets, UI = sprockets.UI;
 
-var List = UI.List.evolve({
+var List = sprockets.evolve(UI.List, {
 	setHidden: function(state) {
 		this.toggleClass('hidden', state);
 	},
@@ -53,9 +53,11 @@ var List = UI.List.evolve({
 	}
 });
 
-sprockets.registerElement({ scope: 'ui-tree', matches: 'ul' }, List);
-sprockets.registerElement({ scope: 'ui-tree', matches: 'li' }, UI.TreeItem);
 sprockets.registerComponent('ui-tree', UI.Tree, {
+sprockets: [
+	{ matches: 'ul', sprocket: List },
+	{ matches: 'li', sprocket: UI.TreeItem }
+],
 
 handlers: [
 	{

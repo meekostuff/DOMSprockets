@@ -15,7 +15,7 @@ Meeko.sprockets.UI = (function() {
 
 var _ = Meeko.stuff;
 var DOM = Meeko.DOM, $id = DOM.$id, $ = DOM.$, $$ = DOM.$$;
-var sprockets = Meeko.sprockets, Base = sprockets.Base;
+var sprockets = Meeko.sprockets, Base = sprockets.Base, RoleType = sprockets.RoleType;
 
 var declareProperties = (Object.defineProperty && Object.create) ? // IE8 supports defineProperty but only on DOM objects
 function(obj, props) {
@@ -39,7 +39,7 @@ function ucFirst(text) {
 	return text.substr(0,1).toUpperCase() + text.substr(1);
 }
 
-var Box = Base.evolve({
+var Box = sprockets.evolve(RoleType, {
 
 setHidden: function(state) {
 	var element = this.element;
@@ -56,7 +56,7 @@ getHidden: function() {
 
 declareProperties(Box.prototype, 'hidden');
 
-var TreeItem = Box.evolve({
+var TreeItem = sprockets.evolve(Box, {
 
 getListElement: function() {
 
@@ -96,7 +96,7 @@ declareProperties(TreeItem.prototype, 'listElement selected expanded');
 
 var ListItem = TreeItem;
 
-var List = Box.evolve({
+var List = sprockets.evolve(Box, {
 
 getItems: function() {
 	var element = this.element;
@@ -111,7 +111,7 @@ getItems: function() {
 
 declareProperties(List.prototype, 'items');
 
-var Tree = Box.evolve({
+var Tree = sprockets.evolve(Box, {
 
 getListElement: TreeItem.prototype.getListElement,
 
@@ -156,7 +156,7 @@ signalChange: function() {
 declareProperties(Tree.prototype, 'listElement selectedItem');
 
 
-var NavTreeItem = TreeItem.evolve({
+var NavTreeItem = sprockets.evolve(TreeItem, {
 
 getView: function() {
 	
@@ -187,7 +187,7 @@ getView: function() {
 declareProperties(NavTreeItem.prototype, 'view');
 
 
-var NavTree = Tree.evolve({
+var NavTree = sprockets.evolve(Tree, {
 
 getView: NavTreeItem.prototype.getView
 	
@@ -196,7 +196,7 @@ getView: NavTreeItem.prototype.getView
 declareProperties(NavTree.prototype, 'view');
 
 
-var ScrollBox = Box.evolve({
+var ScrollBox = sprockets.evolve(Box, {
 	
 setView: function(item) {
 
@@ -211,7 +211,7 @@ setView: function(item) {
 declareProperties(ScrollBox.prototype, 'view');
 
 
-var ScrollBoxWithResize = Box.evolve({
+var ScrollBoxWithResize = sprockets.evolve(Box, {
 	
 setView: function(item) {
 
@@ -240,7 +240,7 @@ declareProperties(ScrollBoxWithResize.prototype, 'view');
 
 var Panel = Box;
 
-var SwitchBox = Box.evolve({
+var SwitchBox = sprockets.evolve(Box, {
 
 getPanels: function() {
 	return this.element.children;
@@ -278,25 +278,31 @@ initialize: function() {
 declareProperties(SwitchBox.prototype, 'view');
 
 
-var Table = Box.evolve({ // FIXME uses className. This shouldn't be hard-wired
+var Table = sprockets.evolve(Box, { // FIXME uses className. This shouldn't be hard-wired
 	
+getTable: function() {
+	var element = this.element;
+	if (element.tagName.toLowerCase() === 'table') return element;
+	return DOM.$('table', element);
+},
+
 getColumns: function() {
 	
-	var element = this.element;
-	return element.tHead.rows.item(0).cells;
+	var table = this.getTable();
+	return table.tHead.rows[0].cells;
 			
 },
 sort: function(column, type, reverse) {
 	
 
-	var element = this.element;
-	var tBodies = element.tBodies;
+	var table = this.getTable();
+	var tBodies = table.tBodies;
 	for (var j=0, m=tBodies.length; j<m; j++) {
-		var tBody = tBodies.item(j);
+		var tBody = tBodies[j];
 		var rows = tBody.rows;
 		var values = [];
 		for (var i=0, n=rows.length; i<n; i++) {
-			var row = rows.item(i); var cell = row.cells.item(column);
+			var row = rows[i]; var cell = row.cells[column];
 			var val = new String(cell.firstChild.nodeValue);
 			val.row = row;
 			values.push(val);
@@ -318,7 +324,7 @@ sort: function(column, type, reverse) {
 			var row = val.row;
 			tBody.removeChild(row);
 			if (i == n-1) tBody.appendChild(row);
-			else tBody.insertBefore(row, tBody.rows.item(i));
+			else tBody.insertBefore(row, tBody.rows[i]);
 		}
 	}
 
@@ -327,7 +333,7 @@ toggleColumnSortState: function(column) { // TODO shouldn't have hard-wired clas
 
 	var type = "string";
 	var cols = this.getColumns();
-	var colEl = cols.item(column);
+	var colEl = cols[column];
 	var col = new Base(colEl);
 	if (col.hasClass("number")) type = "number";
 	if (col.hasClass("string")) type = "string";
@@ -347,7 +353,7 @@ toggleColumnSortState: function(column) { // TODO shouldn't have hard-wired clas
 	}
 	for (var n=cols.length, i=0; i<n; i++) {
 		if (column != i) {
-			colEl = cols.item(i);
+			colEl = cols[i];
 			col = new Base(colEl);
 			col.removeClass("sorted");
 			col.removeClass("reversed");
@@ -358,7 +364,7 @@ toggleColumnSortState: function(column) { // TODO shouldn't have hard-wired clas
 
 });
 
-var WF2FormElement = Base.evolve({
+var WF2FormElement = sprockets.evolve(RoleType, {
 encode: function() {
 
 var a = [];

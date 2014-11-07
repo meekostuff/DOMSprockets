@@ -43,8 +43,7 @@ body {
 var sprockets = Meeko.sprockets, UI = sprockets.UI, DOM = Meeko.DOM;
 var _ = Meeko.stuff;
 
-var TreeItem = UI.TreeItem.evolve(
-{
+var TreeItem = sprockets.evolve(UI.TreeItem, {
 	setExpanded: function(state) {
 		if (state == null) {
 			this.removeClass('open');
@@ -65,17 +64,18 @@ var TreeItem = UI.TreeItem.evolve(
 	isEmpty: function() {
 		var element = this.element;
 		for (var node=element.firstChild; node; node=node.nextSibling) {
-			if (node.nodeType === 1 && node.tagName === 'UL') return false;
+			if (node.nodeType === 1 && node.tagName.toLowerCase() === 'ul') return false;
 		}
 		return true;
 	}
 });
 
-sprockets.registerElement({ scope: 'ui-tree', matches: 'li'}, TreeItem);
-
-sprockets.registerElement({ scope: 'ui-tree', matches: 'ul'}, UI.List);
-
 sprockets.registerComponent('ui-tree', UI.Tree, {
+sprockets: [
+	{ matches: 'li', sprocket: TreeItem },
+	{ matches: 'ul', sprocket: UI.List }
+],
+
 handlers: [
 {
 	type: 'click',

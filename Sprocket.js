@@ -183,7 +183,7 @@ var hasData = function(node) {
 	return !nodeId ? false : nodeId in nodeStorage;
 }
 
-var getData = function(node, key) { // TODO should this throw if no data?
+var getData = function(node) { // TODO should this throw if no data?
 	var nodeId = node[nodeIdProperty];
 	if (!nodeId) return;
 	return nodeStorage[nodeId];
@@ -339,7 +339,7 @@ function detachBinding(definition, element) {
 var Binding = function(definition) {
 	var binding = this;
 	binding.definition = definition;
-	binding.implementation = _.create(definition.implementation);
+	binding.implementation = _.create(definition.prototype);
 	binding.listeners = [];
 	binding.inDocument = null; // TODO state assertions in attach/onenter/leftDocumentCallback/detach
 }
@@ -347,7 +347,8 @@ var Binding = function(definition) {
 _.assign(Binding, {
 
 getInterface: function(element) {
-	if (DOM.hasData(element)) return DOM.getData(element);
+	var nodeData = DOM.getData(element);
+	if (nodeData && nodeData.implementation) return nodeData;
 },
 
 enteredDocumentCallback: function(element) {
@@ -383,8 +384,8 @@ attach: function(element) {
 	var definition = binding.definition;
 	var implementation = binding.implementation;
 
-	implementation.element = element;
-	_.forEach(definition.handlers, function(handler) {
+	implementation.element = element; 
+	if (definition.handlers) _.forEach(definition.handlers, function(handler) {
 		var listener = binding.addHandler(handler); // handler might be ignored ...
 		if (listener) binding.listeners.push(listener);// ... resulting in an undefined listener
 	});
@@ -789,7 +790,7 @@ function(prototype, object) {
 /* CSS Rules */
 
 function BindingDefinition(desc) {
-	this.implementation = desc.implementation;
+	this.prototype = desc.prototype;
 	this.handlers = desc.handlers && desc.handlers.length ? desc.handlers.slice(0) : [];
 	this.callbacks = desc.callbacks;
 }
@@ -799,32 +800,16 @@ function BindingRule(selector, bindingDefn) {
 	this.definition = bindingDefn;
 }
 
-sprockets.trigger = function(target, type, params) { // NOTE every JS initiated event is a custom-event
-	if (typeof type === 'object') {
-		params = type;
-		type = params.type;
-	}
-	var bubbles = 'bubbles' in params ? !!params.bubbles : true;
-	var cancelable = 'cancelable' in params ? !!params.cancelable : true;
-	if (typeof type !== 'string') throw 'trigger() called with invalid event type';
-	var detail = params && params.detail;
-	var event = document.createEvent('CustomEvent');
-	event.initCustomEvent(type, bubbles, cancelable, detail);
-	if (params) _.defaults(event, params);
-	return target.dispatchEvent(event);
-}
-
 
 var bindingRules = [];
-var sprocketRules = [];
 var enteringRules = [];
 
 // FIXME BIG BALL OF MUD
 function applyRuleToEnteredElement(rule, element) { // FIXME compare current and new CSS specifities
 	var binding = Binding.getInterface(element);
 	if (binding && binding.definition !== rule.definition) {
-		detachBinding(binding.definition, element); // FIXME logger.warn
-		binding = undefined;
+		logger.warn('Binding rule applied when binding already present');
+		return;
 	}
 	if (!binding) binding = attachBinding(rule.definition, element);
 	if (!binding.inDocument) binding.enteredDocumentCallback();
@@ -839,41 +824,25 @@ function applyRuleToEnteredTree(rule, root) {
 function applyEnteringRules() {
 	var rule; while (rule = enteringRules.shift()) {
 		var definition = rule.definition;
-		if (definition.handlers && definition.handlers.length || !_.isEmpty(definition.callbacks)) {
-			applyRuleToEnteredTree(rule /* , document */);
-			bindingRules.unshift(rule); // TODO splice in specificity order
-		}
-		else sprocketRules.unshift(rule);
+		applyRuleToEnteredTree(rule /* , document */);
+		bindingRules.unshift(rule); // TODO splice in specificity order
 	}
 }
 
 _.assign(sprockets, {
 
-register: function(selector, sprocket, extras) {
+registerElement: function(tagName, desc) { // FIXME test tagName
 	var alreadyTriggered = (enteringRules.length > 0);
-	var bindingDefn = new BindingDefinition({
-		implementation: sprocket.prototype,
-		handlers: extras && extras.handlers,
-		callbacks: extras && extras.callbacks
-	});
+	var bindingDefn = new BindingDefinition(desc);
+	var selector = tagName + ', [is=' + tagName + ']'; // TODO why should @is be supported??
 	var rule = new BindingRule(selector, bindingDefn);
 	enteringRules.push(rule);
 	if (!alreadyTriggered) setTimeout(applyEnteringRules);
 	return rule;
-},
-
-registerComponent: function(tagName, sprocket, extras) {
-	this.register(tagName, sprocket, extras);
-	this.register('[is=' + tagName + ']', sprocket, extras);
-},
-
-registerElement: function(options, sprocket) {
-	var selector = options.scope + ' ' + options.matches;
-	this.register(selector, sprocket);
-	this.register('[is=' + options.scope + ']' + ' ' + options.matches, sprocket);
 }
 
 });
+
 
 var started = false;
 
@@ -934,45 +903,156 @@ function() { // otherwise assume MutationEvents. TODO is this assumption safe?
 
 var SprocketDefinition = function(prototype) {
 	var constructor = function(element) {
-		if (this instanceof constructor) return constructor.bind(element);
-		return constructor.cast(element);
+		return sprockets.cast(element, constructor);
 	}
 	constructor.prototype = prototype;
-	_.assign(constructor, SprocketDefinition.prototype);
 	return constructor;
 }
 
-_.assign(SprocketDefinition.prototype, {
+_.assign(sprockets, {
 
-bind: function(element) {
-	var implementation = _.create(this.prototype);
-	implementation.element = element;
-	return implementation;
+registerComponent: function(tagName, sprocket, extras) {
+	var defn = { prototype: sprocket.prototype };
+	if (extras) _.defaults(defn, extras);
+	if (!defn.callbacks) defn.callbacks = {};
+	var onattached = defn.callbacks.attached;
+	defn.callbacks.attached = function() {
+		var binding = this;
+		if (defn.sprockets) _.forEach(defn.sprockets, function(rule) {
+			sprockets.register({ scope: binding.element, matches: rule.matches }, rule.sprocket);
+		});
+		if (onattached) return onattached.call(this);
+	};
+	sprockets.registerElement(tagName, defn);
 },
-cast: function(element) {
-	var binding = Binding.getInterface(element);
-	if (binding) {
-		if (!isPrototypeOf(this.prototype, binding.implementation)) throw "Attached sprocket doesn't match";
-		return binding.implementation;
+
+register: function(options, sprocket) {
+	if (typeof options === 'string') options = {
+		scope: document,
+		matches: options
 	}
-	_.some(sprocketRules, function(rule) {
-		var prototype = rule.definition.implementation;
-		if (this.prototype !== prototype && !isPrototypeOf(this.prototype, prototype)) return false;
-		if (!DOM.matches(element, rule.selector)) return false;
-		binding = attachBinding(rule.definition, element);
-		return true;
-	}, this);
-	if (!binding) throw "No compatible sprocket declared";
-	return binding.implementation;
+	var nodeData = DOM.getData(options.scope);
+	if (!nodeData) {
+		nodeData = {};
+		DOM.setData(options.scope, nodeData);
+	}
+	var nodeSprockets = nodeData.sprockets;
+	if (!nodeSprockets) nodeSprockets = nodeData.sprockets = [];
+	var sprocketRule = { matches: options.matches, definition: sprocket };
+	nodeSprockets.unshift(sprocketRule); // WARN last registered means highest priority. Is this appropriate??
 },
-evolve: function(properties) { // inherit this.prototype, extend with properties
-	var prototype = _.create(this.prototype); 
-	if (properties) _.assign(prototype, properties);
+
+evolve: function(base, properties) {
+	var prototype = _.create(base.prototype);
 	var sub = new SprocketDefinition(prototype);
+	var baseDefinition = base.prototype.__definition__;
+	var definition = prototype.__definition__ = (baseDefinition) ? _.create(baseDefinition) : {};
+	if (properties) sprockets.defineProperties(sub, properties);
 	return sub;
+},
+
+defineProperties: function(sprocket, properties) {
+	var prototype = sprocket.prototype;
+	var definition = prototype.__definition__ || (prototype.__definition__ = {});
+	_.forOwn(properties, function(desc, name) {
+		switch (typeof desc) {
+		case 'object':
+			definition[name] = desc;
+			Object.defineProperty(prototype, name, {
+				get: function() { throw 'Attempt to get an ARIA property'; },
+				set: function() { throw 'Attempt to set an ARIA property'; }
+			});
+			break;
+		default:
+			prototype[name] = desc;
+			break;
+		}
+	});
+},
+
+matches: function(element, sprocket) {
+	var binding = Binding.getInterface(element);
+	if (binding) return prototypeMatchesSprocket(binding.implementation, sprocket);
+	var declaredSprocketRule = getSprocketRule(element);
+	if (declaredSprocketRule && prototypeMatchesSprocket(declaredSprocketRule.definition.prototype, sprocket)) return true;
+	return false;
+},
+
+closest: function(element, sprocket) { // FIXME optimize by attaching sprocket here
+	for (var node=element; node; node=node.parentNode) {
+		if (!sprockets.matches(node, sprocket)) continue;
+		return element;
+	}
+},
+
+cast: function(element, sprocket) {
+	var implementation = sprockets.getInterface(element);
+	if (prototypeMatchesSprocket(implementation, sprocket)) return implementation;
+	throw 'Attached sprocket is not compatible';
+},
+
+getInterface: function(element) {
+	var binding = Binding.getInterface(element);
+	if (binding) return binding.implementation;
+	for (var node=sprockets.getScope(element); node; node=sprockets.getScope(node)) {
+		var nodeData = DOM.getData(node);
+		var sprocketRules = nodeData.sprockets;
+		_.some(sprocketRules, function(rule) {
+			var prototype = rule.definition.prototype;
+			if (!DOM.matches(element, rule.matches)) return false; // TODO should be using relative selector
+			binding = attachBinding(rule.definition, element);
+			return true;
+		});
+		if (binding) return binding.implementation;
+	}
+	throw "No sprocket declared";
+},
+
+getScope: function(element) {
+	for (var node=element.parentNode; node; node=node.parentNode) {
+		if (!DOM.hasData(node)) continue;
+		var nodeData = DOM.getData(node);
+		var sprocketRules = nodeData.sprockets;
+		if (!sprocketRules) continue;
+		return node;
+	}
 }
 
 });
+
+function getSprocketRule(element) {
+	for (var scope=sprockets.getScope(element); scope; scope=sprockets.getScope(node)) {
+		var sprocketRule;
+		var nodeData = DOM.getData(scope);
+		var sprocketRules = nodeData.sprockets;
+		_.some(sprocketRules, function(rule) {
+			if (!DOM.matches(element, rule.matches)) return false; // TODO should be using relative selector
+			sprocketRule = { scope: scope };
+			_.defaults(sprocketRule, rule);
+		});
+		if (sprocketRule) return sprocketRule;
+	}
+}
+
+function prototypeMatchesSprocket(prototype, sprocket) {
+	if (typeof sprocket === 'string') return (prototype.role === sprocket);
+	else return (isPrototypeOf(sprocket.prototype, prototype));
+}
+
+sprockets.trigger = function(target, type, params) { // NOTE every JS initiated event is a custom-event
+	if (typeof type === 'object') {
+		params = type;
+		type = params.type;
+	}
+	var bubbles = 'bubbles' in params ? !!params.bubbles : true;
+	var cancelable = 'cancelable' in params ? !!params.cancelable : true;
+	if (typeof type !== 'string') throw 'trigger() called with invalid event type';
+	var detail = params && params.detail;
+	var event = document.createEvent('CustomEvent');
+	event.initCustomEvent(type, bubbles, cancelable, detail);
+	if (params) _.defaults(event, params);
+	return target.dispatchEvent(event);
+}
 
 
 var basePrototype = {};
@@ -982,17 +1062,16 @@ return sprockets;
 
 })(); // END sprockets
 
-})();
 
 /* Extend BaseSprocket.prototype */
 (function() {
 
 var _ = Meeko.stuff;
 var DOM = Meeko.DOM;
-var sprockets = Meeko.sprockets, basePrototype = sprockets.Base.prototype;
+var sprockets = Meeko.sprockets, Base = sprockets.Base;
 
 
-_.assign(basePrototype, {
+_.assign(Base.prototype, {
 
 $: function(selector, isRelative) { return DOM.$(selector, this.element, isRelative); },
 $$: function(selector, isRelative) { return DOM.$$(selector, this.element, isRelative); },
@@ -1122,5 +1201,145 @@ function triggerVisibilityChangeEvent(target) { // FIXME this should be asynchro
 	var visibilityState = target.hidden ? 'hidden' : 'visible';
 	sprockets.trigger(target, 'visibilitychange', { bubbles: false, cancelable: false, detail: visibilityState }); // NOTE doesn't bubble to avoid clash with same event on document
 }
+
+})();
+
+(function() {
+
+var _ = Meeko.stuff;
+var DOM = Meeko.DOM;
+var sprockets = Meeko.sprockets, Base = sprockets.Base;
+
+var ariaProperties = { // TODO this lookup is only for default values
+	hidden: false,
+	selected: false,
+	expanded: true
+}
+
+var ARIA = sprockets.evolve(Base, {
+
+role: 'roletype',
+
+aria: function(name, value) {
+	var element = this.element;
+	var defn = ariaProperties[name];
+	if (defn == null) throw 'No such aria property: ' + name;
+
+	if (name === 'hidden') {
+		if (typeof value === 'undefined') return element.hasAttribute('hidden');
+		if (!value) element.removeAttribute('hidden');
+		else element.setAttribute('hidden', '');
+		return;
+	}
+	
+	var ariaName = 'aria-' + name;
+	var type = typeof defn;
+	if (typeof value === 'undefined') {
+		var result = element.getAttribute(ariaName);
+		switch(type) {
+		case 'string': default: return result;
+		case 'boolean': return result === 'false' ? false : result == null ? undefined : true;
+		}
+	}
+	if (value == null) element.removeAttribute(ariaName);
+	else switch(type) {
+		case 'string': default:
+			element.setAttribute(ariaName, value);
+			break;
+		case 'boolean':
+			var bool = value === 'false' ? 'false' : value === false ? 'false' : 'true';
+			element.setAttribute(ariaName, bool);
+			break;
+	}
+},
+
+ariaCan: function(name, value) {
+	var desc = this.__definition__[name];
+	if (!desc) throw 'Property not defined: ' + name;
+	if (desc.type !== 'boolean' || desc.can && !desc.can.call(this)) return false;
+	return true;
+},
+
+ariaToggle: function(name, value) {
+	var desc = this.__definition__[name];
+	if (!desc) throw 'Property not defined: ' + name;
+	if (desc.type !== 'boolean' || desc.can && !desc.can.call(this)) throw 'Property can not toggle: ' + name;
+	var oldValue = desc.get.call(this);
+	
+	if (typeof value === 'undefined') desc.set.call(this, !oldValue);
+	else desc.set.call(this, !!value);
+	return oldValue;
+},
+
+ariaGet: function(name) {
+	var desc = this.__definition__[name];
+	if (!desc) throw 'Property not defined: ' + name;
+	return desc.get.call(this); // TODO type and error handling
+},
+
+ariaSet: function(name, value) {
+	var desc = this.__definition__[name];
+	if (!desc) throw 'Property not defined: ' + name;
+	return desc.set.call(this, value); // TODO type and error handling
+}
+
+});
+
+var RoleType = sprockets.evolve(ARIA, {
+
+hidden: {
+	type: 'boolean',
+	can: function() { return true; },
+	get: function() { return this.aria('hidden'); },
+	set: function(value) { this.aria('hidden', !!value); }
+}
+
+});
+
+sprockets.ARIA = ARIA;
+sprockets.RoleType = RoleType;
+sprockets.register('*', RoleType);
+
+var Element = window.Element || window.HTMLElement;
+
+_.defaults(Element.prototype, {
+
+aria: function(prop, value) {
+	return ARIA(this).aria(prop, value);
+},
+
+ariaCan: function(prop) {
+	return ARIA(this).ariaCan(prop);
+},
+
+ariaToggle: function(prop, value) {
+	return ARIA(this).ariaToggle(prop, value);
+},
+
+ariaGet: function(prop) {
+	return ARIA(this).ariaGet(prop);
+},
+
+ariaSet: function(prop, value) {
+	return ARIA(this).ariaSet(prop, value);
+},
+
+ariaFind: function(role) {
+	
+},
+
+ariaFindAll: function(role) {
+	
+},
+
+ariaClosest: function(role) {
+	return sprockets.closest(this, role);
+}
+	
+});
+
+
+})();
+
 
 })(window);
