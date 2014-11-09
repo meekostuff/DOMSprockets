@@ -981,8 +981,18 @@ matches: function(element, sprocket) {
 closest: function(element, sprocket) { // FIXME optimize by attaching sprocket here
 	for (var node=element; node; node=node.parentNode) {
 		if (!sprockets.matches(node, sprocket)) continue;
-		return element;
+		return node;
 	}
+},
+
+findAll: function(element, sprocket) {
+	var rule = getMatchingSprocketRule(element, sprocket);
+	return DOM.$$(rule.matches, element); // FIXME should be scoped to rule.scope??
+},
+
+find: function(element, sprocket) {
+	var rule = getMatchingSprocketRule(element, sprocket);
+	return DOM.$(rule.matches, element); // FIXME should be scoped to rule.scope??
 },
 
 cast: function(element, sprocket) {
@@ -994,7 +1004,7 @@ cast: function(element, sprocket) {
 getInterface: function(element) {
 	var binding = Binding.getInterface(element);
 	if (binding) return binding.implementation;
-	for (var node=sprockets.getScope(element); node; node=sprockets.getScope(node)) {
+	for (var node=sprockets.getScope(element.parentNode); node; node=sprockets.getScope(node.parentNode)) {
 		var nodeData = DOM.getData(node);
 		var sprocketRules = nodeData.sprockets;
 		_.some(sprocketRules, function(rule) {
@@ -1009,7 +1019,7 @@ getInterface: function(element) {
 },
 
 getScope: function(element) {
-	for (var node=element.parentNode; node; node=node.parentNode) {
+	for (var node=element; node; node=node.parentNode) {
 		if (!DOM.hasData(node)) continue;
 		var nodeData = DOM.getData(node);
 		var sprocketRules = nodeData.sprockets;
@@ -1021,7 +1031,7 @@ getScope: function(element) {
 });
 
 function getSprocketRule(element) {
-	for (var scope=sprockets.getScope(element); scope; scope=sprockets.getScope(node)) {
+	for (var scope=sprockets.getScope(element.parentNode); scope; scope=sprockets.getScope(scope.parentNode)) {
 		var sprocketRule;
 		var nodeData = DOM.getData(scope);
 		var sprocketRules = nodeData.sprockets;
@@ -1029,6 +1039,27 @@ function getSprocketRule(element) {
 			if (!DOM.matches(element, rule.matches)) return false; // TODO should be using relative selector
 			sprocketRule = { scope: scope };
 			_.defaults(sprocketRule, rule);
+			return true;
+		});
+		if (sprocketRule) return sprocketRule;
+	}
+}
+
+function getMatchingSprocketRule(element, sprocket) {
+	for (var scope=sprockets.getScope(element); scope; scope=sprockets.getScope(scope.parentNode)) {
+		var sprocketRule;
+		var nodeData = DOM.getData(scope);
+		var sprocketRules = nodeData.sprockets;
+		_.some(sprocketRules, function(rule) {
+			if (typeof sprocket === 'string') {
+				if (rule.definition.prototype.role !== sprocket) return false;
+			}
+			else {
+				if (sprocket.prototype !== rule.definition.prototype && !isPrototypeOf(sprocket.prototype, rule.definition.prototype)) return false;
+			}
+			sprocketRule = { scope: scope };
+			_.defaults(sprocketRule, rule);
+			return true;
 		});
 		if (sprocketRule) return sprocketRule;
 	}
@@ -1036,7 +1067,7 @@ function getSprocketRule(element) {
 
 function prototypeMatchesSprocket(prototype, sprocket) {
 	if (typeof sprocket === 'string') return (prototype.role === sprocket);
-	else return (isPrototypeOf(sprocket.prototype, prototype));
+	else return (sprocket.prototype === prototype || isPrototypeOf(sprocket.prototype, prototype));
 }
 
 sprockets.trigger = function(target, type, params) { // NOTE every JS initiated event is a custom-event
@@ -1325,11 +1356,11 @@ ariaSet: function(prop, value) {
 },
 
 ariaFind: function(role) {
-	
+	return sprockets.find(this, role);
 },
 
 ariaFindAll: function(role) {
-	
+	return sprockets.findAll(this, role);	
 },
 
 ariaClosest: function(role) {
