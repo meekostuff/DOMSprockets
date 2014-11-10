@@ -12,12 +12,11 @@ A Base sprocket with generic DOMElement methods is provided in the core library.
 Additionaly, a few fundamental UI sprockets are available in an extra library. 
 
 DOMSprockets is intended to be "as simple as possible, but no simpler".
-The core library is less than 5KB minified and gzipped,
-and even the combined size of core, legacy, and UI libraries is less than 10KB. 
+The core library is well under 10KB minified and gzipped. 
 
 **WARNING:** This is alpha quality software.
 The API is missing essential functions and is quite likely to change.
-The code contains bugs so bas they will probably eat you or at least your homework. 
+The code contains bugs so bas they wills prolly eat yer or at least yer's homework. 
 The documentation might be useless, mis-leading, out-of-date or, most likely, non-existant. 
 
 
@@ -61,7 +60,7 @@ You might use something like the following:
 	});
 	
 	window.onload = function() { // when the page is ready ...
-		sprockets.domReady(); // notify the sprockets controller
+		sprockets.start(); // notify the sprockets controller
 	}
 	
 	})();
@@ -82,15 +81,6 @@ Sprockets are managed by the private `SprocketDefinition` class. Instances of th
 
 - **prototype :** the prototype for DOMElement proxies 
 
-- **evolve(prototype) :** returns a new `SprocketDefinition` instance.
-	The `prototype` of the new instance inherits from the caller's `prototype`, and gains the properties and methods of the `prototype` argument.
-
-- **bind(element) :** returns a proxy object whose `boundElement` property is a ref to `element`, and
-	whose prototype is the `prototype` of the caller.
-	
-- **cast(element) :** if the element matches a registered behavior, and the registration's defined socket inherits from the callers `prototype`,
-	then returns the proxy object of the registered behavior.
-
 A sprocket is also a constructor of sorts:
 
 - **new Sprocket(element)** calls `.bind(element)` and returns the result
@@ -101,32 +91,33 @@ A sprocket is also a constructor of sorts:
 
 Custom `SprocketDefinition`'s are *evolved* from `Meeko.sprockets.Base`, which has the following `prototype`:
 
-- **$id(id) :** returns the first descendant element of the `boundElement` with `@id` matching `id`
+- **$id(id) :** returns the first descendant element of the `element` with `@id` matching `id`
 
-- **$(selector) :** returns the first descendant element of the `boundElement` which matches `selector`
+- **$(selector) :** returns the first descendant element of the `element` which matches `selector`
 
-- **$$(selector) :** returns the array of descendant elements of the `boundElement` which match `selector`
+- **$$(selector) :** returns the array of descendant elements of the `element` which match `selector`
 
-- **match$(selector) :** returns true if the `boundElement` matches `selector`; otherwise returns false
+- **matches(selector) :** returns true if the `element` matches `selector`; otherwise returns false
 
-- **contains(otherNode) :** returns true if `otherNode` is a **descendant** of the `boundElement`; otherwise returns false
+- **closest(selector) :** traverses upwards in the DOM starting at the `element` and returns the first element which matches `selector`; otherwise returns undefined
 
-- **hasClass(token) :** returns true if the `boundElement` has a class of `token`
+- **contains(otherNode) :** returns true if `otherNode` is the `element` or a descendant of the `element`; otherwise returns false
 
-- **addClass(token) :** adds a class of `token` to `boundElement`, if not already present
+- **hasClass(token) :** returns true if the `element` has a class of `token`
 
-- **removeClass(token) :** remove all classes of `token` from `boundElement`, if any
+- **addClass(token) :** adds a class of `token` to `element`, if not already present
 
-- **toggleClass(token, force) :**  
+- **removeClass(token) :** remove all classes of `token` from `element`, if any
+
+- **toggleClass(token, force) :** 
 	if `force` is boolean `false` then `removeClass(token)`; otherwise  
 	if `force` is boolean `true` then `addClass(token)`;  
 	otherwise  
 		if `hasClass(token)` is true then `removeClass(token)`; otherwise  
 		`addClass(token)`  
 
-- **trigger(event) :** simulate dispatching `event` to the `boundElement`,
-	calling applicable handlers of any registered behaviors on the element and its ancestors.
-	Default actions are not triggered, but the call returns `false` if any handler called `event.preventDefault()`.
+- **trigger(type, params) :** dispatch an event of `type` with option `params` to the `element`,
+	The call returns `false` if any handler called `event.preventDefault()`.
 
 
 ### Basic UI Sprockets
@@ -144,15 +135,18 @@ See the source for implementation details.
 
 Behaviors are registered with:
 
-	Meeko.sprockets.register(selector, sprocket, extras)
+	Meeko.sprockets.registerComponent(tagName, sprocket, extras)
 	
 where:
 
-- `selector` is a CSS selector, e.g. `table.sortable`
+- `tagName` is a custom element tag-name, e.g. `ui-table`
 - `sprocket` is a base or evolved sprocket, e.g. `Meeko.sprockets.UI.Table`
-- `extras` is an optional object of the form `{ handlers: [], callbacks: {}`, where
+- `extras` is an optional object of the form `{ handlers: [], callbacks: {}, sprockets: [] }`, where
 	+ handlers is an optional array of `Handler` objects
 	+ callbacks is an optional object with status callbacks
+	+ sprockets is an optional array of scoped sprocket rules of the form `{ selector: '', sprocket: SprocketDefinition }`, where
+		* selector is a CSS selector
+		* sprocket is a SprocketDefinition
 		
 A **`Handler`** is an object which describes what events are to be handled and how.
 It can contain the following filters, directives and methods:
@@ -160,19 +154,13 @@ It can contain the following filters, directives and methods:
 **Filters**: these determine if this handler should process the event
 - **type :** the event type to handle, e.g. "click", "change"
 - **delegator :** a relative CSS selector which is used to detected the deepest matching descendant through which the event bubbled through
-- **eventPhase :** <del>capturing</del> / target / bubbling. See https://developer.mozilla.org/en-US/docs/Web/API/event.eventPhase
 - **button :** if event type is "click", then it must be this button. See https://developer.mozilla.org/en-US/docs/Web/API/event.button
 - **clickCount :** if event type is "click", then the event `detail`
-
-
-**Directives**: these are processed after the handler action is called (if present)
-- **preventDefault :** prevent the default action of the event
-- **stopPropagation :** prevent the event from bubbling
 
 **Methods**
 - **action(event, delegator) :** the action to take. This is called as a method of `sprocket`.
 	The `delegator` argument is the element that matches the `delegator` filter.
-	If there was no `delegator` filter then this is the `boundElement`. 
+	If there was no `delegator` filter then this is the `element`. 
 
 
 ### Evolving Sprockets
@@ -181,16 +169,16 @@ It can contain the following filters, directives and methods:
 
 Start with `Meeko.sprockets.Base` and create a `Hideable` definition
 
-	var Hideable = Meeko.sprockets.Base.evolve({
+	var Hideable = Meeko.sprockets.evolve(Base, {
 
 	setHidden: function(state) {
-		var element = this.boundElement;
+		var element = this.element;
 		if (!state) element.style.display = 'none';
 		else element.style.display = '';
 	},
 	
 	getHidden: function() {
-		var element = this.boundElement;
+		var element = this.element;
 		return element.style.display === 'none';
 	}
 
@@ -198,7 +186,7 @@ Start with `Meeko.sprockets.Base` and create a `Hideable` definition
 
 Next create a `MyHideable` definition that inherits from `Hideable`, but overrides `setHidden`, `getHidden` to use CSS classes
 
-	var MyHideable = Hideable.evolve({
+	var MyHideable = Meeko.sprockets.evolve(Hideable, {
 
 	setHidden: function(state) {
 		this.toggleClass('hidden', state);
@@ -227,7 +215,7 @@ This is most useful for composite widgets where the sprocket on one element acts
 for several other (probably descendant) elements.
 For example, a tree might be represented by hierarchical `<ul>/<li>` markup such as:
 
-	<div class="tree">
+	<ui-tree>
 		<ul>
 			<li>1</li>
 			<li>2
@@ -238,11 +226,18 @@ For example, a tree might be represented by hierarchical `<ul>/<li>` markup such
 			</li>
 			<li>3</li>
 		</ul>
-	</div>
+	</ui-tree>
 	
 Behaviors might be registered like so
 
-	Meeko.sprockets.register('div.tree', UI.Tree, { handlers: [ ... ], callbacks: [ ... ] });
+	Meeko.sprockets.registerComponent('ui-tree', UI.Tree, {
+		handlers: [ ... ], 
+		callbacks: { ... }, 
+		sprockets: [
+			{ matches: 'li', UI.TreeItem },
+			{ matches: 'ul', UI.Group }
+		]
+	});
 	Meeko.sprockets.register('div.tree li', UI.TreeItem);
 
 In this case `UI.Tree` will control whether `TreeItem`'s are selected or expanded / collapsed. 
@@ -250,8 +245,14 @@ But it isn't the responsibility of `UI.Tree` to decide how `TreeItem` should imp
 So, as long as the registered sprocket inherits from `UI.TreeItem` then UI.Tree will manage.
 Even the following - where the evolved `UI.TreeItem` delegates its expanded / collapse feature - is fine. 
 
-	Meeko.sprockets.register('div.tree', UI.Tree, { handlers: [ ... ], callbacks: [ ... ] });
-	Meeko.sprockets.register('div.tree li', UI.TreeItem.evolve({
+	Meeko.sprockets.register('ui-tree', UI.Tree, {
+		handlers: [ ... ],
+		callbacks: [ ... ],
+		sprockets: [ 
+			{ matches: 'ul', sprocket: UI.Group }
+		]
+	}); 
+	Meeko.sprockets.register('ui-treeitem', UI.TreeItem.evolve({
 		setExpanded: function(state) {
 			var ul = this.$('ul');
 			var listBox = UI.List(ul);
@@ -263,7 +264,6 @@ Even the following - where the evolved `UI.TreeItem` delegates its expanded / co
 			return listBox.getHidden();			
 		}
 	});
-	Meeko.sprockets.register('div.tre li > ul', UI.List);
 
 
 History

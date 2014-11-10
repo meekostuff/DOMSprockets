@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<!--
+Table demo
+Copyright 2007,2013 Sean Hogan (http://www.meekostuff.net/)
+All rights reserved
+-->
+<html>
+<head>
+  <title>DOMSprockets Sortable Table Demo</title>
+  <style type="text/css">
+html {
+	border: none;
+	background-color: #dddddd;
+}
+body { height: 100%; }
+table {
+	text-align: left;
+	border-collapse: collapse;
+	border: 1px solid gray;
+	table-layout: auto;
+	background-color: #ffffff;
+}
+caption {
+	border: 1px solid gray;
+}
+tbody td {
+	padding-left: 5px; padding-right: 5px;
+	border: 1px solid gray;
+}
+thead th {
+	min-width: 5ex; 
+	padding: 0;
+}
+thead th button {
+	width: 100%;
+	margin: 0;
+	padding-left: 1ex;
+	padding-right: 10px;
+	border: 1px outset #dddddd;
+	background-color: #dddddd;
+	text-align: left;
+}
+  </style>
+ 
+<script src="../Sprocket.js"></script>
+<script src="../ARIA.js"></script>
+
+  <style>
+thead th.sorted button {
+  background-position: center right;
+  background-repeat: no-repeat;
+  background-image: url(arrow-dn.gif);
+}
+thead th.reversed button {
+  background-image: url(arrow-up.gif);
+}
+  </style>
+<script>
+(function() {
+
+var sprockets = Meeko.sprockets, UI = sprockets.UI;
+sprockets.registerComponent('ui-table', UI.Table, {
+handlers: [
+{
+  type: 'click',
+  delegator: 'thead > tr > th',
+  action: function(event, cell) {
+	if (event.defaultPrevented) return;
+	this.toggleColumnSortState(cell.cellIndex);
+	event.preventDefault();
+  }
+}
+]
+});
+
+window.onload = function() { sprockets.start(); }
+
+})();
+</script>
+
+
+</head>
+<body>
+<table is="ui-table">
+  <thead>
+    <tr>
+      <th class="string sortable"><button>Club</button></th>
+      <th class="number"><button>P</button></th>
+      <th class="number sortable"><button>W</button></th>
+      <th class="number sortable"><button>L</button></th>
+      <th class="number sortable"><button>D</button></th>
+      <th class="number sortable"><button>F</button></th>
+      <th class="number sortable"><button>A</button></th>
+      <th class="number sortable"><button>%</button></th>
+      <th class="number sortable sorted reversed"><button>Pts</button></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Geelong</td>
+      <td>22</td>
+      <td>18</td>
+      <td>4</td>
+      <td>0</td>
+      <td>2542</td>
+      <td>1664</td>
+      <td>152.76</td>
+      <td>72</td>
+    </tr>
+    <tr>
+      <td>Port Adelaide</td>
+      <td>22</td>
+      <td>15</td>
+      <td>7</td>
+      <td>0</td>
+      <td>2314</td>
+      <td>2038</td>
+      <td>113.54</td>
+      <td>60</td>
+    </tr>
+    <tr>
+      <td>West Coast</td>
+      <td>22</td>
+      <td>15</td>
+      <td>7</td>
+      <td>0</td>
+      <td>2162</td>
+      <td>1935</td>
+      <td>111.73</td>
+      <td>60</td>
+    </tr>
+    <tr>
+      <td>Kangaroos</td>
+      <td>22</td>
+      <td>14</td>
+      <td>8</td>
+      <td>0</td>
+      <td>2183</td>
+      <td>1998</td>
+      <td>109.26</td>
+      <td>56</td>
+    </tr>
+    <tr>
+      <td>Hawthorn</td>
+      <td>22</td>
+      <td>13</td>
+      <td>9</td>
+      <td>0</td>
+      <td>2097</td>
+      <td>1855</td>
+      <td>113.05</td>
+      <td>52</td>
+    </tr>
+    <tr>
+      <td>Collingwood</td>
+      <td>22</td>
+      <td>13</td>
+      <td>9</td>
+      <td>0</td>
+      <td>2011</td>
+      <td>1992</td>
+      <td>100.95</td>
+      <td>52</td>
+    </tr>
+    <tr>
+      <td>Sydney</td>
+      <td>22</td>
+      <td>12</td>
+      <td>9</td>
+      <td>1</td>
+      <td>2031</td>
+      <td>1698</td>
+      <td>119.61</td>
+      <td>50</td>
+    </tr>
+    <tr>
+      <td>Adelaide</td>
+      <td>22</td>
+      <td>12</td>
+      <td>10</td>
+      <td>0</td>
+      <td>1881</td>
+      <td>1712</td>
+      <td>109.87</td>
+      <td>48</td>
+    </tr>
+    <tr>
+      <td>St Kilda</td>
+      <td>22</td>
+      <td>11</td>
+      <td>10</td>
+      <td>1</td>
+      <td>1874</td>
+      <td>1941</td>
+      <td>96.55</td>
+      <td>46</td>
+    </tr>
+    <tr>
+      <td>Brisbane Lions</td>
+      <td>22</td>
+      <td>9</td>
+      <td>11</td>
+      <td>2</td>
+      <td>1986</td>
+      <td>1885</td>
+      <td>105.36</td>
+      <td>40</td>
+    </tr>
+    <tr>
+      <td>Fremantle</td>
+      <td>22</td>
+      <td>10</td>
+      <td>12</td>
+      <td>0</td>
+      <td>2254</td>
+      <td>2198</td>
+      <td>102.55</td>
+      <td>40</td>
+    </tr>
+    <tr>
+      <td>Essendon</td>
+      <td>22</td>
+      <td>10</td>
+      <td>12</td>
+      <td>0</td>
+      <td>2184</td>
+      <td>2394</td>
+      <td>91.23</td>
+      <td>40</td>
+    </tr>
+    <tr>
+      <td>Western Bulldogs</td>
+      <td>22</td>
+      <td>9</td>
+      <td>12</td>
+      <td>1</td>
+      <td>2111</td>
+      <td>2469</td>
+      <td>85.50</td>
+      <td>38</td>
+    </tr>
+    <tr>
+      <td>Melbourne</td>
+      <td>22</td>
+      <td>5</td>
+      <td>17</td>
+      <td>0</td>
+      <td>1890</td>
+      <td>2418</td>
+      <td>78.16</td>
+      <td>20</td>
+    </tr>
+    <tr>
+      <td>Carlton</td>
+      <td>22</td>
+      <td>4</td>
+      <td>18</td>
+      <td>0</td>
+      <td>2167</td>
+      <td>2911</td>
+      <td>74.44</td>
+      <td>16</td>
+    </tr>
+    <tr>
+      <td>Richmond</td>
+      <td>22</td>
+      <td>3</td>
+      <td>18</td>
+      <td>1</td>
+      <td>1958</td>
+      <td>2537</td>
+      <td>77.18</td>
+      <td>14</td>
+    </tr>
+  </tbody>
+</table>
+
+</body>
+</html>

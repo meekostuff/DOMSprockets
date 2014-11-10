@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<!--
+Menu Demo
+Copyright 2007-2008,2013 Sean Hogan (http://www.meekostuff.net/)
+All rights reserved
+-->
+<html>
+<head>
+	<title>DOMSprockets Menu Demo</title>
+	<style>
+[hidden] { display: none; }
+	
+html { border: none; padding: 0; margin: 0; } 
+body { width: 480px; height: 100%; }
+#menu {
+	margin: 0px;
+	padding: 0px;
+	background-color: #ffffff;
+}
+/* Reset CSS */
+.menu { margin: 0px; padding: 0px; background-color: #dddddd; }
+.menu { height: 0; overflow: hidden; }
+
+#edit { background-color: #ffffff; margin: 0px; padding: 1em; }
+	</style>
+	
+<script src="../Sprocket.js"></script>
+<script src="../ARIA.js"></script>
+
+<style>
+.menu { height: auto; overflow: visible; }
+.menu ul { list-style: none outside; margin: 0px; padding: 0px; border: 1px outset #dddddd; background-color: #dddddd; }
+.menu li { list-style: none outside; margin: 0px; padding: 0px; }
+.menu li { display: inline; position: relative; top: 0px; left: 0px; }
+.menu li ul { position: absolute; top: 1em; left: 0; width: auto; ~width: 0; }
+.menu li li { display: block; position: static; white-space: nowrap; ~height: 0; ~padding-left: 0.5em; }
+.menu button, .menu a { border: none; background-color: transparent; color: #000000; margin: 0; padding: 0.1em 0.5em; text-decoration: none; }
+
+.menu li button:hover, .menu a:hover { background-color: #0033cc; color: #dddddd; }
+</style>
+<script>
+(function() {
+
+var _ = Meeko.stuff, DOM = Meeko.DOM;
+var sprockets = Meeko.sprockets, UI = sprockets.UI;
+
+sprockets.registerComponent('ui-tree', UI.Tree, {
+sprockets: [
+	{ matches: 'ul', sprocket: UI.Group },
+	{ matches: 'li', sprocket: UI.TreeItem }
+],
+
+handlers: [
+	{
+		type: 'mouseover',
+		action: function(event) {
+			var treeitem = event.target.ariaClosest('treeitem');
+			if (!treeitem) return;
+			if (!treeitem.ariaCan('expanded')) return;
+			treeitem.ariaToggle('expanded', true);
+		}
+	},
+	{
+		type: 'mouseout',
+		action: function(event) {
+			var treeitem = event.target.ariaClosest('treeitem');
+			if (!treeitem) return;
+			if (!treeitem.ariaCan('expanded')) treeitem = treeitem.parentNode.ariaClosest('treeitem');
+			if (!treeitem) return;
+			if (treeitem.contains(event.relatedTarget)) return;
+			treeitem.ariaToggle('expanded', false);
+		}
+	}
+],
+callbacks: {
+	enteredDocument: function() {
+		_.forEach(this.element.ariaFindAll('group'), function(group) {
+			var treeitem = group.ariaClosest('treeitem');
+			if (!treeitem) return;
+			if (treeitem.ariaCan('expanded')) treeitem.ariaToggle('expanded', false);
+		});
+	}
+}
+
+});
+
+window.onload = function() { sprockets.start(); }
+
+})();
+</script>
+
+</head>
+<body id="menu">
+	<ui-tree class="menu">
+		<ul>
+			<li><button>File</button>
+				<ul>
+					<li><a href="#">New</a></li>
+					<li><a href="#">Open</a></li>
+					<li><a href="#">Save</a></li>
+					<li><a href="#">Save As</a></li>
+					<li><a href="#">Close</a></li>
+				</ul>
+			</li>
+			<li><button>Edit</button>
+				<ul>
+					<li><a href="#">Undo</a></li>
+					<li><a href="#">Redo</a></li>
+					<li><a href="#">Cut</a></li>
+					<li><a href="#">Copy</a></li>
+					<li><a href="#">Paste</a></li>
+					<li><a href="#">Delete</a></li>
+				</ul>			
+			</li>
+			<li><button>View</button>
+				<ul>
+					<li><a href="#">Normal</a></li>
+					<li><a href="#">Outline</a></li>
+					<li><a href="#">Source</a></li>
+				</ul>
+			</li>
+			<li><button>Help</button>
+				<ul>
+					<li><a href="#">Online Help</a></li>
+					<li><a href="#">About</a></li>
+				</ul>
+			</li>
+		</ul>
+	</ui-tree>
+	<div id="edit">
+		<p>The application menu bar is merely a list of lists.</p>
+		<p>
+Sub-menus (nested lists) are normally hidden, but are displayed under the appropriate conditions -
+in this case when the mouse is over the menu label or the menu.
+		</p>
+		<p>CSS does the rest.</p>
+	</div>
+
+</body>
+</html>

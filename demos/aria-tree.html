@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<!--
+Tree demo
+Copyright 2007,2013 Sean Hogan (http://www.meekostuff.net/)
+All rights reserved
+-->
+<html>
+<head>
+	<title>DOMSprockets Collapsible Tree Demo</title>
+	<style>
+[hidden] { display: none; }
+
+html { border: none; }
+body {
+	height: 100%;
+	background-color: #ffffff;
+	margin: 0px;
+	padding: 0px;
+}
+#tree {
+	margin: 0px;
+	padding: 0px;
+}
+#tree label { display: block; background-color: #dddddd; border: 1px outset #dddddd; }
+	</style>
+	
+<script src="../Sprocket.js"></script>
+<script src="../ARIA.js"></script>
+
+<style>
+#tree ul { margin-left: 0px; padding-left: 1em; }
+
+/* pseudo list-style-image */
+#tree li { list-style: outside disc; margin-left: 0px; padding-left: 0px; }
+#tree li[aria-expanded=true] { list-style-image: url(arrow-dn.gif); }
+#tree li[aria-expanded=false] { list-style-image: url(arrow-rit.gif); }
+#tree li { -moz-user-select: none; }
+#tree li > * { -moz-user-select: text; }
+</style>
+<script>
+(function() {
+
+var sprockets = Meeko.sprockets, UI = sprockets.UI, DOM = Meeko.DOM;
+var _ = Meeko.stuff;
+
+sprockets.registerComponent('ui-tree', UI.Tree, {
+sprockets: [
+	{ matches: 'li', sprocket: UI.TreeItem },
+	{ matches: 'ul', sprocket: UI.Group }
+],
+
+handlers: [
+{
+	type: 'click',
+	action: function(event, delegator) {
+		var treeitem = event.target.ariaClosest('treeitem');
+		if (treeitem.ariaCan('expanded')) treeitem.ariaToggle('expanded');
+	}
+}
+],
+callbacks: {
+	enteredDocument: function() {
+		_.forEach(this.element.ariaFindAll('group'), function(group) {
+			var treeitem = group.ariaClosest('treeitem');
+			if (!treeitem) return;
+			if (treeitem.ariaCan('expanded')) treeitem.ariaToggle('expanded', false);
+		});
+	}
+}
+});
+
+window.onload = function() { sprockets.start(); }
+
+})();
+</script>
+
+
+</head>
+
+<body>
+	<ui-tree id="tree">
+		<label>Plants</label>
+<ul>
+	<li><a>Green algae</a>
+		<ul>
+			<li><a>Chlorophyta</a></li>
+			<li><a>Charophyta</a></li>
+		</ul>
+	</li>
+	<li><a>Land plants (embryophytes)</a>
+		<ul>
+			<li><a>Non-vascular land plants (bryophytes)</a>
+				<ul>
+					<li><a>Marchantiophyta - liverworts</a></li>
+					<li><a>Anthocerotophyta - hornworts</a></li>
+					<li><a>Bryophyta - mosses</a></li>
+					<li><a>Horneophytopsida</a></li>
+				</ul>
+			</li>
+			<li><a>Vascular plants (tracheophytes)</a>
+				<ul>
+					<li><a>Rhyniophyta - rhyniophytes</a></li>
+					<li><a>Zosterophyllophyta - zosterophylls</a></li>
+					<li><a>Lycopodiophyta - clubmosses</a></li>
+					<li><a>Trimerophytophyta - trimerophytes</a></li>
+					<li><a>Pteridophyta - ferns and horsetails</a></li>
+					<li><a>Progymnospermophyta</a></li>
+					<li><a>Seed plants (spermatophytes)</a>
+						<ul>
+							<li><a>Pteridospermatophyta - seed ferns</a></li>
+							<li><a>Pinophyta - conifers</a></li>
+							<li><a>Cycadophyta - cycads</a></li>
+							<li><a>Ginkgophyta - ginkgo</a></li>
+							<li><a>Gnetophyta - gnetae</a></li>
+							<li><a>Magnoliophyta - flowering plants</a></li>
+						</ul>
+					</li>
+				</ul>
+			</li>
+		</ul>
+	</li>
+	<li><a>Nematophytes</a></li>
+</ul>
+	</ui-tree>
+
+</body>
+</html>
