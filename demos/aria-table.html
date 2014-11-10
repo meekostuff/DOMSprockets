@@ -38,7 +38,7 @@ thead th button {
 	width: 100%;
 	margin: 0;
 	padding-left: 1ex;
-	padding-right: 10px;
+	padding-right: 1ex;
 	border: 1px outset #dddddd;
 	background-color: #dddddd;
 	text-align: left;
@@ -50,17 +50,19 @@ thead th button {
 
   <style>
 thead th button::after {
-  font-family: monotype;
+  font-family: monospace;
+  display: inline-block;
+  height: 1em;
+  width: 1em;
+  border: none;
+  margin-left: 0.5em;
   content: "";
-  padding-left: 2em;
 }
 thead th.sorted button::after {
   content: "▲";
-  padding-left: 1em;
 }
 thead th.reversed button::after {
   content: "▼";
-  padding-left: 1em;
 }
   </style>
 <script>

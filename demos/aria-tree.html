@@ -29,12 +29,13 @@ body {
 <script src="../ARIA.js"></script>
 
 <style>
-#tree ul { margin-left: 0px; padding-left: 1em; }
+#tree ul { margin-left: 0; padding-left: 1em; }
 
 /* pseudo list-style-image */
-#tree li { list-style: outside disc; margin-left: 0px; padding-left: 0px; }
-#tree li[aria-expanded=true] { list-style-image: url(arrow-dn.gif); }
-#tree li[aria-expanded=false] { list-style-image: url(arrow-rit.gif); }
+#tree li { list-style: none; margin-left: 0; padding-left: 0; }
+#tree li::before { font-family: monospace; content: ""; display: inline-block; width: 1.5em; }
+#tree li[aria-expanded=true]::before { content: "▼"; }
+#tree li[aria-expanded=false]::before { content: "▶"; }
 #tree li { -moz-user-select: none; }
 #tree li > * { -moz-user-select: text; }
 </style>
