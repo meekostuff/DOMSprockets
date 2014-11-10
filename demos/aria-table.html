@@ -1,13 +1,16 @@
 <!DOCTYPE html>
 <!--
 Table demo
-Copyright 2007,2013 Sean Hogan (http://www.meekostuff.net/)
+Copyright 2007,2013,2014 Sean Hogan (http://www.meekostuff.net/)
 All rights reserved
 -->
 <html>
 <head>
+  <meta charset="UTF-8" />
   <title>DOMSprockets Sortable Table Demo</title>
   <style type="text/css">
+*[hidden] { display: none; }
+
 html {
 	border: none;
 	background-color: #dddddd;
@@ -46,13 +49,18 @@ thead th button {
 <script src="../ARIA.js"></script>
 
   <style>
-thead th.sorted button {
-  background-position: center right;
-  background-repeat: no-repeat;
-  background-image: url(arrow-dn.gif);
+thead th button::after {
+  font-family: monotype;
+  content: "";
+  padding-left: 2em;
 }
-thead th.reversed button {
-  background-image: url(arrow-up.gif);
+thead th.sorted button::after {
+  content: "▲";
+  padding-left: 1em;
+}
+thead th.reversed button::after {
+  content: "▼";
+  padding-left: 1em;
 }
   </style>
 <script>

@@ -7,9 +7,6 @@
 /* NOTE
 	+ Assumes Sprocket.js already loaded
 */
-/* TODO
-	+ Ideally this would be ARIA.js
-*/
 
 Meeko.sprockets.UI = (function() {
 
