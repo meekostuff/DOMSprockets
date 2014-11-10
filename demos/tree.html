@@ -40,8 +40,8 @@ body {
 <script>
 (function() {
 
-var sprockets = Meeko.sprockets, UI = sprockets.UI, DOM = Meeko.DOM;
-var _ = Meeko.stuff;
+var _ = Meeko.stuff, DOM = Meeko.DOM;
+var sprockets = Meeko.sprockets, UI = sprockets.UI;
 
 var TreeItem = sprockets.evolve(UI.TreeItem, {
 	setExpanded: function(state) {
@@ -90,11 +90,11 @@ handlers: [
 ],
 callbacks: {
 	enteredDocument: function() {
-		_.forEach(this.$$('li > ul'), function(list) {
+		_.forEach(this.findAll('li > ul'), function(list) {
 			var parent = list.parentNode;
 			var treeitem = UI.TreeItem(parent);
 			if (treeitem) treeitem.setExpanded(false);	
-		}, this);
+		});
 	}
 }
 });

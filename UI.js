@@ -13,8 +13,7 @@
 
 Meeko.sprockets.UI = (function() {
 
-var _ = Meeko.stuff;
-var DOM = Meeko.DOM, $id = DOM.$id, $ = DOM.$, $$ = DOM.$$;
+var _ = Meeko.stuff, DOM = Meeko.DOM;
 var sprockets = Meeko.sprockets, Base = sprockets.Base, RoleType = sprockets.RoleType;
 
 var declareProperties = (Object.defineProperty && Object.create) ? // IE8 supports defineProperty but only on DOM objects
@@ -171,11 +170,11 @@ getView: function() {
 		var base = document.URL.replace(/#.*$/, '')  + "#";
 		if (href.indexOf(base) != 0) break;
 		var id = href.replace(base, "");
-		return $id(id);
+		return DOM.findId(id);
 		break;
 	case "label":
 		var id = ref.htmlFor;
-		if (id) return $id(id);
+		if (id) return DOM.findId(id);
 		break;
 	}
 	return null;
@@ -283,7 +282,7 @@ var Table = sprockets.evolve(Box, { // FIXME uses className. This shouldn't be h
 getTable: function() {
 	var element = this.element;
 	if (element.tagName.toLowerCase() === 'table') return element;
-	return DOM.$('table', element);
+	return DOM.find('table', element);
 },
 
 getColumns: function() {

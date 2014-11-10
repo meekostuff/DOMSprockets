@@ -83,7 +83,7 @@ var NavTreeItem = sprockets.evolve(UI.TreeItem, {
 controls: {
 	get: function() {
 		var element = this.element;
-		var link = DOM.$('a[href], link', element);
+		var link = DOM.find('a[href], link', element);
 		if (!link) return;
 		var href = link.href;
 		if (!href) return;
@@ -91,7 +91,7 @@ controls: {
 		var base = document.URL.replace(/#.*$/, '')  + '#';
 		if (href.indexOf(base) !== 0) return;
 		var id = href.replace(base, '');
-		return DOM.$id(id);
+		return DOM.findId(id);
 	}
 }
 

@@ -13,8 +13,7 @@
 
 Meeko.sprockets.UI = (function() {
 
-var _ = Meeko.stuff;
-var DOM = Meeko.DOM, $id = DOM.$id, $ = DOM.$, $$ = DOM.$$;
+var _ = Meeko.stuff, DOM = Meeko.DOM;
 var sprockets = Meeko.sprockets, Base = sprockets.Base, RoleType = sprockets.RoleType;
 
 var Group = sprockets.evolve(RoleType, {
@@ -129,7 +128,7 @@ var Table = sprockets.evolve(RoleType, { // FIXME uses className. This shouldn't
 getTable: function() {
 	var element = this.element;
 	if (element.tagName.toLowerCase() === 'table') return element;
-	return DOM.$('table', element);
+	return DOM.find('table', element);
 },
 
 getColumns: function() {

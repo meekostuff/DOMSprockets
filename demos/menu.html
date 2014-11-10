@@ -40,7 +40,7 @@ body { width: 480px; height: 100%; }
 <script>
 (function() {
 
-var DOM = Meeko.DOM;
+var _ = Meeko.stuff, DOM = Meeko.DOM;
 var sprockets = Meeko.sprockets, UI = sprockets.UI;
 
 var List = sprockets.evolve(UI.List, {
@@ -65,7 +65,7 @@ handlers: [
 		action: function(event) {
 			var li = DOM.closest(event.target, 'li', this.element);
 			if (!li) return;
-			var expandable = !!DOM.$('ul', li);
+			var expandable = !!DOM.find('ul', li);
 			if (!expandable) return;
 			var treeitem = UI.TreeItem(li);
 			treeitem.setExpanded(true);
@@ -76,7 +76,7 @@ handlers: [
 		action: function(event) {
 			var li = DOM.closest(event.target, 'li', this.element);
 			if (!li) return;
-			var expandable = !!DOM.$('ul', li);
+			var expandable = !!DOM.find('ul', li);
 			if (!expandable) li = DOM.closest(li.parentNode, 'li', this.element);
 			if (!li) return;
 			if (DOM.contains(li, event.relatedTarget)) return;

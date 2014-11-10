@@ -236,29 +236,29 @@ function absolutizeSelector(selector, scope) { // WARN does not handle relative 
 	return scopePrefix + selector.replace(/,(?![^(]*\))/g, ', ' + scopePrefix); // COMMA (,) that is not inside BRACKETS. Technically: not followed by a RHB ')' unless first followed by LHB '(' 
 }
 
-var $id = function(id, doc) {
+var findId = function(id, doc) {
 	if (!id) return;
 	if (!doc) doc = document;
-	if (!doc.getElementById) throw 'Context for $id must be a Document node';
+	if (!doc.getElementById) throw 'Context for findId() must be a Document node';
 	return doc.getElementById(id);
 	// WARN would need a work around for broken getElementById in IE <= 7
 }
 
-var $$ = document.querySelectorAll ?
+var findAll = document.querySelectorAll ?
 function(selector, node, isRelative) {
 	if (!node) node = document;
 	if (isRelative) selector = absolutizeSelector(selector, node);
 	return _.toArray(node.querySelectorAll(selector));
 } :
-function() { throw "$$ not supported"; };
+function() { throw "findAll() not supported"; };
 
-var $ = document.querySelector ?
+var find = document.querySelector ?
 function(selector, node, isRelative) {
 	if (!node) node = document;
 	if (isRelative) selector = absolutizeSelector(selector, node);
 	return node.querySelector(selector);
 } :
-function() { throw "$ not supported"; };
+function() { throw "find() not supported"; };
 
 var contains = // WARN `contains()` means contains-or-isSameNode
 document.documentElement.contains && function(node, otherNode) {
@@ -281,7 +281,7 @@ function(node, type, listener, capture) { throw "removeEventListener not support
 return {
 	getSpecificity: getSpecificity, cmpSpecificty: cmpSpecificty,
 	uniqueId: uniqueId, setData: setData, getData: getData, hasData: hasData, // FIXME releaseNodes
-	$id: $id, $: $, $$: $$, matches: matches, closest: closest,
+	findId: findId, find: find, findAll: findAll, matches: matches, closest: closest,
 	contains: contains,
 	addEventListener: addEventListener, removeEventListener: removeEventListener
 }
@@ -818,7 +818,7 @@ function applyRuleToEnteredElement(rule, element) { // FIXME compare current and
 function applyRuleToEnteredTree(rule, root) {
 	if (!root || root === document) root = document.documentElement;
 	if (DOM.matches(root, rule.selector)) applyRuleToEnteredElement(rule, root);
-	_.forEach(DOM.$$(rule.selector, root), function(el) { applyRuleToEnteredElement(rule, el); });
+	_.forEach(DOM.findAll(rule.selector, root), function(el) { applyRuleToEnteredElement(rule, el); });
 }
 
 function applyEnteringRules() {
@@ -867,7 +867,7 @@ nodeRemoved: function(node) { // NOTE called AFTER node removed document
 	if (!started) throw 'sprockets management has not started yet';
 	
 	Binding.leftDocumentCallback(node);
-	_.forEach(DOM.$$('*', node), Binding.leftDocumentCallback);
+	_.forEach(DOM.findAll('*', node), Binding.leftDocumentCallback);
 }
 
 });
@@ -987,12 +987,12 @@ closest: function(element, sprocket) { // FIXME optimize by attaching sprocket h
 
 findAll: function(element, sprocket) {
 	var rule = getMatchingSprocketRule(element, sprocket);
-	return DOM.$$(rule.matches, element); // FIXME should be scoped to rule.scope??
+	return DOM.findAll(rule.matches, element); // FIXME should be scoped to rule.scope??
 },
 
 find: function(element, sprocket) {
 	var rule = getMatchingSprocketRule(element, sprocket);
-	return DOM.$(rule.matches, element); // FIXME should be scoped to rule.scope??
+	return DOM.find(rule.matches, element); // FIXME should be scoped to rule.scope??
 },
 
 cast: function(element, sprocket) {
@@ -1104,8 +1104,8 @@ var sprockets = Meeko.sprockets, Base = sprockets.Base;
 
 _.assign(Base.prototype, {
 
-$: function(selector, isRelative) { return DOM.$(selector, this.element, isRelative); },
-$$: function(selector, isRelative) { return DOM.$$(selector, this.element, isRelative); },
+find: function(selector, isRelative) { return DOM.find(selector, this.element, isRelative); },
+findAll: function(selector, isRelative) { return DOM.findAll(selector, this.element, isRelative); },
 matches: function(selector, scope) { return DOM.matches(this.element, selector, scope); },
 closest: function(selector, scope) { return DOM.closest(this.element, selector, scope); },
 
