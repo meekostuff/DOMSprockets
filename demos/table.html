@@ -46,16 +46,23 @@ thead th button {
   </style>
  
 <script src="../Sprocket.js"></script>
-<script src="../UI.js"></script>
+<script src="../ARIA.js"></script>
 
   <style>
-thead th.sorted button {
-  background-position: center right;
-  background-repeat: no-repeat;
-  background-image: url(arrow-dn.gif);
+thead th button::after {
+  font-family: monospace;
+  display: inline-block;
+  height: 1em;
+  width: 1em;
+  border: none;
+  margin-left: 0.5em;
+  content: "";
 }
-thead th.reversed button {
-  background-image: url(arrow-up.gif);
+thead th.sorted button::after {
+  content: "▲";
+}
+thead th.reversed button::after {
+  content: "▼";
 }
   </style>
 <script>

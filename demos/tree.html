@@ -26,17 +26,16 @@ body {
 	</style>
 	
 <script src="../Sprocket.js"></script>
-<script src="../UI.js"></script>
+<script src="../ARIA.js"></script>
 
 <style>
-#tree ul { margin-left: 0px; padding-left: 1em; }
-#tree li.closed ul { display: none; }
+#tree ul { margin-left: 0; padding-left: 1em; }
 
 /* pseudo list-style-image */
-#tree li { list-style: outside disc; margin-left: 0px; padding-left: 0px; }
-#tree li.open { list-style-image: url(arrow-dn.gif); }
-#tree li.closed { list-style-image: url(arrow-rit.gif); }
-#tree li.open ul, #tree li.closed ul { list-style-image: none; } /* IE <= 8 */
+#tree li { list-style: none; margin-left: 0; padding-left: 0; }
+#tree li::before { font-family: monospace; content: ""; display: inline-block; width: 1.5em; }
+#tree li.open::before { content: "▼"; }
+#tree li.closed::before { content: "▶"; }
 #tree li { -moz-user-select: none; }
 #tree li > * { -moz-user-select: text; }
 </style>
@@ -47,56 +46,51 @@ var _ = Meeko.stuff, DOM = Meeko.DOM;
 var sprockets = Meeko.sprockets, UI = sprockets.UI;
 
 var TreeItem = sprockets.evolve(UI.TreeItem, {
-	setExpanded: function(state) {
-		if (state == null) {
-			this.removeClass('open');
-			this.removeClass('closed');
-		}
-		else {
-			this.toggleClass('open', !!state);
-			this.toggleClass('closed', !state);
-		}
+expanded: {
+	type: 'boolean',
+	can: function() {
+		var group = this.element.ariaFind('group');
+		return !!group;
 	},
-	getExpanded: function() {
+	get: function() {
 		var state =
 			this.hasClass('open') ? true :
 			this.hasClass('closed') ? false :
 			null;
 		return state;
 	},
-	isEmpty: function() {
-		var element = this.element;
-		for (var node=element.firstChild; node; node=node.nextSibling) {
-			if (node.nodeType === 1 && node.tagName.toLowerCase() === 'ul') return false;
-		}
-		return true;
+	set: function(state) {
+		this.toggleClass('open', !!state);
+		this.toggleClass('closed', !state);
+		var group = this.element.ariaFind('group');
+		group.ariaToggle('hidden', !state);
 	}
+}
 });
 
 sprockets.registerComponent('ui-tree', UI.Tree, {
 sprockets: [
 	{ matches: 'li', sprocket: TreeItem },
-	{ matches: 'ul', sprocket: UI.List }
+	{ matches: 'ul', sprocket: UI.Group }
 ],
 
 handlers: [
 {
 	type: 'click',
-	delegator: 'li',
-	eventPhase: 2,
-	action: function(event, delegator) {
-		var treeitem = UI.TreeItem(delegator);
-		if (treeitem.isEmpty()) treeitem.setExpanded();
-		else treeitem.setExpanded(!treeitem.getExpanded());
+	action: function(event) {
+		var treeitem = event.target.ariaClosest('treeitem');
+		if (!treeitem) return;
+		if (!treeitem.ariaCan('expanded')) return;
+		treeitem.ariaToggle('expanded');
 	}
 }
 ],
 callbacks: {
 	enteredDocument: function() {
-		_.forEach(this.findAll('li > ul'), function(list) {
-			var parent = list.parentNode;
-			var treeitem = UI.TreeItem(parent);
-			if (treeitem) treeitem.setExpanded(false);	
+		_.forEach(this.element.ariaFindAll('group'), function(group) {
+			var treeitem = group.ariaClosest('treeitem');
+			if (!treeitem) return;
+			treeitem.ariaToggle('expanded', false);
 		});
 	}
 }

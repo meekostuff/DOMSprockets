@@ -27,7 +27,6 @@ body { width: 480px; height: 100%; }
 
 ui-navtree, ui-switchbox, ui-panel { display: block; }
 
-/* Reset CSS */
 #tabboxTabs, #tabboxPanels { margin: 0px; }
 #tabboxTabs ul, #tabboxTabs li { list-style: none; margin-left: 0px; padding-left: 0px; }
 #tabboxTabs a:focus { outline-style: none; }
@@ -119,9 +118,10 @@ sprockets: [
 handlers: [
 {
 	type: "click",
-	delegator: 'li',
-	action: function(event, item) {
+	action: function(event) {
 		if (event.defaultPrevented) return;
+		var treeitem = event.target.ariaClosest('treeitem');
+		if (!treeitem) return;
 		this.ariaSet('activedescendant', item);
 		event.preventDefault();
 	}
