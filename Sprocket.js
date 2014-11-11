@@ -230,6 +230,16 @@ function(element, selector, scope) {
 function() { throw "closest not supported"; } // NOTE fallback
 
 function absolutizeSelector(selector, scope) { // WARN does not handle relative selectors that start with sibling selectors
+	switch (scope.nodeType) {
+	case 1:
+		break;
+	case 9: case 11:
+		// TODO what to do with document / fragment
+		return selector;
+	default:
+		// TODO should other node types throw??
+		return selector;
+	}
 	var id = scope.id;
 	if (!id) id = scope.id = uniqueId(scope);
 	var scopePrefix = '#' + id + ' ';
@@ -245,17 +255,23 @@ var findId = function(id, doc) {
 }
 
 var findAll = document.querySelectorAll ?
-function(selector, node, isRelative) {
+function(selector, node, scope) {
 	if (!node) node = document;
-	if (isRelative) selector = absolutizeSelector(selector, node);
+	if (scope) {
+		if (!scope.nodeType) scope = node; // `true` but not the scope element
+		selector = absolutizeSelector(selector, scope);
+	}
 	return _.toArray(node.querySelectorAll(selector));
 } :
 function() { throw "findAll() not supported"; };
 
 var find = document.querySelector ?
-function(selector, node, isRelative) {
+function(selector, node, scope) {
 	if (!node) node = document;
-	if (isRelative) selector = absolutizeSelector(selector, node);
+	if (scope) {
+		if (!scope.nodeType) scope = node; // `true` but not the scope element
+		selector = absolutizeSelector(selector, scope);
+	}
 	return node.querySelector(selector);
 } :
 function() { throw "find() not supported"; };
@@ -1104,8 +1120,8 @@ var sprockets = Meeko.sprockets, Base = sprockets.Base;
 
 _.assign(Base.prototype, {
 
-find: function(selector, isRelative) { return DOM.find(selector, this.element, isRelative); },
-findAll: function(selector, isRelative) { return DOM.findAll(selector, this.element, isRelative); },
+find: function(selector, scope) { return DOM.find(selector, this.element, scope); },
+findAll: function(selector, scope) { return DOM.findAll(selector, this.element, scope); },
 matches: function(selector, scope) { return DOM.matches(this.element, selector, scope); },
 closest: function(selector, scope) { return DOM.closest(this.element, selector, scope); },
 
