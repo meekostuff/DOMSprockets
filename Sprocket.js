@@ -1170,6 +1170,11 @@ trigger: function(type, params) {
 // Element.prototype.hidden and visibilitychange event
 var Element = window.Element || window.HTMLElement;
 
+Object.defineProperty(Element.prototype, '$', {
+	get: function() { return sprockets.getInterface(this); }
+});
+
+
 if (!('hidden' in document.documentElement)) {
 
 	var head = document.head;
@@ -1333,26 +1338,26 @@ sprockets.register('*', RoleType);
 
 var Element = window.Element || window.HTMLElement;
 
-_.defaults(Element.prototype, {
+_.defaults(Element.prototype, { // NOTE this assumes that the declared sprocket for every element is derived from ARIA
 
 aria: function(prop, value) {
-	return ARIA(this).aria(prop, value);
+	return this.$.aria(prop, value);
 },
 
 ariaCan: function(prop) {
-	return ARIA(this).ariaCan(prop);
+	return this.$.ariaCan(prop);
 },
 
 ariaToggle: function(prop, value) {
-	return ARIA(this).ariaToggle(prop, value);
+	return this.$.ariaToggle(prop, value);
 },
 
 ariaGet: function(prop) {
-	return ARIA(this).ariaGet(prop);
+	return this.$.ariaGet(prop);
 },
 
 ariaSet: function(prop, value) {
-	return ARIA(this).ariaSet(prop, value);
+	return this.$.ariaSet(prop, value);
 },
 
 ariaFind: function(role) {
