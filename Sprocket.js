@@ -276,7 +276,7 @@ var Promise = function(init) { // `init` is called as init(resolve, reject)
 	var resolver;
 	if (typeof init !== 'function') { // if `init` is not a function then assign resolve() / reject() elsewhere
 		resolver = (typeof init === 'object' && init !== null) ? init : promise;
-		resolver.revolve = resolve;
+		resolver.resolve = resolve;
 		resolver.reject = reject;
 	}
 	
