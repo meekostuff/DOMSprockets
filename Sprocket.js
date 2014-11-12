@@ -1262,6 +1262,8 @@ nodeRemoved: function(node) { // NOTE called AFTER node removed document
 
 });
 
+// FIXME this auto DOM Monitoring could have horrible performance for DOM sorting operations
+// It would be nice to have a list of moved nodes that could potentially be ignored
 var observe = (window.MutationObserver) ?
 function() {
 	var observer = new MutationObserver(function(mutations, observer) {
@@ -1280,12 +1282,12 @@ function() { // otherwise assume MutationEvents. TODO is this assumption safe?
 	document.addEventListener('DOMNodeInserted', function(e) {
 		e.stopPropagation();
 		if (!started) return;
-		sprockets.nodeInserted(e.target); // FIXME should be asynchronous
+		Task.asap(function() { sprockets.nodeInserted(e.target); });
 	}, true);
 	document.body.addEventListener('DOMNodeRemoved', function(e) {
 		e.stopPropagation();
 		if (!started) return;
-		setTimeout(function() { sprockets.nodeRemoved(e.target); }); // FIXME potentially many timeouts. Should use Promises
+		Task.asap(function() { sprockets.nodeRemoved(e.target); });
 		// FIXME
 	}, true);
 };
