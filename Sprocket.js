@@ -257,12 +257,18 @@ var Promise = function(init) { // `init` is called as init(resolve, reject)
 	promise._initialize();
 
 	function resolve(result) {
-		if (typeof result !== 'function') promise._resolve(result);
+		if (typeof result !== 'function') {
+			promise._resolve(result);
+			return;
+		}
 		try { promise._resolve(result()); }
 		catch (err) { promise._reject(err); }
 	}
 	function reject(error) {
-		if (typeof error !== 'function') promise._reject(error);
+		if (typeof error !== 'function') {
+			promise._reject(error);
+			return;
+		}
 		try { promise._reject(error()); }
 		catch (err) { promise._reject(err); }
 	}
