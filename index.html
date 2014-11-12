@@ -13,12 +13,16 @@ A Base sprocket with generic DOMElement methods is provided in the core library.
 Additionaly, a few fundamental UI sprockets are available in an extra library. </p>
 
 <p>DOMSprockets is intended to be "as simple as possible, but no simpler".
-The core library is well under 10KB minified and gzipped. </p>
+The core library is under 10KB minified and gzipped. </p>
 
-<p><strong>WARNING:</strong> This is alpha quality software.
-The API is missing essential functions and is quite likely to change.
-The code contains bugs so bas they wills prolly eat yer or at least yer's homework. 
-The documentation might be useless, mis-leading, out-of-date or, most likely, non-existant. </p>
+<p><strong>WARNING ! WARNING ! WARNING</strong></p>
+
+<ul>
+<li>This is alpha quality software. </li>
+<li>The API is missing essential functions and is quite likely to change. </li>
+<li>The code contains bugs so bas they wills prolly eat yer or at least yer's homework. </li>
+<li>The documentation might be useless, mis-leading, out-of-date or, most likely, non-existant. </li>
+</ul>
 
 <h2>Browser Compatibility</h2>
 
@@ -35,17 +39,16 @@ The documentation might be useless, mis-leading, out-of-date or, most likely, no
 You might use something like the following:</p>
 
 <pre><code>&lt;script src="/path/to/DOMSprockets/Sprocket.js"&gt;&lt;/script&gt;
-&lt;script src="/path/to/DOMSprockets/UI.js"&gt;&lt;/script&gt; 
+&lt;script src="/path/to/DOMSprockets/ARIA.js"&gt;&lt;/script&gt;   
 &lt;script&gt;
 (function() {
 
 var sprockets = Meeko.sprockets, UI = Meeko.UI;
-sprockets.register('table.sortable', UI.Table, { // apply the `UI.Table` sprocket to any &lt;table class="sortable"&gt;
+sprockets.registerComponent('ui-table', UI.Table, { // apply the `UI.Table` sprocket to any &lt;table is="ui-table"&gt;
     handlers: [
     {
       type: 'click', // for click events ...
-      delegator: '&gt; thead &gt; tr &gt; th', // on table.sortable &gt; thead &gt; tr &gt; th ...
-      preventDefault: true, // prevent default actions ...
+      delegator: 'thead &gt; tr &gt; th',
       action: function(event, cell) { // and with the event and delegator element (a &lt;th&gt; table-cell) ...
         this.toggleColumnSortState(cell.cellIndex); // sort the table according to the table-cell's column
       }
@@ -78,18 +81,17 @@ window.onload = function() { // when the page is ready ...
 <p>A sprocket is also a constructor of sorts:</p>
 
 <ul>
-<li><p><strong>new Sprocket(element)</strong> calls <code>.bind(element)</code> and returns the result</p></li>
-<li><p><strong>Sprocket(element)</strong> calls <code>.cast(element)</code> and returns the result</p></li>
+<li><strong>Sprocket(element)</strong> calls <code>Meeko.sprockets.cast(element, Sprocket)</code> and returns the result</li>
 </ul>
 
 <h3>Base Sprocket</h3>
 
-<p>Custom <code>SprocketDefinition</code>'s are <em>evolved</em> from <code>Meeko.sprockets.Base</code>, which has the following <code>prototype</code>:</p>
+<p>Custom <code>SprocketDefinition</code>'s are <em>evolved</em> from <code>Meeko.sprockets.Base</code>, which has the following methods:</p>
 
 <ul>
-<li><p><strong>$id(id) :</strong> returns the first descendant element of the <code>element</code> with <code>@id</code> matching <code>id</code></p></li>
-<li><p><strong>$(selector) :</strong> returns the first descendant element of the <code>element</code> which matches <code>selector</code></p></li>
-<li><p><strong>$$(selector) :</strong> returns the array of descendant elements of the <code>element</code> which match <code>selector</code></p></li>
+<li><p><strong>findId(id) :</strong> returns the first descendant element of the <code>element</code> with <code>@id</code> matching <code>id</code></p></li>
+<li><p><strong>find(selector) :</strong> returns the first descendant element of the <code>element</code> which matches <code>selector</code></p></li>
+<li><p><strong>findAll(selector) :</strong> returns the array of descendant elements of the <code>element</code> which match <code>selector</code></p></li>
 <li><p><strong>matches(selector) :</strong> returns true if the <code>element</code> matches <code>selector</code>; otherwise returns false</p></li>
 <li><p><strong>closest(selector) :</strong> traverses upwards in the DOM starting at the <code>element</code> and returns the first element which matches <code>selector</code>; otherwise returns undefined</p></li>
 <li><p><strong>contains(otherNode) :</strong> returns true if <code>otherNode</code> is the <code>element</code> or a descendant of the <code>element</code>; otherwise returns false</p></li>
@@ -106,13 +108,26 @@ otherwise <br />
 The call returns <code>false</code> if any handler called <code>event.preventDefault()</code>.</p></li>
 </ul>
 
+<h3>ARIA Sprocket</h3>
+
+<p>Custom <code>SprocketDefinition</code>'s should be <em>evolved</em> from <code>Meeko.sprockets.RoleType</code>, which inherits from <code>Meeko.sprockets.Base</code>
+and has the following additional methods:</p>
+
+<ul>
+<li><p><strong>aria(property, value) :</strong> gets or sets the specified aria attribute</p></li>
+<li><p><strong>ariaCan(property) :</strong> indicates if the specified aria property is currently relevant</p></li>
+<li><p><strong>ariaGet(property) :</strong> gets the specified aria property</p></li>
+<li><p><strong>ariaSet(property, value) :</strong> sets the specified aria property</p></li>
+<li><p><strong>ariaToggle(property, state) :</strong> for boolean properties sets or cliears the specified aria property</p></li>
+</ul>
+
 <h3>Basic UI Sprockets</h3>
 
-<p><code>UI.js</code> adds a few fundamental sprocket definitions under the <code>Meeko.sprockets.UI</code> namespace.
+<p><code>ARIA.js</code> adds a few fundamental sprocket definitions under the <code>Meeko.sprockets.UI</code> namespace.
 These are vaguely modelled on <a href="http://www.w3.org/TR/wai-aria/roles">ARIA roles</a>, and include:</p>
 
 <ul>
-<li><strong>Box, ListItem, List, TreeItem, Tree, NavTreeItem, NavTree, Panel, SwitchBox, ScrollBox, Table</strong></li>
+<li><strong>Group, TreeItem, Tree, Panel, SwitchBox, ScrollBox, Table</strong></li>
 </ul>
 
 <p>These are intended to be used as base classes for context specific sprockets and behaviors. 
@@ -134,7 +149,7 @@ See the source for implementation details.</p>
 <ul>
 <li>handlers is an optional array of <code>Handler</code> objects</li>
 <li>callbacks is an optional object with status callbacks</li>
-<li>sprockets is an optional array of scoped sprocket rules of the form <code>{ selector: '', sprocket: SprocketDefinition }</code>, where
+<li>sprockets is an optional array of scoped sprocket rules of the form <code>{ matches: '', sprocket: SprocketDefinition }</code>, where
 <ul>
 <li>selector is a CSS selector</li>
 <li>sprocket is a SprocketDefinition</li>
@@ -158,54 +173,91 @@ It can contain the following filters, directives and methods:</p>
 
 <h3>Evolving Sprockets</h3>
 
+<ul>
+<li>A definition has methods and ARIA-properties.</li>
+<li>ARIA-properties are only accessible with aria* methods:
+<ul>
+<li><code>ariaCan(property)</code>: for <code>boolean</code> types <em>can</em> it currently be set / cleared?</li>
+<li><code>ariaGet(property)</code>: get the current value</li>
+<li><code>ariaSet(property, value)</code>: set a new value</li>
+<li><code>ariaToggle(property, value)</code>: for <code>boolean</code> types set the value to a specific state (or invert it if no value specified)</li>
+</ul></li>
+<li><p>ARIA-properties are defined with </p>
+
+<p>{
+    type: 'boolean', // TODO what other types are supported
+    can: function() { }, // for <code>boolean</code> types
+    get: function() { },
+    set: function(value) { }
+}</p></li>
+</ul>
+
 <p><strong>An Example</strong></p>
 
-<p>Start with <code>Meeko.sprockets.Base</code> and create a <code>Hideable</code> definition</p>
+<p>Start with <code>Meeko.sprockets.ARIA</code> and create a <code>Selectable</code> definition</p>
 
-<pre><code>var Hideable = Meeko.sprockets.evolve(Base, {
+<pre><code>var Selectable = Meeko.sprockets.evolve(Meeko.sprockets.ARIA, {
 
-setHidden: function(state) {
-    var element = this.element;
-    if (!state) element.style.display = 'none';
-    else element.style.display = '';
-},
+selected: {
+    type: 'boolean',
 
-getHidden: function() {
-    var element = this.element;
-    return element.style.display === 'none';
+    can: function() {
+        return true;
+    },
+
+    set: function(state) {
+        this.element.setAttribute('aria-selected', state ? 'true' : 'false')
+    },
+
+    get: function() {
+        return this.getAttribute('aria-selected') === 'true';
+    }
 }
 
 });
 </code></pre>
 
-<p>Next create a <code>MyHideable</code> definition that inherits from <code>Hideable</code>, but overrides <code>setHidden</code>, <code>getHidden</code> to use CSS classes</p>
+<p>Next create a <code>MySelectable</code> definition that inherits from <code>Selectable</code>, but overrides <code>selected</code> to use CSS classes</p>
 
-<pre><code>var MyHideable = Meeko.sprockets.evolve(Hideable, {
+<pre><code>var MySelectable = Meeko.sprockets.evolve(Selectable, {
 
-setHidden: function(state) {
-    this.toggleClass('hidden', state);
-},
+selected: {
+    type: 'boolean',
 
-getHidden: function() {
-    return this.hasClass('hidden');
+    can: function() {
+        return true;
+    },
+
+    set: function(state) {
+        if (state) {
+            this.addClass('selected');
+        }
+        else {
+            this.removeClass('selected');
+        }
+    },
+
+    get: function() {
+        return this.hasClass('selected');
+    }
 }
 
 });
 </code></pre>
 
-<p>Now, if you register <code>MyHideable</code> for certain elements</p>
+<p>Now, if you register <code>MySelectable</code> for certain elements</p>
 
-<pre><code>Meeko.sprockets.register('p.details', MyHideable);
+<pre><code>Meeko.sprockets.register('li.item', MySelectable);
 </code></pre>
 
-<p>but then call <code>Hideable.cast()</code> on one such element,
-you still get a <code>MyHideable</code> sprocket for the element.</p>
+<p>but then call <code>Selectable.cast()</code> on one such element,
+you still get a <code>MySelectable</code> sprocket for the element.</p>
 
-<pre><code>var detailEl = document.querySelector('p.details');
-var detail = Hideable.cast(detailEl);
-detail.setHidden(true);
-console.log(detailEl.className); // logs "details hidden"
-console.log(detailEl.style.display === 'none'); // logs false
+<pre><code>var item = document.querySelector('li.item');
+var sprocket = sprockets.case(item, Selectable);
+sprocket.ariaToggle('selected', true);
+console.log(item.className); // "item selected"
+console.log(item.getAttribute('aria-selected'); // nothing
 </code></pre>
 
 <p>This is most useful for composite widgets where the sprocket on one element acts as controller
@@ -236,33 +288,23 @@ For example, a tree might be represented by hierarchical <code>&lt;ul&gt;/&lt;li
         { matches: 'ul', UI.Group }
     ]
 });
-Meeko.sprockets.register('div.tree li', UI.TreeItem);
 </code></pre>
 
 <p>In this case <code>UI.Tree</code> will control whether <code>TreeItem</code>'s are selected or expanded / collapsed. 
 But it isn't the responsibility of <code>UI.Tree</code> to decide how <code>TreeItem</code> should implement being selected or expanded.
 So, as long as the registered sprocket inherits from <code>UI.TreeItem</code> then UI.Tree will manage.
-Even the following - where the evolved <code>UI.TreeItem</code> delegates its expanded / collapse feature - is fine. </p>
+Even the following - where the evolved <code>UI.TreeItem</code> delegates its expanded / collapse feature - is fine,
+assuming the treeitems are marked up as <code>&lt;li is="ui-treeitem"&gt;</code>.</p>
 
-<pre><code>Meeko.sprockets.register('ui-tree', UI.Tree, {
+<pre><code>Meeko.sprockets.registerComponent('ui-tree', UI.Tree, {
     handlers: [ ... ],
     callbacks: [ ... ],
     sprockets: [ 
+        { matches: 'li', UI.TreeItem },
         { matches: 'ul', sprocket: UI.Group }
     ]
-}); 
-Meeko.sprockets.register('ui-treeitem', UI.TreeItem.evolve({
-    setExpanded: function(state) {
-        var ul = this.$('ul');
-        var listBox = UI.List(ul);
-        listBox.setHidden(!state);
-    },
-    getExpanded: function() {
-        var ul = this.$('ul');
-        var listBox = UI.List(ul);
-        return listBox.getHidden();         
-    }
 });
+Meeko.sprockets.registerComponent('ui-treeitem', MyTreeItem, { ... });
 </code></pre>
 
 <h2>History</h2>
