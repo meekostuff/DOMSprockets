@@ -124,13 +124,389 @@ return {
 
 })();
 
-var _ = _ || Meeko.stuff;
+var _ = window._ || Meeko.stuff; // WARN this could potentially use underscore.js / lodash.js but HAS NOT BEEN TESTED!!!
+
+/*
+ ### Task queuing and isolation
+	TODO Only intended for use by Promise. Should this be externally available?
+ */
+
+var Task = Meeko.Task = (function() {
+
+// NOTE Task.asap could use window.setImmediate, except for
+// IE10 CPU contention bugs http://codeforhire.com/2013/09/21/setimmediate-and-messagechannel-broken-on-internet-explorer-10/
+
+var asapQueue = [];
+var deferQueue = [];
+var errorQueue = [];
+var scheduled = false;
+var processing = false;
+
+function asap(fn) {
+	asapQueue.push(fn);
+	if (processing) return;
+	if (scheduled) return;
+	schedule(processTasks);
+	scheduled = true;
+}
+
+function defer(fn) {
+	if (processing) {
+		deferQueue.push(fn);
+		return;
+	}
+	asap(fn);
+}
+
+function delay(fn, timeout) {
+	if (timeout <= 0 || timeout == null) {
+		defer(fn);
+		return;
+	}
+
+	setTimeout(function() {
+		try { fn(); }
+		catch (error) { postError(error); }
+		processTasks();
+	}, timeout);
+}
+
+// NOTE schedule used to be approx: setImmediate || postMessage || setTimeout
+var schedule = window.setTimeout;
+
+function processTasks() {
+	processing = true;
+	var fn;
+	while (asapQueue.length) {
+		fn = asapQueue.shift();
+		if (typeof fn !== 'function') continue;
+		try { fn(); }
+		catch (error) { postError(error); }
+	}
+	scheduled = false;
+	processing = false;
+	
+	asapQueue = deferQueue;
+	deferQueue = [];
+	if (asapQueue.length) {
+		schedule(processTasks);
+		scheduled = true;
+	}
+	
+	throwErrors();
+	
+}
+
+
+function postError(error) {
+	errorQueue.push(error);
+}
+
+var throwErrors = (function() { // TODO maybe it isn't worth isolating on platforms that don't have dispatchEvent()
+
+var evType = vendorPrefix + "-error";
+var throwErrors = (window.dispatchEvent) ?
+function() {
+	var handlers = _.map(errorQueue, function(error) {
+		return function() { throw error; };
+	});
+	_.forEach(handlers, function(handler) {
+		window.addEventListener(evType, handler, false);
+	});
+	var e = document.createEvent("Event");
+	e.initEvent(evType, true, true);
+	window.dispatchEvent(e);
+	_.forEach(handlers, function(handler) {
+		window.removeEventListener(evType, handler, false);
+	});
+	errorQueue = [];
+} :
+function() { // FIXME shouldn't need this
+	var handlers = _.map(errorQueue, function(error) {
+		return function() { throw error; };
+	});
+	_.forEach(handlers, function(handler) {
+		setTimeout(handler);
+	});
+	errorQueue = [];
+}
+
+return throwErrors;
+})();
+
+
+return {
+	asap: asap,
+	defer: defer,
+	delay: delay,
+	postError: postError
+};
+
+})(); // END Task
+
+/*
+ ### Promise
+ WARN: This was based on early DOM Futures specification. This has been evolved towards ES6 Promises.
+ */
+var Promise = Meeko.Promise = (function() {
+	
+var Promise = function(init) { // `init` is called as init(resolve, reject)
+	if (!(this instanceof Promise)) return new Promise(init);
+	
+	var promise = this;
+	promise._initialize();
+
+	function resolve(result) {
+		if (typeof result !== 'function') promise._resolve(result);
+		try { promise._resolve(result()); }
+		catch (err) { promise._reject(err); }
+	}
+	function reject(error) {
+		if (typeof error !== 'function') promise._reject(error);
+		try { promise._reject(error()); }
+		catch (err) { promise._reject(err); }
+	}
+
+	var resolver;
+	if (typeof init !== 'function') { // if `init` is not a function then assign resolve() / reject() elsewhere
+		resolver = (typeof init === 'object' && init !== null) ? init : promise;
+		resolver.revolve = resolve;
+		resolver.reject = reject;
+	}
+	
+	Task.asap(function() {
+		if (promise._willCatch == null) promise._willCatch = false;
+		if (resolver) return;
+		try { init(resolve, reject); }
+		catch(error) { reject(error); }
+	});
+	// NOTE promise is returned by `new` invocation
+}
+
+_.defaults(Promise.prototype, {
+
+_initialize: function() {
+	var promise = this;
+	promise._acceptCallbacks = [];
+	promise._rejectCallbacks = [];
+	promise._accepted = null;
+	promise._result = null;
+	promise._willCatch = null;
+	promise._processing = false;
+},
+
+_accept: function(result, sync) { // NOTE equivalent to "accept algorithm". External calls MUST NOT use sync
+	var promise = this;
+	if (promise._accepted != null) return;
+	promise._accepted = true;
+	promise._result = result;
+	promise._requestProcessing(sync);
+},
+
+_resolve: function(value, sync) { // NOTE equivalent to "resolve algorithm". External calls MUST NOT use sync
+	var promise = this;
+	if (promise._accepted != null) return;
+	if (value != null && typeof value.then === 'function') {
+		try {
+			value.then(
+				function(result) { promise._resolve(result); },
+				function(error) { promise._reject(error); }
+			);
+		}
+		catch(error) {
+			promise._reject(error, sync);
+		}
+		return;
+	}
+	// else
+	promise._accept(value, sync);
+},
+
+_reject: function(error, sync) { // NOTE equivalent to "reject algorithm". External calls MUST NOT use sync
+	var promise = this;
+	if (promise._accepted != null) return;
+	promise._accepted = false;
+	promise._result = error;
+	if (!promise._willCatch) {
+		Task.postError(error);
+	}
+	else promise._requestProcessing(sync);
+},
+
+_requestProcessing: function(sync) { // NOTE schedule callback processing. TODO may want to disable sync option
+	var promise = this;
+	if (promise._accepted == null) return;
+	if (promise._processing) return;
+	if (sync) {
+		promise._processing = true;
+		promise._process();
+		promise._processing = false;
+	}
+	else {
+		Task.asap(function() {
+			promise._processing = true;
+			promise._process();
+			promise._processing = false;
+		});
+	}
+},
+
+_process: function() { // NOTE process a promises callbacks
+	var promise = this;
+	var result = promise._result;
+	var callbacks, cb;
+	if (promise._accepted) {
+		promise._rejectCallbacks.length = 0;
+		callbacks = promise._acceptCallbacks;
+	}
+	else {
+		promise._acceptCallbacks.length = 0;
+		callbacks = promise._rejectCallbacks;
+	}
+	while (callbacks.length) {
+		cb = callbacks.shift();
+		if (typeof cb === 'function') cb(result);
+	}
+},
+
+then: function(acceptCallback, rejectCallback) {
+	var promise = this;
+	return new Promise(function(resolve, reject) {
+		var acceptWrapper = acceptCallback ?
+			wrapResolve(acceptCallback, resolve, reject) :
+			function(value) { resolve(value); }
+	
+		var rejectWrapper = rejectCallback ? 
+			wrapResolve(rejectCallback, resolve, reject) :
+			function(error) { reject(error); }
+	
+		promise._acceptCallbacks.push(acceptWrapper);
+		promise._rejectCallbacks.push(rejectWrapper);
+	
+		if (promise._willCatch == null) promise._willCatch = true;
+	
+		promise._requestProcessing();
+		
+	});
+},
+
+'catch': function(rejectCallback) { // WARN 'catch' is unexpected identifier in IE8-
+	var promise = this;
+	return promise.then(null, rejectCallback);
+}
+
+});
+
+
+/* Functional composition wrapper for `then` */
+function wrapResolve(callback, resolve, reject) {
+	return function() {
+		try {
+			var value = callback.apply(undefined, arguments); 
+			resolve(value);
+		} catch(error) {
+			reject(error);
+		}
+	}
+}
+
+
+_.defaults(Promise, {
+
+resolve: function(value) {
+return new Promise(function(resolve, reject) {
+	resolve(value);
+});
+},
+
+reject: function(error) {
+return new Promise(function(resolve, reject) {
+	reject(error);
+});
+}
+
+});
+
+
+/*
+ ### Async functions
+   wait(test) waits until test() returns true
+   asap(fn) returns a promise which is fulfilled / rejected by fn which is run asap after the current micro-task
+   delay(timeout) returns a promise which fulfils after timeout ms
+   pipe(startValue, [fn1, fn2, ...]) will call functions sequentially
+ */
+var wait = (function() { // TODO wait() isn't used much. Can it be simpler?
+	
+var tests = [];
+
+function wait(fn) {
+return new Promise(function(resolve, reject) {
+	var test = { fn: fn, resolve: resolve, reject: reject };
+	asapTest(test);
+});
+}
+
+function asapTest(test) {
+	asap(test.fn)
+	.then(function(done) {
+		if (done) test.resolve();
+		else deferTest(test);
+	},
+	function(error) {
+		test.reject(error);
+	});
+}
+
+function deferTest(test) {
+	var started = tests.length > 0;
+	tests.push(test);
+	if (!started) Task.delay(poller, Promise.pollingInterval); // NOTE polling-interval is configured below
+}
+
+function poller() {
+	var currentTests = tests;
+	tests = [];
+	_.forEach(currentTests, asapTest);
+}
+
+return wait;
+
+})();
+
+var asap = function(fn) { return Promise.resolve().then(fn); }
+
+function delay(timeout) {
+return new Promise(function(resolve, reject) {
+	if (timeout <= 0 || timeout == null) Task.defer(resolve);
+	else Task.delay(resolve, timeout);
+});
+}
+
+function pipe(startValue, fnList) {
+	var promise = Promise.resolve(startValue);
+	while (fnList.length) { 
+		var fn = fnList.shift();
+		promise = promise.then(fn);
+	}
+	return promise;
+}
+
+Promise.pollingInterval = defaultOptions['polling_interval'];
+
+_.defaults(Promise, {
+	asap: asap, delay: delay, wait: wait, pipe: pipe
+});
+
+return Promise;
+
+})();
+
 
 /*
  ### DOM utility functions
  */
 
-if (!Meeko.DOM) Meeko.DOM = (function() {
+var DOM = Meeko.DOM = (function() {
 
 // WARN getSpecificity is for selectors, **but not** for selector-chains
 var getSpecificity = function(selector) { // NOTE this fn is small but extremely naive (and wrongly counts attrs and pseudo-attrs with element-type)
@@ -303,8 +679,6 @@ return {
 }
 
 })();
-
-var DOM = DOM || Meeko.DOM;
 
 /*
  ### Logger (minimal implementation - can be over-ridden)
