@@ -23,7 +23,7 @@ var window = this;
 var document = window.document;
 
 var defaultOptions = {
-	"log_level": "warn"
+	'log_level': 'warn'
 }
 
 var vendorPrefix = 'meeko';
@@ -204,7 +204,7 @@ function postError(error) {
 
 var throwErrors = (function() { // TODO maybe it isn't worth isolating on platforms that don't have dispatchEvent()
 
-var evType = vendorPrefix + "-error";
+var evType = vendorPrefix + '-error';
 var throwErrors = (window.dispatchEvent) ?
 function() {
 	var handlers = _.map(errorQueue, function(error) {
@@ -213,7 +213,7 @@ function() {
 	_.forEach(handlers, function(handler) {
 		window.addEventListener(evType, handler, false);
 	});
-	var e = document.createEvent("Event");
+	var e = document.createEvent('Event');
 	e.initEvent(evType, true, true);
 	window.dispatchEvent(e);
 	_.forEach(handlers, function(handler) {
@@ -301,7 +301,7 @@ _initialize: function() {
 	promise._processing = false;
 },
 
-_accept: function(result, sync) { // NOTE equivalent to "accept algorithm". External calls MUST NOT use sync
+_accept: function(result, sync) { // NOTE equivalent to 'accept algorithm'. External calls MUST NOT use sync
 	var promise = this;
 	if (promise._accepted != null) return;
 	promise._accepted = true;
@@ -309,7 +309,7 @@ _accept: function(result, sync) { // NOTE equivalent to "accept algorithm". Exte
 	promise._requestProcessing(sync);
 },
 
-_resolve: function(value, sync) { // NOTE equivalent to "resolve algorithm". External calls MUST NOT use sync
+_resolve: function(value, sync) { // NOTE equivalent to 'resolve algorithm'. External calls MUST NOT use sync
 	var promise = this;
 	if (promise._accepted != null) return;
 	if (value != null && typeof value.then === 'function') {
@@ -328,7 +328,7 @@ _resolve: function(value, sync) { // NOTE equivalent to "resolve algorithm". Ext
 	promise._accept(value, sync);
 },
 
-_reject: function(error, sync) { // NOTE equivalent to "reject algorithm". External calls MUST NOT use sync
+_reject: function(error, sync) { // NOTE equivalent to 'reject algorithm'. External calls MUST NOT use sync
 	var promise = this;
 	if (promise._accepted != null) return;
 	promise._accepted = false;
@@ -516,7 +516,7 @@ var DOM = Meeko.DOM = (function() {
 
 // WARN getSpecificity is for selectors, **but not** for selector-chains
 var getSpecificity = function(selector) { // NOTE this fn is small but extremely naive (and wrongly counts attrs and pseudo-attrs with element-type)
-	if (selector.indexOf(',') >= 0) throw "getSpecificity does not support selectors that contain COMMA (,)";		
+	if (selector.indexOf(',') >= 0) throw Error('getSpecificity does not support selectors that contain COMMA (,)');
 	var idCount = selector.split('#').length - 1;
 	var classCount = selector.split('.').length - 1;
 	var typeCount =
@@ -585,7 +585,7 @@ var releaseNodes = function(callback, context) { // FIXME this is never called
 
 var matchesSelector;
 _.some(_.words('moz webkit ms o'), function(prefix) {
-	var method = prefix + "MatchesSelector";
+	var method = prefix + 'MatchesSelector';
 	if (document.documentElement[method]) {
 		matchesSelector = function(element, selector) { return element[method](selector); }
 		return true;
@@ -599,7 +599,7 @@ function(element, selector, scope) {
 	if (scope) selector = absolutizeSelector(selector, scope);
 	return matchesSelector(element, selector);
 } :
-function() { throw "matches not supported"; } // NOTE fallback
+function() { throw Error('matches not supported'); } // NOTE fallback
 
 var closest = matchesSelector ?
 function(element, selector, scope) {
@@ -609,7 +609,7 @@ function(element, selector, scope) {
 	}
 	return;
 } :
-function() { throw "closest not supported"; } // NOTE fallback
+function() { throw Error('closest not supported'); } // NOTE fallback
 
 function absolutizeSelector(selector, scope) { // WARN does not handle relative selectors that start with sibling selectors
 	switch (scope.nodeType) {
@@ -631,7 +631,7 @@ function absolutizeSelector(selector, scope) { // WARN does not handle relative 
 var findId = function(id, doc) {
 	if (!id) return;
 	if (!doc) doc = document;
-	if (!doc.getElementById) throw 'Context for findId() must be a Document node';
+	if (!doc.getElementById) throw Error('Context for findId() must be a Document node');
 	return doc.getElementById(id);
 	// WARN would need a work around for broken getElementById in IE <= 7
 }
@@ -645,7 +645,7 @@ function(selector, node, scope) {
 	}
 	return _.toArray(node.querySelectorAll(selector));
 } :
-function() { throw "findAll() not supported"; };
+function() { throw Error('findAll() not supported'); };
 
 var find = document.querySelector ?
 function(selector, node, scope) {
@@ -656,7 +656,7 @@ function(selector, node, scope) {
 	}
 	return node.querySelector(selector);
 } :
-function() { throw "find() not supported"; };
+function() { throw Error('find() not supported'); };
 
 var contains = // WARN `contains()` means contains-or-isSameNode
 document.documentElement.contains && function(node, otherNode) {
@@ -666,15 +666,15 @@ document.documentElement.contains && function(node, otherNode) {
 	return false;
 } ||
 document.documentElement.compareDocumentPosition && function(node, otherNode) { return (node === otherNode) || !!(node.compareDocumentPosition(otherNode) & 16); } ||
-function(node, otherNode) { throw "contains not supported"; };
+function(node, otherNode) { throw Error('contains not supported'); };
 
 var addEventListener =
 document.addEventListener && function(node, type, listener, capture) { return node.addEventListener(type, listener, capture); } ||
-function(node, type, listener, capture) { throw "addEventListener not supported"; };
+function(node, type, listener, capture) { throw Error('addEventListener not supported'); };
 
 var removeEventListener =
 document.removeEventListener && function(node, type, listener, capture) { return node.removeEventListener(type, listener, capture); } ||
-function(node, type, listener, capture) { throw "removeEventListener not supported"; };
+function(node, type, listener, capture) { throw Eror('removeEventListener not supported'); };
 
 return {
 	getSpecificity: getSpecificity, cmpSpecificty: cmpSpecificty,
@@ -691,7 +691,7 @@ return {
  */
 if (!Meeko.logger) Meeko.logger = (function() {
 
-var levels = this.levels = _.words("none error warn info debug");
+var levels = this.levels = _.words('none error warn info debug');
 
 _.forEach(levels, function(name, num) {
 	
@@ -723,9 +723,9 @@ function attachBinding(definition, element) {
 }
 
 function detachBinding(definition, element) {
-	if (!DOM.hasData(element)) throw 'No binding attached to element';
+	if (!DOM.hasData(element)) throw Error('No binding attached to element');
 	var binding = DOM.getData(element);
-	if (definition !== binding.definition) throw 'Mismatch between binding and the definition';
+	if (definition !== binding.definition) throw Error('Mismatch between binding and the definition');
 	if (binding.inDocument) binding.leftDocumentCallback();
 	binding.detach();
 	DOM.setData(element, null);
@@ -893,7 +893,7 @@ function handleEvent(event, handler) {
 	var bindingImplementation = this;
 	var target = event.target;
 	var current = bindingImplementation.element;
-	if (!DOM.hasData(current)) throw "Handler called on non-bound element";
+	if (!DOM.hasData(current)) throw Error('Handler called on non-bound element');
 	if (!matchesEvent(handler, event, true)) return; // NOTE the phase check is below
 	var delegator = current;
 	if (handler.delegator) {
@@ -903,7 +903,7 @@ function handleEvent(event, handler) {
 	}
 	switch (handler.eventPhase) { // FIXME DOMSprockets doesn't intend to support eventPhase
 	case 1:
-		throw 'Capture phase for events not supported';
+		throw Error('Capture phase for events not supported');
 		break;
 	case 2:
 		if (delegator !== target) return;
@@ -930,33 +930,33 @@ function handleEvent(event, handler) {
 var convertXBLHandler = function(config) {
 	var handler = {}
 	handler.type = config.event;
-	if (null == config.event) logger.warn("Invalid handler: event property undeclared");
+	if (null == config.event) logger.warn('Invalid handler: event property undeclared');
 
 	function lookupValue(attrName, lookup) {
 		var attrValue = config[attrName];
 		var result;
 		if (attrValue) {
 			result = lookup[attrValue];
-			if (null == result) logger.info("Ignoring invalid property " + attrName + ": " + attrValue);
+			if (null == result) logger.info('Ignoring invalid property ' + attrName + ': ' + attrValue);
 		}
 		return result;
 	}
 
-	handler.eventPhase = lookupValue("phase", {
-		"capture": 1, // Event.CAPTURING_PHASE,
-		"target": 2, // Event.AT_TARGET,
-		"bubble": 3, // Event.BUBBLING_PHASE,
-		"default-action": 0x78626C44 
+	handler.eventPhase = lookupValue('phase', {
+		'capture': 1, // Event.CAPTURING_PHASE,
+		'target': 2, // Event.AT_TARGET,
+		'bubble': 3, // Event.BUBBLING_PHASE,
+		'default-action': 0x78626C44 
 	}) || 0;
 
-	handler.preventDefault = lookupValue("default-action", {
-		"cancel" : true,
-		"perform" : false
+	handler.preventDefault = lookupValue('default-action', {
+		'cancel' : true,
+		'perform' : false
 	}) || false;
 
-	handler.stopPropagation = lookupValue("propagate", {
-		"stop": true,
-		"continue": false
+	handler.stopPropagation = lookupValue('propagate', {
+		'stop': true,
+		'continue': false
 	}) || false;
 	
 	function attrText_to_numArray(attr) {				
@@ -975,21 +975,21 @@ var convertXBLHandler = function(config) {
 	// Event Filters: mouse / keyboard / text / mutation / modifiers
 	
 	// mouse
-	handler.button = attrText_to_numArray("button");
-	handler.clickCount = attrText_to_numArray("click-count");
+	handler.button = attrText_to_numArray('button');
+	handler.clickCount = attrText_to_numArray('click-count');
 	
 	// keyboard
 	handler.key = config.key;
 	handler.keyLocation = [];
-	var keyLocationText = config["key-location"]
+	var keyLocationText = config['key-location']
 	var keyLocationStrings =  (keyLocationText) ? keyLocationText.split(/\s+/) : [];
 	for (var n=keyLocationStrings.length, i=0; i<n; i++) {
 		var text = keyLocationStrings[i];
 		switch (text) {
-			case "standard": handler.keyLocation.push(KeyboardEvent.DOM_KEY_LOCATION_STANDARD); break;
-			case "left": handler.keyLocation.push(KeyboardEvent.DOM_KEY_LOCATION_LEFT); break;
-			case "right": handler.keyLocation.push(KeyboardEvent.DOM_KEY_LOCATION_RIGHT); break;
-			case "numpad": handler.keyLocation.push(KeyboardEvent.DOM_KEY_LOCATION_NUMPAD); break;
+			case 'standard': handler.keyLocation.push(KeyboardEvent.DOM_KEY_LOCATION_STANDARD); break;
+			case 'left': handler.keyLocation.push(KeyboardEvent.DOM_KEY_LOCATION_LEFT); break;
+			case 'right': handler.keyLocation.push(KeyboardEvent.DOM_KEY_LOCATION_RIGHT); break;
+			case 'numpad': handler.keyLocation.push(KeyboardEvent.DOM_KEY_LOCATION_NUMPAD); break;
 		}
 	}
 
@@ -997,30 +997,30 @@ var convertXBLHandler = function(config) {
 	handler.text = config.text;
 	
 	// non-standard
-	handler.filter = new RegExp(config.filter, "");
+	handler.filter = new RegExp(config.filter, '');
 	
 	// mutation
 	// FIXME not supported anymore
-	handler.attrName = config["attr-name"];
+	handler.attrName = config['attr-name'];
 	handler.attrChange = [];
-	var attrChangeText = config["attr-change"];
+	var attrChangeText = config['attr-change'];
 	var attrChangeStrings =  (attrChangeText) ? attrChangeText.split(/\s+/) : [];
 	for (var n=attrChangeStrings.length, i=0; i<n; i++) {
 		var text = attrChangeStrings[i];
 		switch (text) {
-			case "modification": handler.attrChange.push(MutationEvent.MODIFICATION); break;
-			case "addition": handler.attrChange.push(MutationEvent.ADDITION); break;
-			case "removal": handler.attrChange.push(MutationEvent.REMOVAL); break;
+			case 'modification': handler.attrChange.push(MutationEvent.MODIFICATION); break;
+			case 'addition': handler.attrChange.push(MutationEvent.ADDITION); break;
+			case 'removal': handler.attrChange.push(MutationEvent.REMOVAL); break;
 		}
 	}
-	handler.prevValue = config["prev-value"];
-	handler.newValue = config["new-value"];
+	handler.prevValue = config['prev-value'];
+	handler.newValue = config['new-value'];
 	
 	// modifiers
 	// TODO should handler.modifiers be {} or []?
-	if (null != config["modifiers"]) {
+	if (null != config['modifiers']) {
 		handler.modifiers = [];
-		var modifiersText = config["modifiers"];
+		var modifiersText = config['modifiers'];
 		var modifiersStrings = (modifiersText) ? modifiersText.split(/\s+/) : [];
 		for (var n=modifiersStrings, i=0; i<n; i++) {
 			var text = modifiersStrings[i];
@@ -1030,8 +1030,8 @@ var convertXBLHandler = function(config) {
 				var key = m[2];
 				var condition = 1; // MUST
 				if (m[3]) condition = 0; // OPTIONAL
-				else if (m[1] == "+") condition = 1; // MUST
-				else if (m[1] == "-") condition = -1; // MUST NOT
+				else if (m[1] == '+') condition = 1; // MUST
+				else if (m[1] == '-') condition = -1; // MUST NOT
 				handler.modifiers.push({ key: key, condition: condition });
 			}
 		}
@@ -1080,8 +1080,8 @@ var matchesEvent = function(handler, event, ignorePhase) {
 		}
 		if (handler.clickCount && handler.clickCount.length) { 
 			var count = 1;
-			// if ("dblclick" == event.type) count = 2;
-			if ("click" == event.type) count = (event.detail) ? event.detail : 1;
+			// if ('dblclick' == event.type) count = 2;
+			if ('click' == event.type) count = (event.detail) ? event.detail : 1;
 			if (!_.contains(handler.clickCount, count)) return false;
 		}
 		if (handler.modifiers) {
@@ -1092,7 +1092,7 @@ var matchesEvent = function(handler, event, ignorePhase) {
 	// KeyboardEvents
 	// NOTE some of these are non-standard
 	var ourKeyIdentifiers = {
-		Backspace: "U+0008", Delete: "U+007F", Escape: "U+001B", Space: "U+0020", Tab: "U+0009"
+		Backspace: 'U+0008', Delete: 'U+007F', Escape: 'U+001B', Space: 'U+0020', Tab: 'U+0009'
 	}
 
 	if (evType in xblKeyboardEvents) {
@@ -1100,14 +1100,14 @@ var matchesEvent = function(handler, event, ignorePhase) {
 			var success = false;
 			var keyId = event.keyIdentifier;
 			if (/^U\+00....$/.test(keyId)) { // TODO Needed for Safari-2. It would be great if this test could be done elsewhere
-				keyId = keyId.replace(/^U\+00/, "U+");
+				keyId = keyId.replace(/^U\+00/, 'U+');
 			}
 			if (handler.key != keyId && ourKeyIdentifiers[handler.key] != keyId) return false;
 		}
 
 		// TODO key-location		
 		if (handler.modifiers || handler.key) {
-			if (!modifiersMatchEvent(handler.modifiers || [ "none" ], event)) return false;
+			if (!modifiersMatchEvent(handler.modifiers || [ 'none' ], event)) return false;
 		}
 	}
 
@@ -1141,11 +1141,11 @@ var modifiersMatchEvent = function(modifiers, event) {
 		for (var i=0, n=modifiers.length; i<n; i++) {
 			var modifier = modifiers[i];
 			switch (modifier.key) {
-				case "none":
+				case 'none':
 					if (evMods_any) return false;
 					break;
 	
-				case "any":
+				case 'any':
 					any = true;
 					break;
 	
@@ -1245,14 +1245,14 @@ var started = false;
 _.assign(sprockets, {
 
 start: function() { // FIXME find a way to allow progressive binding application
-	if (started) throw 'sprockets management has already started';
+	if (started) throw Error('sprockets management has already started');
 	started = true;
 	observe();
 	applyEnteringRules();
 },
 
 nodeInserted: function(node) { // NOTE called AFTER node inserted into document
-	if (!started) throw 'sprockets management has not started yet';
+	if (!started) throw Error('sprockets management has not started yet');
 	if (node.nodeType !== 1) return;
 	_.forEach(bindingRules, function(rule) {
 		applyRuleToEnteredTree(rule, node);
@@ -1260,7 +1260,7 @@ nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 },
 
 nodeRemoved: function(node) { // NOTE called AFTER node removed document
-	if (!started) throw 'sprockets management has not started yet';
+	if (!started) throw Error('sprockets management has not started yet');
 	
 	Binding.leftDocumentCallback(node);
 	_.forEach(DOM.findAll('*', node), Binding.leftDocumentCallback);
@@ -1357,8 +1357,8 @@ defineProperties: function(sprocket, properties) {
 		case 'object':
 			definition[name] = desc;
 			Object.defineProperty(prototype, name, {
-				get: function() { throw 'Attempt to get an ARIA property'; },
-				set: function() { throw 'Attempt to set an ARIA property'; }
+				get: function() { throw Error('Attempt to get an ARIA property'); },
+				set: function() { throw Error('Attempt to set an ARIA property'); }
 			});
 			break;
 		default:
@@ -1396,7 +1396,7 @@ find: function(element, sprocket) {
 cast: function(element, sprocket) {
 	var implementation = sprockets.getInterface(element);
 	if (prototypeMatchesSprocket(implementation, sprocket)) return implementation;
-	throw 'Attached sprocket is not compatible';
+	throw Error('Attached sprocket is not compatible');
 },
 
 getInterface: function(element) {
@@ -1413,7 +1413,7 @@ getInterface: function(element) {
 		});
 		if (binding) return binding.implementation;
 	}
-	throw "No sprocket declared";
+	throw Error('No sprocket declared');
 },
 
 getScope: function(element) {
@@ -1475,7 +1475,7 @@ sprockets.trigger = function(target, type, params) { // NOTE every JS initiated 
 	}
 	var bubbles = 'bubbles' in params ? !!params.bubbles : true;
 	var cancelable = 'cancelable' in params ? !!params.cancelable : true;
-	if (typeof type !== 'string') throw 'trigger() called with invalid event type';
+	if (typeof type !== 'string') throw Error('trigger() called with invalid event type');
 	var detail = params && params.detail;
 	var event = document.createEvent('CustomEvent');
 	event.initCustomEvent(type, bubbles, cancelable, detail);
@@ -1577,7 +1577,7 @@ if (!('hidden' in document.documentElement)) {
 
 	var head = document.head;
 	var fragment = document.createDocumentFragment();
-	var style = document.createElement("style");
+	var style = document.createElement('style');
 	fragment.appendChild(style); // NOTE on IE this realizes style.styleSheet 
 	
 	var cssText = '*[hidden] { display: none; }\n';
@@ -1657,7 +1657,7 @@ role: 'roletype',
 aria: function(name, value) {
 	var element = this.element;
 	var defn = ariaProperties[name];
-	if (defn == null) throw 'No such aria property: ' + name;
+	if (defn == null) throw Error('No such aria property: ' + name);
 
 	if (name === 'hidden') {
 		if (typeof value === 'undefined') return element.hasAttribute('hidden');
@@ -1689,15 +1689,15 @@ aria: function(name, value) {
 
 ariaCan: function(name, value) {
 	var desc = this.__definition__[name];
-	if (!desc) throw 'Property not defined: ' + name;
+	if (!desc) throw Error('Property not defined: ' + name);
 	if (desc.type !== 'boolean' || desc.can && !desc.can.call(this)) return false;
 	return true;
 },
 
 ariaToggle: function(name, value) {
 	var desc = this.__definition__[name];
-	if (!desc) throw 'Property not defined: ' + name;
-	if (desc.type !== 'boolean' || desc.can && !desc.can.call(this)) throw 'Property can not toggle: ' + name;
+	if (!desc) throw Error('Property not defined: ' + name);
+	if (desc.type !== 'boolean' || desc.can && !desc.can.call(this)) throw Error('Property can not toggle: ' + name);
 	var oldValue = desc.get.call(this);
 	
 	if (typeof value === 'undefined') desc.set.call(this, !oldValue);
@@ -1707,13 +1707,13 @@ ariaToggle: function(name, value) {
 
 ariaGet: function(name) {
 	var desc = this.__definition__[name];
-	if (!desc) throw 'Property not defined: ' + name;
+	if (!desc) throw Error('Property not defined: ' + name);
 	return desc.get.call(this); // TODO type and error handling
 },
 
 ariaSet: function(name, value) {
 	var desc = this.__definition__[name];
-	if (!desc) throw 'Property not defined: ' + name;
+	if (!desc) throw Error('Property not defined: ' + name);
 	return desc.set.call(this, value); // TODO type and error handling
 }
 

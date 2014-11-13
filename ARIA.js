@@ -80,7 +80,7 @@ activedescendant: {
 	
 	set: function(item) {
 		var element = this.element;
-		if (element === item || !element.contains(item)) throw "set activedescendant failed: item is not descendant of ScrollBox";
+		if (element === item || !element.contains(item)) throw Error('set activedescendant failed: item is not descendant of ScrollBox');
 		element.scrollTop = item.offsetTop - element.offsetTop;
 	}
 
@@ -104,7 +104,7 @@ activedescendant: {
 		
 		var element = this.element;
 		var panels = this.ariaGet('owns');
-		if (!_.contains(panels, item)) throw "set activedescendant failed: item is not child of SwitchBox";
+		if (!_.contains(panels, item)) throw Error('set activedescendant failed: item is not child of SwitchBox');
 		_.forEach(panels, function(child) {
 			if (child === item) child.ariaToggle('hidden', false);
 			else child.ariaToggle('hidden', true);
@@ -150,14 +150,14 @@ sort: function(column, type, reverse) {
 			values.push(val);
 		}
 		switch (type) {
-			case "string":
+			case 'string':
 				values = values.sort();
 				break;
-			case "number":
+			case 'number':
 				values = values.sort(function(a, b) { return Number(a) - Number(b); });
 				break;
 			default:
-				throw "Unrecognized sort type: " + type;
+				throw Error('Unrecognized sort type: ' + type);
 				break;
 		}
 		if (reverse) values = values.reverse();
@@ -173,32 +173,32 @@ sort: function(column, type, reverse) {
 },
 toggleColumnSortState: function(column) { // TODO shouldn't have hard-wired classes
 
-	var type = "string";
+	var type = 'string';
 	var cols = this.getColumns();
 	var colEl = cols[column];
 	var col = new Base(colEl);
-	if (col.hasClass("number")) type = "number";
-	if (col.hasClass("string")) type = "string";
-	var sortable = col.hasClass("sortable");
-	var sorted = col.hasClass("sorted");
-	var reversed = col.hasClass("reversed");
+	if (col.hasClass('number')) type = 'number';
+	if (col.hasClass('string')) type = 'string';
+	var sortable = col.hasClass('sortable');
+	var sorted = col.hasClass('sorted');
+	var reversed = col.hasClass('reversed');
 	if (!sortable) return;
 	if (!sorted) {
 		this.sort(column, type, false);
-		col.addClass("sorted");
-		col.removeClass("reversed");
+		col.addClass('sorted');
+		col.removeClass('reversed');
 	}
 	else {
 		this.sort(column, type, !reversed);
-		if (reversed) col.removeClass("reversed");
-		else col.addClass("reversed");
+		if (reversed) col.removeClass('reversed');
+		else col.addClass('reversed');
 	}
 	for (var n=cols.length, i=0; i<n; i++) {
 		if (column != i) {
 			colEl = cols[i];
 			col = new Base(colEl);
-			col.removeClass("sorted");
-			col.removeClass("reversed");
+			col.removeClass('sorted');
+			col.removeClass('reversed');
 		}
 	}
 	
@@ -211,7 +211,7 @@ encode: function() {
 
 var a = [];
 _.forEach(this.elements, function(el) {
-	if (el.name) a.push(el.name + "=" + encodeURIComponent(el.value));
+	if (el.name) a.push(el.name + '=' + encodeURIComponent(el.value));
 });
 var txt = a.join('&');
 return txt;
