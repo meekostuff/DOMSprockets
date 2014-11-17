@@ -207,9 +207,7 @@ var throwErrors = (function() { // TODO maybe it isn't worth isolating on platfo
 var evType = vendorPrefix + '-error';
 var throwErrors = (window.dispatchEvent) ?
 function() {
-	var handlers = _.map(errorQueue, function(error) {
-		return function() { throw error; };
-	});
+	var handlers = createThrowers(errorQueue);
 	_.forEach(handlers, function(handler) {
 		window.addEventListener(evType, handler, false);
 	});
@@ -222,18 +220,27 @@ function() {
 	errorQueue = [];
 } :
 function() { // FIXME shouldn't need this
-	var handlers = _.map(errorQueue, function(error) {
-		return function() { throw error; };
-	});
+	var handlers = createThrowers(errorQueue);
 	_.forEach(handlers, function(handler) {
 		setTimeout(handler);
 	});
 	errorQueue = [];
 }
 
+function createThrowers(list) {
+	return _.map(list, function(error) {
+		return function() {
+			if (logger.LOG_LEVEL >= logger.levels.indexOf('debug')) {
+				if (error.stack) logger.error(error.stack);
+				// TODO else ??
+			}
+			throw error;
+		};
+	});
+}
+
 return throwErrors;
 })();
-
 
 return {
 	asap: asap,
