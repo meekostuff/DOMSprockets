@@ -1583,13 +1583,11 @@ Object.defineProperty(Element.prototype, '$', {
 if (!('hidden' in document.documentElement)) {
 
 	var head = document.head;
-	var fragment = document.createDocumentFragment();
+	// NOTE on <=IE8 this needs a styleSheet work-around
 	var style = document.createElement('style');
-	fragment.appendChild(style); // NOTE on IE this realizes style.styleSheet 
 	
 	var cssText = '*[hidden] { display: none; }\n';
-	if (style.styleSheet) style.styleSheet.cssText = cssText;
-	else style.textContent = cssText;
+	style.textContent = cssText;
 	
 	head.insertBefore(style, head.firstChild);
 
