@@ -1325,7 +1325,10 @@ registerComponent: function(tagName, sprocket, extras) {
 	defn.callbacks.attached = function() {
 		var binding = this;
 		if (defn.sprockets) _.forEach(defn.sprockets, function(rule) {
-			sprockets.register({ scope: binding.element, matches: rule.matches }, rule.sprocket);
+			var registrationRule = _.assign({}, rule);
+			registrationRule.scope = binding.element;
+			var registrationSprocket = rule.sprocket;
+			sprockets.register(registrationRule, registrationSprocket);
 		});
 		if (onattached) return onattached.call(this);
 	};
@@ -1333,19 +1336,28 @@ registerComponent: function(tagName, sprocket, extras) {
 },
 
 register: function(options, sprocket) {
-	if (typeof options === 'string') options = {
-		scope: document,
-		matches: options
+	var registrationRule = {};
+	var scope;
+	if (typeof options === 'string') {
+		_.assign(registrationRule, {
+			matches: options
+		});
+		scope = document;
 	}
-	var nodeData = DOM.getData(options.scope);
+	else {
+		_.assign(registrationRule, options);
+		scope = options.scope;
+		delete registrationRule.scope;
+	}
+	var nodeData = DOM.getData(scope);
 	if (!nodeData) {
 		nodeData = {};
-		DOM.setData(options.scope, nodeData);
+		DOM.setData(scope, nodeData);
 	}
 	var nodeSprockets = nodeData.sprockets;
 	if (!nodeSprockets) nodeSprockets = nodeData.sprockets = [];
-	var sprocketRule = { matches: options.matches, definition: sprocket };
-	nodeSprockets.unshift(sprocketRule); // WARN last registered means highest priority. Is this appropriate??
+	registrationRule.definition = sprocket;
+	nodeSprockets.unshift(registrationRule); // WARN last registered means highest priority. Is this appropriate??
 },
 
 evolve: function(base, properties) {
