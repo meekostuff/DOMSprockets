@@ -742,7 +742,7 @@ function detachBinding(definition, element) {
 var Binding = function(definition) {
 	var binding = this;
 	binding.definition = definition;
-	binding.implementation = _.create(definition.prototype);
+	binding.object = _.create(definition.prototype);
 	binding.listeners = [];
 	binding.inDocument = null; // TODO state assertions in attach/onenter/leftDocumentCallback/detach
 }
@@ -751,7 +751,7 @@ _.assign(Binding, {
 
 getInterface: function(element) {
 	var nodeData = DOM.getData(element);
-	if (nodeData && nodeData.implementation) return nodeData;
+	if (nodeData && nodeData.object) return nodeData;
 },
 
 enteredDocumentCallback: function(element) {
@@ -785,9 +785,9 @@ _.assign(Binding.prototype, {
 attach: function(element) {
 	var binding = this;
 	var definition = binding.definition;
-	var implementation = binding.implementation;
+	var object = binding.object;
 
-	implementation.element = element; 
+	object.element = element; 
 	if (definition.handlers) _.forEach(definition.handlers, function(handler) {
 		var listener = binding.addHandler(handler); // handler might be ignored ...
 		if (listener) binding.listeners.push(listener);// ... resulting in an undefined listener
@@ -799,43 +799,43 @@ attach: function(element) {
 attachedCallback: function() {
 	var binding = this;
 	var definition = binding.definition;
-	var implementation = binding.implementation;
+	var object = binding.object;
 
 	binding.inDocument = false;
 	var callbacks = definition.callbacks;
 	if (callbacks) {
-		if (callbacks.attached) callbacks.attached.call(implementation); // FIXME try/catch
+		if (callbacks.attached) callbacks.attached.call(object); // FIXME try/catch
 	}
 },
 
 enteredDocumentCallback: function() {
 	var binding = this;
 	var definition = binding.definition;
-	var implementation = binding.implementation;
+	var object = binding.object;
 
 	binding.inDocument = true;
 	var callbacks = definition.callbacks;
 	if (callbacks) {
-		if (callbacks.enteredDocument) callbacks.enteredDocument.call(implementation);	
+		if (callbacks.enteredDocument) callbacks.enteredDocument.call(object);	
 	}	
 },
 
 leftDocumentCallback: function() {
 	var binding = this;
 	var definition = binding.definition;
-	var implementation = binding.implementation;
+	var object = binding.object;
 
 	binding.inDocument = false;
 	var callbacks = definition.callbacks;
 	if (callbacks) {
-		if (callbacks.leftDocument) callbacks.leftDocument.call(implementation);	
+		if (callbacks.leftDocument) callbacks.leftDocument.call(object);	
 	}
 },
 
 detach: function() {
 	var binding = this;
 	var definition = binding.definition;
-	var implementation = binding.implementation;
+	var object = binding.object;
 
 	_.forEach(binding.listeners, binding.removeListener, binding);
 	binding.listeners.length = 0;
@@ -846,19 +846,19 @@ detach: function() {
 detachedCallback: function() {
 	var binding = this;
 	var definition = binding.definition;
-	var implementation = binding.implementation;
+	var object = binding.object;
 	
 	binding.inDocument = null;
 	var callbacks = definition.callbacks;
 	if (callbacks) {
-		if (callbacks.detached) callbacks.detached.call(implementation);	
+		if (callbacks.detached) callbacks.detached.call(object);	
 	}	
 },
 
 addHandler: function(handler) {
 	var binding = this;
-	var implementation = binding.implementation;
-	var element = implementation.element;
+	var object = binding.object;
+	var element = object.element;
 	var type = handler.type;
 	var capture = (handler.eventPhase == 1); // Event.CAPTURING_PHASE
 	if (capture) {
@@ -869,7 +869,7 @@ addHandler: function(handler) {
 	Binding.manageEvent(type);
 	var fn = function(event) {
 		if (fn.normalize) event = fn.normalize(event);
-		return handleEvent.call(implementation, event, handler);
+		return handleEvent.call(object, event, handler);
 	}
 	fn.type = type;
 	fn.capture = capture;
@@ -879,8 +879,8 @@ addHandler: function(handler) {
 
 removeListener: function(fn) {
 	var binding = this;
-	var implementation = binding.implementation;
-	var element = implementation.element;
+	var object = binding.object;
+	var element = object.element;
 	var type = fn.type;
 	var capture = fn.capture;
 	var target = (element === document.documentElement && _.contains(redirectedWindowEvents, type)) ? window : element; 
@@ -1385,7 +1385,7 @@ getPropertyDescriptor: function(sprocket, prop) {
 
 matches: function(element, sprocket) {
 	var binding = Binding.getInterface(element);
-	if (binding) return prototypeMatchesSprocket(binding.implementation, sprocket);
+	if (binding) return prototypeMatchesSprocket(binding.object, sprocket);
 	var declaredSprocketRule = getSprocketRule(element);
 	if (declaredSprocketRule && prototypeMatchesSprocket(declaredSprocketRule.definition.prototype, sprocket)) return true;
 	return false;
@@ -1409,14 +1409,14 @@ find: function(element, sprocket) {
 },
 
 cast: function(element, sprocket) {
-	var implementation = sprockets.getInterface(element);
-	if (prototypeMatchesSprocket(implementation, sprocket)) return implementation;
+	var object = sprockets.getInterface(element);
+	if (prototypeMatchesSprocket(object, sprocket)) return object;
 	throw Error('Attached sprocket is not compatible');
 },
 
 getInterface: function(element) {
 	var binding = Binding.getInterface(element);
-	if (binding) return binding.implementation;
+	if (binding) return binding.object;
 	for (var node=sprockets.getScope(element.parentNode); node; node=sprockets.getScope(node.parentNode)) {
 		var nodeData = DOM.getData(node);
 		var sprocketRules = nodeData.sprockets;
@@ -1426,7 +1426,7 @@ getInterface: function(element) {
 			binding = attachBinding(rule.definition, element);
 			return true;
 		});
-		if (binding) return binding.implementation;
+		if (binding) return binding.object;
 	}
 	throw Error('No sprocket declared');
 },
