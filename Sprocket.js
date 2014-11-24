@@ -23,7 +23,8 @@ var window = this;
 var document = window.document;
 
 var defaultOptions = {
-	'log_level': 'warn'
+	'log_level': 'warn',
+	'polling_interval': 50
 }
 
 var vendorPrefix = 'meeko';
