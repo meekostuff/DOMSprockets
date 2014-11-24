@@ -1350,8 +1350,11 @@ register: function(options, sprocket) {
 evolve: function(base, properties) {
 	var prototype = _.create(base.prototype);
 	var sub = new SprocketDefinition(prototype);
-	var baseDefinition = base.prototype.__definition__;
-	var definition = prototype.__definition__ = (baseDefinition) ? _.create(baseDefinition) : {};
+	var baseDefinition = base.prototype.__definition__ || {};
+	var definition = prototype.__definition__ = {};
+	_.forOwn(baseDefinition, function(desc, prop) {
+		definition[prop] = _.create(desc);
+	});
 	if (properties) sprockets.defineProperties(sub, properties);
 	return sub;
 },
@@ -1362,7 +1365,8 @@ defineProperties: function(sprocket, properties) {
 	_.forOwn(properties, function(desc, name) {
 		switch (typeof desc) {
 		case 'object':
-			definition[name] = desc;
+			var propDesc = definition[name] || (definition[name] = {});
+			_.assign(propDesc, desc);
 			Object.defineProperty(prototype, name, {
 				get: function() { throw Error('Attempt to get an ARIA property'); },
 				set: function() { throw Error('Attempt to set an ARIA property'); }
@@ -1373,6 +1377,10 @@ defineProperties: function(sprocket, properties) {
 			break;
 		}
 	});
+},
+
+getPropertyDescriptor: function(sprocket, prop) {
+	return sprocket.prototype.__definition__[prop];
 },
 
 matches: function(element, sprocket) {
