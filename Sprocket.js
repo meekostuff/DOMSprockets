@@ -1351,8 +1351,8 @@ register: function(options, sprocket) {
 evolve: function(base, properties) {
 	var prototype = _.create(base.prototype);
 	var sub = new SprocketDefinition(prototype);
-	var baseDefinition = base.prototype.__definition__ || {};
-	var definition = prototype.__definition__ = {};
+	var baseDefinition = base.prototype.__properties__ || {};
+	var definition = prototype.__properties__ = {};
 	_.forOwn(baseDefinition, function(desc, prop) {
 		definition[prop] = _.create(desc);
 	});
@@ -1362,7 +1362,7 @@ evolve: function(base, properties) {
 
 defineProperties: function(sprocket, properties) {
 	var prototype = sprocket.prototype;
-	var definition = prototype.__definition__ || (prototype.__definition__ = {});
+	var definition = prototype.__properties__ || (prototype.__properties__ = {});
 	_.forOwn(properties, function(desc, name) {
 		switch (typeof desc) {
 		case 'object':
@@ -1381,7 +1381,7 @@ defineProperties: function(sprocket, properties) {
 },
 
 getPropertyDescriptor: function(sprocket, prop) {
-	return sprocket.prototype.__definition__[prop];
+	return sprocket.prototype.__properties__[prop];
 },
 
 matches: function(element, sprocket) {
@@ -1702,14 +1702,14 @@ aria: function(name, value) {
 },
 
 ariaCan: function(name, value) {
-	var desc = this.__definition__[name];
+	var desc = this.__properties__[name];
 	if (!desc) throw Error('Property not defined: ' + name);
 	if (desc.type !== 'boolean' || desc.can && !desc.can.call(this)) return false;
 	return true;
 },
 
 ariaToggle: function(name, value) {
-	var desc = this.__definition__[name];
+	var desc = this.__properties__[name];
 	if (!desc) throw Error('Property not defined: ' + name);
 	if (desc.type !== 'boolean' || desc.can && !desc.can.call(this)) throw Error('Property can not toggle: ' + name);
 	var oldValue = desc.get.call(this);
@@ -1720,13 +1720,13 @@ ariaToggle: function(name, value) {
 },
 
 ariaGet: function(name) {
-	var desc = this.__definition__[name];
+	var desc = this.__properties__[name];
 	if (!desc) throw Error('Property not defined: ' + name);
 	return desc.get.call(this); // TODO type and error handling
 },
 
 ariaSet: function(name, value) {
-	var desc = this.__definition__[name];
+	var desc = this.__properties__[name];
 	if (!desc) throw Error('Property not defined: ' + name);
 	return desc.set.call(this, value); // TODO type and error handling
 }
