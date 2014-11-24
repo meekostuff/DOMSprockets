@@ -221,6 +221,7 @@ return txt;
 
 
 return {
+	RoleType: RoleType,
 	Group: Group,
 	TreeItem: TreeItem, 
 	Tree: Tree, 
