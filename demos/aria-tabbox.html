@@ -100,10 +100,10 @@ controls: {
 
 var NavTree = sprockets.evolve(UI.Tree, {
 
-controls: NavTreeItem.prototype.__definition__.controls
+controls: sprockets.getPropertyDescriptor(NavTreeItem, 'controls')
 
 });
-
+			
 sprockets.registerComponent('ui-navtree', NavTree, {
 callbacks: {
 	enteredDocument: function() {
@@ -122,7 +122,7 @@ handlers: [
 		if (event.defaultPrevented) return;
 		var treeitem = event.target.ariaClosest('treeitem');
 		if (!treeitem) return;
-		this.ariaSet('activedescendant', item);
+		this.ariaSet('activedescendant', treeitem);
 		event.preventDefault();
 	}
 },
