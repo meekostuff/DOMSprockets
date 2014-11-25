@@ -1255,7 +1255,7 @@ nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 
 	var sprocketRules = [];
 	var scope = sprockets.getScope(node);
-	bufferRules(scope);
+	if (scope) bufferRules(scope);
 
 	_.forEach(bindingRules, function(rule) {
 		applyRuleToEnteredTree(rule, node, componentCallback);
