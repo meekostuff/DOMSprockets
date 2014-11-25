@@ -1209,7 +1209,7 @@ var bindingRules = [];
 var enteringRules = [];
 
 // FIXME BIG BALL OF MUD
-function applyRuleToEnteredElement(rule, element) { // FIXME compare current and new CSS specifities
+function applyRuleToEnteredElement(rule, element, callback) { // FIXME compare current and new CSS specifities
 	var binding = Binding.getInterface(element);
 	if (binding && binding.definition !== rule.definition) {
 		logger.warn('Binding rule applied when binding already present');
@@ -1217,12 +1217,13 @@ function applyRuleToEnteredElement(rule, element) { // FIXME compare current and
 	}
 	if (!binding) binding = attachBinding(rule.definition, element);
 	if (!binding.inDocument) binding.enteredDocumentCallback();
+	if (callback) callback(rule, element);
 }
 
-function applyRuleToEnteredTree(rule, root) {
+function applyRuleToEnteredTree(rule, root, callback) {
 	if (!root || root === document) root = document.documentElement;
-	if (DOM.matches(root, rule.selector)) applyRuleToEnteredElement(rule, root);
-	_.forEach(DOM.findAll(rule.selector, root), function(el) { applyRuleToEnteredElement(rule, el); });
+	if (DOM.matches(root, rule.selector)) applyRuleToEnteredElement(rule, root, callback);
+	_.forEach(DOM.findAll(rule.selector, root), function(el) { applyRuleToEnteredElement(rule, el, callback); });
 }
 
 function applyEnteringRules() {
@@ -1265,10 +1266,28 @@ nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 	_.forEach(bindingRules, function(rule) {
 		applyRuleToEnteredTree(rule, node);
 	});
+
+	var scope = sprockets.getScope(node);
+	if (!scope) return;
+	var binding = DOM.getData(scope);
+	var sprocketRules = [];
+	_.forEach(binding.sprockets, function(rule) {
+		if (rule.enteredComponent) sprocketRules.push(rule);
+	});
+	_.forEach(sprocketRules, function(rule) {
+		rule.selector = rule.matches; // FIXME absolutizeSelector??
+		applyRuleToEnteredTree(rule, node, enteredComponentCallback);
+	});
+	
+	function enteredComponentCallback(rule, el) {
+		rule.enteredComponent.call(binding.object, el);
+	}
 },
 
 nodeRemoved: function(node) { // NOTE called AFTER node removed document
 	if (!started) throw Error('sprockets management has not started yet');
+
+	// TODO leftComponentCallback. Might be hard to implement *after* node is removed
 	
 	Binding.leftDocumentCallback(node);
 	_.forEach(DOM.findAll('*', node), Binding.leftDocumentCallback);
