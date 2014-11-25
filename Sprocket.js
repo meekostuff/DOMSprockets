@@ -1206,7 +1206,6 @@ function BindingRule(selector, bindingDefn) {
 
 
 var bindingRules = [];
-var enteringRules = [];
 
 // FIXME BIG BALL OF MUD
 function applyRuleToEnteredElement(rule, element, callback) { // FIXME compare current and new CSS specifities
@@ -1226,23 +1225,13 @@ function applyRuleToEnteredTree(rule, root, callback) {
 	_.forEach(DOM.findAll(rule.selector, root), function(el) { applyRuleToEnteredElement(rule, el, callback); });
 }
 
-function applyEnteringRules() {
-	var rule; while (rule = enteringRules.shift()) {
-		var definition = rule.definition;
-		applyRuleToEnteredTree(rule /* , document */);
-		bindingRules.unshift(rule); // TODO splice in specificity order
-	}
-}
-
 _.assign(sprockets, {
 
 registerElement: function(tagName, desc) { // FIXME test tagName
-	var alreadyTriggered = (enteringRules.length > 0);
 	var bindingDefn = new BindingDefinition(desc);
 	var selector = tagName + ', [is=' + tagName + ']'; // TODO why should @is be supported??
 	var rule = new BindingRule(selector, bindingDefn);
-	enteringRules.push(rule);
-	if (!alreadyTriggered) setTimeout(applyEnteringRules);
+	bindingRules.push(rule);
 	return rule;
 }
 
@@ -1256,30 +1245,44 @@ _.assign(sprockets, {
 start: function() { // FIXME find a way to allow progressive binding application
 	if (started) throw Error('sprockets management has already started');
 	started = true;
+	this.nodeInserted(document.documentElement);
 	observe();
-	applyEnteringRules();
 },
 
 nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 	if (!started) throw Error('sprockets management has not started yet');
 	if (node.nodeType !== 1) return;
+
+	var sprocketRules = [];
+	var scope = sprockets.getScope(node);
+	bufferRules(scope);
+
 	_.forEach(bindingRules, function(rule) {
-		applyRuleToEnteredTree(rule, node);
+		applyRuleToEnteredTree(rule, node, componentCallback);
 	});
 
-	var scope = sprockets.getScope(node);
-	if (!scope) return;
-	var binding = DOM.getData(scope);
-	var sprocketRules = [];
-	_.forEach(binding.sprockets, function(rule) {
-		if (rule.enteredComponent) sprocketRules.push(rule);
-	});
 	_.forEach(sprocketRules, function(rule) {
-		rule.selector = rule.matches; // FIXME absolutizeSelector??
+		rule.selector = rule.matches; // FIXME absolutizeSelector?? Otherwise use one or the other universally
 		applyRuleToEnteredTree(rule, node, enteredComponentCallback);
 	});
 	
+	function bufferRules(scope) { // buffer uses unshift so LIFO
+		var binding = DOM.getData(scope);
+		if (!binding || !binding.sprockets) return;
+		_.forEach(binding.sprockets, function(rule) {
+			if (!rule.enteredComponent) return;
+			var clonedRule = _.assign({}, rule);
+			clonedRule.scope = scope;
+			sprocketRules.unshift(clonedRule);
+		});
+	}
+	
+	function componentCallback(rule, el) {
+		bufferRules(el);
+	}
+
 	function enteredComponentCallback(rule, el) {
+		var binding = DOM.getData(rule.scope);
 		rule.enteredComponent.call(binding.object, el);
 	}
 },
