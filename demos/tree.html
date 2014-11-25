@@ -71,7 +71,7 @@ expanded: {
 sprockets.registerComponent('ui-tree', UI.Tree, {
 sprockets: [
 	{ matches: 'li', sprocket: TreeItem },
-	{ matches: 'ul', sprocket: UI.Group }
+	{ matches: 'ul', sprocket: UI.Group, enteredComponent: groupEnteredComponent }
 ],
 
 handlers: [
@@ -84,17 +84,14 @@ handlers: [
 		treeitem.ariaToggle('expanded');
 	}
 }
-],
-callbacks: {
-	enteredDocument: function() {
-		_.forEach(this.element.ariaFindAll('group'), function(group) {
-			var treeitem = group.ariaClosest('treeitem');
-			if (!treeitem) return;
-			treeitem.ariaToggle('expanded', false);
-		});
-	}
-}
+]
 });
+
+function groupEnteredComponent(group) {
+	var treeitem = group.ariaClosest('treeitem');
+	if (!treeitem) return;
+	treeitem.ariaToggle('expanded', false);
+}
 
 window.onload = function() { sprockets.start(); }
 

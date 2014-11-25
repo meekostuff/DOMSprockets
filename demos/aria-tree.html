@@ -48,7 +48,7 @@ var sprockets = Meeko.sprockets, UI = sprockets.UI;
 sprockets.registerComponent('ui-tree', UI.Tree, {
 sprockets: [
 	{ matches: 'li', sprocket: UI.TreeItem },
-	{ matches: 'ul', sprocket: UI.Group }
+	{ matches: 'ul', sprocket: UI.Group, enteredComponent: groupEnteredComponent }
 ],
 
 handlers: [
@@ -59,17 +59,14 @@ handlers: [
 		if (treeitem.ariaCan('expanded')) treeitem.ariaToggle('expanded');
 	}
 }
-],
-callbacks: {
-	enteredDocument: function() {
-		_.forEach(this.element.ariaFindAll('group'), function(group) {
-			var treeitem = group.ariaClosest('treeitem');
-			if (!treeitem) return;
-			if (treeitem.ariaCan('expanded')) treeitem.ariaToggle('expanded', false);
-		});
-	}
-}
+]
 });
+
+function groupEnteredComponent(group) {
+	var treeitem = group.ariaClosest('treeitem');
+	if (!treeitem) return;
+	if (treeitem.ariaCan('expanded')) treeitem.ariaToggle('expanded', false);
+}
 
 window.onload = function() { sprockets.start(); }
 
