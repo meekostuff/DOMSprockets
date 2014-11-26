@@ -1253,38 +1253,56 @@ nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 	if (!started) throw Error('sprockets management has not started yet');
 	if (node.nodeType !== 1) return;
 
-	var sprocketRules = [];
-	var scope = sprockets.getScope(node);
-	if (scope) bufferRules(scope);
-
+	var scopes = [];
 	_.forEach(bindingRules, function(rule) {
 		applyRuleToEnteredTree(rule, node, componentCallback);
 	});
 
-	_.forEach(sprocketRules, function(rule) {
-		rule.selector = rule.matches; // FIXME absolutizeSelector?? Otherwise use one or the other universally
-		applyRuleToEnteredTree(rule, node, enteredComponentCallback);
-	});
-	
-	function bufferRules(scope) { // buffer uses unshift so LIFO
-		var binding = DOM.getData(scope);
-		if (!binding || !binding.sprockets) return;
-		_.forEach(binding.sprockets, function(rule) {
-			if (!rule.enteredComponent) return;
-			var clonedRule = _.assign({}, rule);
-			clonedRule.scope = scope;
-			sprocketRules.unshift(clonedRule);
-		});
-	}
-	
-	function componentCallback(rule, el) {
-		bufferRules(el);
-	}
+	var scope = sprockets.getScope(node);
+	if (scope) applyScopedRules(node, scope);
 
+	while (scope = scopes.shift()) applyScopedRules(scope);
+	
+	return;
+		
 	function enteredComponentCallback(rule, el) {
 		var binding = DOM.getData(rule.scope);
 		rule.enteredComponent.call(binding.object, el);
 	}
+
+	function componentCallback(rule, el) {
+		var binding = DOM.getData(el);
+		if (!binding || !binding.sprockets) return;
+		scopes.push(el);
+	}
+
+	function applyScopedRules(node, scope) {
+		if (!scope) scope = node;
+		var rules = getRules(scope);
+		if (rules.length <= 0) return;
+
+		var walker = createCompositeWalker(node, false); // don't skipRoot
+		var el;
+		while (el = walker.nextNode()) {
+			_.forEach(rules, function(rule) {
+				var selector = rule.matches; // FIXME absolutizeSelector?? Otherwise use rule.selector or rule.matches universally
+				if (DOM.matches(el, selector)) applyRuleToEnteredElement(rule, el, enteredComponentCallback);
+			});
+		}
+	}
+	
+	function getRules(scope) { // buffer uses unshift so LIFO
+		var rules = [];
+		var binding = DOM.getData(scope);
+		_.forEach(binding.sprockets, function(rule) {
+			if (!rule.enteredComponent) return;
+			var clonedRule = _.assign({}, rule);
+			clonedRule.scope = scope;
+			rules.unshift(clonedRule);
+		});
+		return rules;
+	}
+	
 },
 
 nodeRemoved: function(node) { // NOTE called AFTER node removed document
@@ -1426,21 +1444,32 @@ matches: function(element, sprocket) {
 	return false;
 },
 
-closest: function(element, sprocket) { // FIXME optimize by attaching sprocket here
+closest: function(element, sprocket) { // TODO optimize by attaching sprocket here??
 	for (var node=element; node; node=node.parentNode) {
 		if (!sprockets.matches(node, sprocket)) continue;
 		return node;
 	}
 },
 
-findAll: function(element, sprocket) {
+findAll: function(element, sprocket) { // FIXME this search is blocked by descendant composites (scopes). Is this appropriate?
 	var rule = getMatchingSprocketRule(element, sprocket);
-	return DOM.findAll(rule.matches, element); // FIXME should be scoped to rule.scope??
+	var walker = createCompositeWalker(element, true); // skipRoot
+	
+	var node, nodeList = [];
+	while (node = walker.nextNode()) {
+		if (DOM.matches(node, rule.matches)) nodeList.push(node);
+	}
+	return nodeList;
 },
 
-find: function(element, sprocket) {
+find: function(element, sprocket) { // FIXME this search is blocked by descendant composites (scopes). Is this appropriate?
 	var rule = getMatchingSprocketRule(element, sprocket);
-	return DOM.find(rule.matches, element); // FIXME should be scoped to rule.scope??
+	var walker = createCompositeWalker(element, true); // skipRoot
+	
+	var node;
+	while (node = walker.nextNode()) {
+		if (DOM.matches(node, rule.matches)) return node;
+	}
 },
 
 cast: function(element, sprocket) {
@@ -1452,8 +1481,8 @@ cast: function(element, sprocket) {
 getInterface: function(element) {
 	var binding = Binding.getInterface(element);
 	if (binding) return binding.object;
-	for (var node=sprockets.getScope(element.parentNode); node; node=sprockets.getScope(node.parentNode)) {
-		var nodeData = DOM.getData(node);
+	for (var scope=sprockets.getScope(element.parentNode); scope; scope = (scope !== document) ? document : undefined) {
+		var nodeData = DOM.getData(scope);
 		var sprocketRules = nodeData.sprockets;
 		_.some(sprocketRules, function(rule) {
 			var prototype = rule.definition.prototype;
@@ -1466,20 +1495,23 @@ getInterface: function(element) {
 	throw Error('No sprocket declared');
 },
 
+isScope: function(node) {
+	if (!DOM.hasData(node)) return false;
+	var nodeData = DOM.getData(node);
+	if (!nodeData.sprockets) return false;
+	return true;
+},
+
 getScope: function(element) {
 	for (var node=element; node; node=node.parentNode) {
-		if (!DOM.hasData(node)) continue;
-		var nodeData = DOM.getData(node);
-		var sprocketRules = nodeData.sprockets;
-		if (!sprocketRules) continue;
-		return node;
+		if (sprockets.isScope(node)) return node;
 	}
 }
 
 });
 
 function getSprocketRule(element) {
-	for (var scope=sprockets.getScope(element.parentNode); scope; scope=sprockets.getScope(scope.parentNode)) {
+	for (var scope=sprockets.getScope(element.parentNode); scope; scope = (scope !== document) ? document: undefined) {
 		var sprocketRule;
 		var nodeData = DOM.getData(scope);
 		var sprocketRules = nodeData.sprockets;
@@ -1494,7 +1526,7 @@ function getSprocketRule(element) {
 }
 
 function getMatchingSprocketRule(element, sprocket) {
-	for (var scope=sprockets.getScope(element); scope; scope=sprockets.getScope(scope.parentNode)) {
+	for (var scope=sprockets.getScope(element); scope; scope = (scope !== document) ? document: undefined) {
 		var sprocketRule;
 		var nodeData = DOM.getData(scope);
 		var sprocketRules = nodeData.sprockets;
@@ -1516,6 +1548,19 @@ function getMatchingSprocketRule(element, sprocket) {
 function prototypeMatchesSprocket(prototype, sprocket) {
 	if (typeof sprocket === 'string') return (prototype.role === sprocket);
 	else return (sprocket.prototype === prototype || isPrototypeOf(sprocket.prototype, prototype));
+}
+
+function createCompositeWalker(root, skipRoot) {
+	return document.createNodeIterator(
+			root,
+			1,
+			acceptNode,
+			null // IE9 throws if this irrelavent argument isn't passed
+		);
+	
+	function acceptNode(el) {
+		 return (skipRoot && el === root) ? NodeFilter.FILTER_SKIP : sprockets.isScope(el) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; 
+	}
 }
 
 sprockets.trigger = function(target, type, params) { // NOTE every JS initiated event is a custom-event
