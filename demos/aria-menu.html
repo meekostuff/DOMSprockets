@@ -45,10 +45,11 @@ body { width: 480px; height: 100%; }
 var _ = Meeko.stuff, DOM = Meeko.DOM;
 var sprockets = Meeko.sprockets, UI = sprockets.UI;
 
-sprockets.registerComponent('ui-tree', UI.Tree, {
-sprockets: [
-	{ matches: 'ul', sprocket: UI.Group, enteredComponent: groupEnteredComponent },
-	{ matches: 'li', sprocket: UI.TreeItem }
+sprockets.registerComposite('ui-tree', {
+prototype: UI.Tree.prototype,
+rules: [
+	[ 'ul', UI.Group, groupEnteredComponent ],
+	['li', UI.TreeItem ]
 ],
 
 handlers: [

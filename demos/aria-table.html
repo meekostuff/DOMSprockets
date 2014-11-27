@@ -70,7 +70,8 @@ thead th.reversed button::after {
 
 var _ = Meeko.stuff, DOM = Meeko.DOM;
 var sprockets = Meeko.sprockets, UI = sprockets.UI;
-sprockets.registerComponent('ui-table', UI.Table, {
+sprockets.registerComposite('ui-table', {
+prototype: UI.Table.prototype,
 handlers: [
 {
   type: 'click',

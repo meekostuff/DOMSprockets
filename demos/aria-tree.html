@@ -45,10 +45,11 @@ body {
 var _ = Meeko.stuff, DOM = Meeko.DOM;
 var sprockets = Meeko.sprockets, UI = sprockets.UI;
 
-sprockets.registerComponent('ui-tree', UI.Tree, {
-sprockets: [
-	{ matches: 'li', sprocket: UI.TreeItem },
-	{ matches: 'ul', sprocket: UI.Group, enteredComponent: groupEnteredComponent }
+sprockets.registerComposite('ui-tree', {
+prototype: UI.Tree.prototype,
+rules: [
+	[ 'li', UI.TreeItem ],
+	[ 'ul', UI.Group, groupEnteredComponent ]
 ],
 
 handlers: [
