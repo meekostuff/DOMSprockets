@@ -1433,7 +1433,8 @@ registerComponent: function(tagName, sprocket, extras) {
 		});
 		if (extras.callbacks) _.defaults(defn, extras.callbacks);
 	}
-	return sprockets.registerComposite(tagName, defn);
+	if (defn.rules) return sprockets.registerComposite(tagName, defn);
+	else return sprockets.registerElement(tagName, defn);
 },
 
 evolve: function(base, properties) {
