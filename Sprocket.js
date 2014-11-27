@@ -1205,7 +1205,7 @@ function BindingRule(selector, bindingDefn) {
 }
 
 
-var bindingRules = [];
+var bindingRules = sprockets.rules = [];
 
 // FIXME BIG BALL OF MUD
 function applyRuleToEnteredElement(rule, element, callback) { // FIXME compare current and new CSS specifities
