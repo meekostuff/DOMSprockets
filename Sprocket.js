@@ -17,9 +17,8 @@ event modifiers aren't filtering
 
 if (!this.Meeko) this.Meeko = {};
 
-(function() {
+(function(window) {
 
-var window = this;
 var document = window.document;
 
 var defaultOptions = {
@@ -703,28 +702,32 @@ return {
 
 })();
 
+
 /*
  ### Logger (minimal implementation - can be over-ridden)
  */
 if (!Meeko.logger) Meeko.logger = (function() {
 
-var levels = this.levels = _.words('none error warn info debug');
+var logger = {};
+
+var levels = logger.levels = _.words('none error warn info debug');
 
 _.forEach(levels, function(name, num) {
 	
 levels[name] = num;
-this[name] = !window.console && function() {} ||
-	console[name] && function() { if (num <= this.LOG_LEVEL) console[name].apply(console, arguments); } ||
-	function() { if (num <= this.LOG_LEVEL) console.log.apply(console, arguments); }
+logger[name] = !window.console && function() {} ||
+	console[name] && function() { if (num <= logger.LOG_LEVEL) console[name].apply(console, arguments); } ||
+	function() { if (num <= logger.LOG_LEVEL) console.log.apply(console, arguments); }
 
 }, this);
 
-this.LOG_LEVEL = levels[defaultOptions['log_level']]; // DEFAULT
+logger.LOG_LEVEL = levels[defaultOptions['log_level']]; // DEFAULT
+
+return logger;
 
 })(); // end logger definition
 
-var logger = logger || Meeko.logger;
-
+var logger = Meeko.logger;
 
 this.Meeko.sprockets = (function() {
 
@@ -1223,8 +1226,9 @@ function applyRuleToEnteredTree(rule, root, callback) {
 
 _.assign(sprockets, {
 
-registerElement: function(tagName, desc) { // FIXME test tagName
-	var bindingDefn = new BindingDefinition(desc);
+registerElement: function(tagName, defn) { // FIXME test tagName
+	if (defn.rules) logger.warn('registerElement() does not support rules. Try registerComposite()');
+	var bindingDefn = new BindingDefinition(defn);
 	var selector = tagName + ', [is=' + tagName + ']'; // TODO why should @is be supported??
 	var rule = new BindingRule(selector, bindingDefn);
 	bindingRules.push(rule);
@@ -1383,11 +1387,15 @@ register: function(options, sprocket) {
 	return sprockets.registerSprocket(options, sprocket);
 },
 
-registerComposite: function(tagName, defn) {
+registerComposite: function(tagName, definition) {
+	var defn = _.assign({}, definition);
+	var rules = defn.rules;
+	delete defn.rules;
+	if (!rules) logger.warn('registerComposite() called without any sprocket rules. Try registerElement()');
 	var onattached = defn.attached;
 	defn.attached = function() {
 		var object = this;
-		if (defn.rules) _.forEach(defn.rules, function(rule) {
+		if (rules) _.forEach(rules, function(rule) {
 			var selector = {
 				scope: object.element
 			}
