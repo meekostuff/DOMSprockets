@@ -1853,6 +1853,10 @@ ariaFindAll: function(role) {
 
 ariaClosest: function(role) {
 	return sprockets.closest(this, role);
+},
+
+ariaMatches: function(role) {
+	return sprockets.matches(this, role);
 }
 	
 });
