@@ -1481,18 +1481,10 @@ cast: function(element, sprocket) {
 getInterface: function(element) {
 	var binding = Binding.getInterface(element);
 	if (binding) return binding.object;
-	for (var scope=sprockets.getScope(element.parentNode); scope; scope = (scope !== document) ? document : undefined) {
-		var nodeData = DOM.getData(scope);
-		var sprocketRules = nodeData.sprockets;
-		_.some(sprocketRules, function(rule) {
-			var prototype = rule.definition.prototype;
-			if (!DOM.matches(element, rule.matches)) return false; // TODO should be using relative selector
-			binding = attachBinding(rule.definition, element);
-			return true;
-		});
-		if (binding) return binding.object;
-	}
-	throw Error('No sprocket declared');
+	var rule = getSprocketRule(element);
+	if (!rule) 	throw Error('No sprocket declared'); // WARN should never happen - should be a universal fallback
+	var binding = attachBinding(rule.definition, element);
+	return binding.object;
 },
 
 isScope: function(node) {
