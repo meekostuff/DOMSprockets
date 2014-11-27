@@ -83,6 +83,9 @@ var words = function(text) { return text.split(/\s+/); }
 
 var forOwn = function(object, fn, context) {
 	var keys = Object.keys(object);
+	if (typeof object === 'function' && object.hasOwnProperty('prototype') && keys.indexOf('prototype' < 0)) {
+		fn.call(context, object.prototype, 'prototype', object);
+	}
 	for (var i=0, n=keys.length; i<n; i++) {
 		var key = keys[i];
 		fn.call(context, object[key], key, object);
@@ -97,6 +100,9 @@ var isEmpty = function(o) { // NOTE lodash supports arrays and strings too
 
 var defaults = function(dest, src) {
 	var keys = Object.keys(src);
+	if (dest.prototype == null && typeof src === 'function' && src.hasOwnProperty('prototype') && keys.indexOf('prototype' < 0)) {
+		dest.prototype = src.prototype;
+	}
 	for (var i=0, n=keys.length; i<n; i++) {
 		var key = keys[i];
 		if (typeof dest[key] !== 'undefined') continue;
@@ -107,6 +113,9 @@ var defaults = function(dest, src) {
 
 var assign = function(dest, src) {
 	var keys = Object.keys(src);
+	if (typeof src === 'function' && src.hasOwnProperty('prototype') && keys.indexOf('prototype' < 0)) {
+		dest.prototype = src.prototype;
+	}
 	for (var i=0, n=keys.length; i<n; i++) {
 		var key = keys[i];
 		Object.defineProperty(dest, key, Object.getOwnPropertyDescriptor(src, key));
@@ -803,10 +812,7 @@ attachedCallback: function() {
 	var object = binding.object;
 
 	binding.inDocument = false;
-	var callbacks = definition.callbacks;
-	if (callbacks) {
-		if (callbacks.attached) callbacks.attached.call(object); // FIXME try/catch
-	}
+	if (definition.attached) definition.attached.call(object); // FIXME try/catch
 },
 
 enteredDocumentCallback: function() {
@@ -815,10 +821,7 @@ enteredDocumentCallback: function() {
 	var object = binding.object;
 
 	binding.inDocument = true;
-	var callbacks = definition.callbacks;
-	if (callbacks) {
-		if (callbacks.enteredDocument) callbacks.enteredDocument.call(object);	
-	}	
+	if (definition.enteredDocument) definition.enteredDocument.call(object);	
 },
 
 leftDocumentCallback: function() {
@@ -827,10 +830,7 @@ leftDocumentCallback: function() {
 	var object = binding.object;
 
 	binding.inDocument = false;
-	var callbacks = definition.callbacks;
-	if (callbacks) {
-		if (callbacks.leftDocument) callbacks.leftDocument.call(object);	
-	}
+	if (definition.leftDocument) definition.leftDocument.call(object);	
 },
 
 detach: function() {
@@ -850,10 +850,7 @@ detachedCallback: function() {
 	var object = binding.object;
 	
 	binding.inDocument = null;
-	var callbacks = definition.callbacks;
-	if (callbacks) {
-		if (callbacks.detached) callbacks.detached.call(object);	
-	}	
+	if (definition.detached) definition.detached.call(object);	
 },
 
 addHandler: function(handler) {
@@ -1194,9 +1191,8 @@ function(prototype, object) {
 /* CSS Rules */
 
 function BindingDefinition(desc) {
-	this.prototype = desc.prototype;
-	this.handlers = desc.handlers && desc.handlers.length ? desc.handlers.slice(0) : [];
-	this.callbacks = desc.callbacks;
+	_.assign(this, desc);
+	if (!this.handlers) this.handlers = [];
 }
 
 function BindingRule(selector, bindingDefn) {
@@ -1267,12 +1263,12 @@ nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 		
 	function enteredComponentCallback(rule, el) {
 		var binding = DOM.getData(rule.scope);
-		rule.enteredComponent.call(binding.object, el);
+		rule.callback.call(binding.object, el);
 	}
 
 	function componentCallback(rule, el) {
 		var binding = DOM.getData(el);
-		if (!binding || !binding.sprockets) return;
+		if (!binding || !binding.rules) return;
 		scopes.push(el);
 	}
 
@@ -1285,7 +1281,7 @@ nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 		var el;
 		while (el = walker.nextNode()) {
 			_.forEach(rules, function(rule) {
-				var selector = rule.matches; // FIXME absolutizeSelector?? Otherwise use rule.selector or rule.matches universally
+				var selector = rule.selector; // FIXME absolutizeSelector??
 				if (DOM.matches(el, selector)) applyRuleToEnteredElement(rule, el, enteredComponentCallback);
 			});
 		}
@@ -1294,8 +1290,8 @@ nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 	function getRules(scope) { // buffer uses unshift so LIFO
 		var rules = [];
 		var binding = DOM.getData(scope);
-		_.forEach(binding.sprockets, function(rule) {
-			if (!rule.enteredComponent) return;
+		_.forEach(binding.rules, function(rule) {
+			if (!rule.callback) return;
 			var clonedRule = _.assign({}, rule);
 			clonedRule.scope = scope;
 			rules.unshift(clonedRule);
@@ -1357,56 +1353,88 @@ var SprocketDefinition = function(prototype) {
 
 _.assign(sprockets, {
 
-registerComponent: function(tagName, sprocket, extras) {
-	var defn = { prototype: sprocket.prototype };
-	if (extras) _.defaults(defn, extras);
-	if (!defn.callbacks) defn.callbacks = {};
-	var onattached = defn.callbacks.attached;
-	defn.callbacks.attached = function() {
-		var binding = this;
-		if (defn.sprockets) _.forEach(defn.sprockets, function(rule) {
-			var registrationRule = _.assign({}, rule);
-			registrationRule.scope = binding.element;
-			var registrationSprocket = rule.sprocket;
-			sprockets.register(registrationRule, registrationSprocket);
-		});
-		if (onattached) return onattached.call(this);
-	};
-	sprockets.registerElement(tagName, defn);
-},
-
-register: function(options, sprocket) {
-	var registrationRule = {};
+registerSprocket: function(selector, definition, callback) { // WARN this can promote any element into a composite
+	var rule = {};
 	var scope;
-	if (typeof options === 'string') {
-		_.assign(registrationRule, {
-			matches: options
+	if (typeof selector === 'string') {
+		_.assign(rule, {
+			selector: selector
 		});
 		scope = document;
 	}
 	else {
-		_.assign(registrationRule, options);
-		scope = options.scope;
-		delete registrationRule.scope;
+		_.assign(rule, selector);
+		scope = selector.scope;
+		delete rule.scope;
 	}
 	var nodeData = DOM.getData(scope);
 	if (!nodeData) {
 		nodeData = {};
 		DOM.setData(scope, nodeData);
 	}
-	var nodeSprockets = nodeData.sprockets;
-	if (!nodeSprockets) nodeSprockets = nodeData.sprockets = [];
-	registrationRule.definition = sprocket;
-	nodeSprockets.unshift(registrationRule); // WARN last registered means highest priority. Is this appropriate??
+	var nodeRules = nodeData.rules;
+	if (!nodeRules) nodeRules = nodeData.rules = [];
+	rule.definition = definition;
+	rule.callback = callback;
+	nodeRules.unshift(rule); // WARN last registered means highest priority. Is this appropriate??
+},
+
+register: function(options, sprocket) {
+	return sprockets.registerSprocket(options, sprocket);
+},
+
+registerComposite: function(tagName, defn) {
+	var onattached = defn.attached;
+	defn.attached = function() {
+		var object = this;
+		if (defn.rules) _.forEach(defn.rules, function(rule) {
+			var selector = {
+				scope: object.element
+			}
+			var definition = {};
+			var callback;
+			if (Array.isArray(rule)) {
+				selector.selector = rule[0];
+				definition = rule[1];
+				callback = rule[2];
+			}
+			else {
+				selector.selector = rule.selector;
+				definition = rule.definition;
+				callback = rule.callback;
+			}
+			sprockets.registerSprocket(selector, definition, callback);
+		});
+		if (onattached) return onattached.call(this);
+	};
+	return sprockets.registerElement(tagName, defn);
+},
+
+registerComponent: function(tagName, sprocket, extras) {
+	var defn = { prototype: sprocket.prototype };
+	if (extras) {
+		defn.handlers = extras.handlers;
+		if (extras.sprockets) _.forEach(extras.sprockets, function(oldRule) {
+			if (!defn.rules) defn.rules = [];
+			var rule = {
+				selector: oldRule.matches,
+				definition: oldRule.sprocket,
+				callback: oldRule.enteredComponent
+			}
+			defn.rules.push(rule);
+		});
+		if (extras.callbacks) _.defaults(defn, extras.callbacks);
+	}
+	return sprockets.registerComposite(tagName, defn);
 },
 
 evolve: function(base, properties) {
 	var prototype = _.create(base.prototype);
 	var sub = new SprocketDefinition(prototype);
-	var baseDefinition = base.prototype.__properties__ || {};
-	var definition = prototype.__properties__ = {};
-	_.forOwn(baseDefinition, function(desc, prop) {
-		definition[prop] = _.create(desc);
+	var baseProperties = base.prototype.__properties__ || {};
+	var subProperties = prototype.__properties__ = {};
+	_.forOwn(baseProperties, function(desc, name) {
+		subProperties[name] = _.create(desc);
 	});
 	if (properties) sprockets.defineProperties(sub, properties);
 	return sub;
@@ -1457,7 +1485,7 @@ findAll: function(element, sprocket) { // FIXME this search is blocked by descen
 	
 	var node, nodeList = [];
 	while (node = walker.nextNode()) {
-		if (DOM.matches(node, rule.matches)) nodeList.push(node);
+		if (DOM.matches(node, rule.selector)) nodeList.push(node);
 	}
 	return nodeList;
 },
@@ -1468,7 +1496,7 @@ find: function(element, sprocket) { // FIXME this search is blocked by descendan
 	
 	var node;
 	while (node = walker.nextNode()) {
-		if (DOM.matches(node, rule.matches)) return node;
+		if (DOM.matches(node, rule.selector)) return node;
 	}
 },
 
@@ -1490,7 +1518,7 @@ getInterface: function(element) {
 isScope: function(node) {
 	if (!DOM.hasData(node)) return false;
 	var nodeData = DOM.getData(node);
-	if (!nodeData.sprockets) return false;
+	if (!nodeData.rules) return false;
 	return true;
 },
 
@@ -1506,9 +1534,8 @@ function getSprocketRule(element) {
 	for (var scope=sprockets.getScope(element.parentNode); scope; scope = (scope !== document) ? document: undefined) {
 		var sprocketRule;
 		var nodeData = DOM.getData(scope);
-		var sprocketRules = nodeData.sprockets;
-		_.some(sprocketRules, function(rule) {
-			if (!DOM.matches(element, rule.matches)) return false; // TODO should be using relative selector
+		_.some(nodeData.rules, function(rule) {
+			if (!DOM.matches(element, rule.selector)) return false; // TODO should be using relative selector
 			sprocketRule = { scope: scope };
 			_.defaults(sprocketRule, rule);
 			return true;
@@ -1521,8 +1548,7 @@ function getMatchingSprocketRule(element, sprocket) {
 	for (var scope=sprockets.getScope(element); scope; scope = (scope !== document) ? document: undefined) {
 		var sprocketRule;
 		var nodeData = DOM.getData(scope);
-		var sprocketRules = nodeData.sprockets;
-		_.some(sprocketRules, function(rule) {
+		_.some(nodeData.rules, function(rule) {
 			if (typeof sprocket === 'string') {
 				if (rule.definition.prototype.role !== sprocket) return false;
 			}
