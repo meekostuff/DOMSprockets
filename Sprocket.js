@@ -12,7 +12,7 @@ element.addEventListener - IE9+
 */
 
 /* FIXME
-event modifiers aren't filtering
+- event modifiers aren't filtering
 */
 
 if (!this.Meeko) this.Meeko = {};
@@ -1253,32 +1253,32 @@ nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 	if (!started) throw Error('sprockets management has not started yet');
 	if (node.nodeType !== 1) return;
 
-	var scopes = [];
+	var composites = [];
 	_.forEach(bindingRules, function(rule) {
 		applyRuleToEnteredTree(rule, node, componentCallback);
 	});
 
-	var scope = sprockets.getScope(node);
-	if (scope) applyScopedRules(node, scope);
+	var composite = sprockets.getComposite(node);
+	if (composite) applyCompositedRules(node, composite);
 
-	while (scope = scopes.shift()) applyScopedRules(scope);
+	while (composite = composites.shift()) applyCompositedRules(composite);
 	
 	return;
 		
 	function enteredComponentCallback(rule, el) {
-		var binding = DOM.getData(rule.scope);
+		var binding = DOM.getData(rule.composite);
 		rule.callback.call(binding.object, el);
 	}
 
 	function componentCallback(rule, el) {
 		var binding = DOM.getData(el);
 		if (!binding || !binding.rules) return;
-		scopes.push(el);
+		composites.push(el);
 	}
 
-	function applyScopedRules(node, scope) {
-		if (!scope) scope = node;
-		var rules = getRules(scope);
+	function applyCompositedRules(node, composite) {
+		if (!composite) composite = node;
+		var rules = getRules(composite);
 		if (rules.length <= 0) return;
 
 		var walker = createCompositeWalker(node, false); // don't skipRoot
@@ -1291,13 +1291,13 @@ nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 		}
 	}
 	
-	function getRules(scope) { // buffer uses unshift so LIFO
+	function getRules(composite) { // buffer uses unshift so LIFO
 		var rules = [];
-		var binding = DOM.getData(scope);
+		var binding = DOM.getData(composite);
 		_.forEach(binding.rules, function(rule) {
 			if (!rule.callback) return;
 			var clonedRule = _.assign({}, rule);
-			clonedRule.scope = scope;
+			clonedRule.composite = composite;
 			rules.unshift(clonedRule);
 		});
 		return rules;
@@ -1359,22 +1359,22 @@ _.assign(sprockets, {
 
 registerSprocket: function(selector, definition, callback) { // WARN this can promote any element into a composite
 	var rule = {};
-	var scope;
+	var composite;
 	if (typeof selector === 'string') {
 		_.assign(rule, {
 			selector: selector
 		});
-		scope = document;
+		composite = document;
 	}
 	else {
 		_.assign(rule, selector);
-		scope = selector.scope;
-		delete rule.scope;
+		composite = selector.composite;
+		delete rule.composite;
 	}
-	var nodeData = DOM.getData(scope);
+	var nodeData = DOM.getData(composite); // NOTE nodeData should always be a binding
 	if (!nodeData) {
 		nodeData = {};
-		DOM.setData(scope, nodeData);
+		DOM.setData(composite, nodeData);
 	}
 	var nodeRules = nodeData.rules;
 	if (!nodeRules) nodeRules = nodeData.rules = [];
@@ -1397,7 +1397,7 @@ registerComposite: function(tagName, definition) {
 		var object = this;
 		if (rules) _.forEach(rules, function(rule) {
 			var selector = {
-				scope: object.element
+				composite: object.element
 			}
 			var definition = {};
 			var callback;
@@ -1473,18 +1473,33 @@ getPropertyDescriptor: function(sprocket, prop) {
 	return sprocket.prototype.__properties__[prop];
 },
 
-matches: function(element, sprocket) {
+_matches: function(element, sprocket, rule) {
 	var binding = Binding.getInterface(element);
 	if (binding) return prototypeMatchesSprocket(binding.object, sprocket);
-	var declaredSprocketRule = getSprocketRule(element);
-	if (declaredSprocketRule && prototypeMatchesSprocket(declaredSprocketRule.definition.prototype, sprocket)) return true;
+	if (rule && DOM.matches(element, rule.selector)) return true; // TODO should make rules scoped by rule.composite
 	return false;
 },
 
-closest: function(element, sprocket) { // TODO optimize by attaching sprocket here??
-	for (var node=element; node; node=node.parentNode) {
-		if (!sprockets.matches(node, sprocket)) continue;
-		return node;
+matches: function(element, sprocket, inComposite) {
+	var composite;
+	if (inComposite) {
+		composite = sprockets.getComposite(element);
+		if (!composite) return false;
+	}
+	var rule = getMatchingSprocketRule(element.parentNode, sprocket, inComposite);
+	return sprockets._matches(element, sprocket, rule);
+},
+
+closest: function(element, sprocket, inComposite) {
+	var composite;
+	if (inComposite) {
+		composite = sprockets.getComposite(element);
+		if (!composite) return;
+	}
+	var rule = getMatchingSprocketRule(element.parentNode, sprocket, inComposite);
+	for (var node=element; node && node.nodeType === 1; node=node.parentNode) {
+		if (sprockets._matches(node, sprocket, rule)) return node;
+		if (node === composite) return;
 	}
 },
 
@@ -1524,52 +1539,64 @@ getInterface: function(element) {
 	return binding.object;
 },
 
-isScope: function(node) {
+isComposite: function(node) {
 	if (!DOM.hasData(node)) return false;
 	var nodeData = DOM.getData(node);
 	if (!nodeData.rules) return false;
 	return true;
 },
 
-getScope: function(element) {
+getComposite: function(element) { // WARN this can return `document`. Not sure if that should count
 	for (var node=element; node; node=node.parentNode) {
-		if (sprockets.isScope(node)) return node;
+		if (sprockets.isComposite(node)) return node;
 	}
 }
 
 });
 
 function getSprocketRule(element) {
-	for (var scope=sprockets.getScope(element.parentNode); scope; scope = (scope !== document) ? document: undefined) {
-		var sprocketRule;
-		var nodeData = DOM.getData(scope);
-		_.some(nodeData.rules, function(rule) {
-			if (!DOM.matches(element, rule.selector)) return false; // TODO should be using relative selector
-			sprocketRule = { scope: scope };
-			_.defaults(sprocketRule, rule);
-			return true;
-		});
-		if (sprocketRule) return sprocketRule;
-	}
+	var sprocketRule;
+	var composite = sprockets.getComposite(element);
+	sprocketRule = getRuleFromComposite(composite, element);
+	if (sprocketRule) return sprocketRule;
+	return getRuleFromComposite(document, element);
 }
 
-function getMatchingSprocketRule(element, sprocket) {
-	for (var scope=sprockets.getScope(element); scope; scope = (scope !== document) ? document: undefined) {
-		var sprocketRule;
-		var nodeData = DOM.getData(scope);
-		_.some(nodeData.rules, function(rule) {
-			if (typeof sprocket === 'string') {
-				if (rule.definition.prototype.role !== sprocket) return false;
-			}
-			else {
-				if (sprocket.prototype !== rule.definition.prototype && !isPrototypeOf(sprocket.prototype, rule.definition.prototype)) return false;
-			}
-			sprocketRule = { scope: scope };
-			_.defaults(sprocketRule, rule);
-			return true;
-		});
-		if (sprocketRule) return sprocketRule;
-	}
+function getRuleFromComposite(composite, element) {
+	var sprocketRule;
+	var nodeData = DOM.getData(composite);
+	_.some(nodeData.rules, function(rule) {
+		if (!DOM.matches(element, rule.selector)) return false; // TODO should be using relative selector
+		sprocketRule = { composite: composite };
+		_.defaults(sprocketRule, rule);
+		return true;
+	});
+	if (sprocketRule) return sprocketRule;
+}
+
+function getMatchingSprocketRule(element, sprocket, inComposite) {
+	var sprocketRule;
+	var composite = sprockets.getComposite(element);
+	sprocketRule = getMatchingRuleFromComposite(composite, sprocket);
+	if (inComposite || sprocketRule) return sprocketRule;
+	return getMatchingRuleFromComposite(document, sprocket);
+}
+
+function getMatchingRuleFromComposite(composite, sprocket) {
+	var sprocketRule;
+	var nodeData = DOM.getData(composite);
+	_.some(nodeData.rules, function(rule) {
+		if (typeof sprocket === 'string') {
+			if (rule.definition.prototype.role !== sprocket) return false;
+		}
+		else {
+			if (sprocket.prototype !== rule.definition.prototype && !isPrototypeOf(sprocket.prototype, rule.definition.prototype)) return false;
+		}
+		sprocketRule = { composite: composite };
+		_.defaults(sprocketRule, rule);
+		return true;
+	});
+	return sprocketRule;
 }
 
 function prototypeMatchesSprocket(prototype, sprocket) {
@@ -1586,7 +1613,7 @@ function createCompositeWalker(root, skipRoot) {
 		);
 	
 	function acceptNode(el) {
-		 return (skipRoot && el === root) ? NodeFilter.FILTER_SKIP : sprockets.isScope(el) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; 
+		 return (skipRoot && el === root) ? NodeFilter.FILTER_SKIP : sprockets.isComposite(el) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; 
 	}
 }
 
