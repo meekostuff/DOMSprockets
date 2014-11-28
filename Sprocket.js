@@ -13,6 +13,7 @@ element.addEventListener - IE9+
 
 /* FIXME
 - event modifiers aren't filtering
+- everything in the sprockets code (apart from the Binding implementation) is a BIG BALL OF MUD
 */
 
 if (!this.Meeko) this.Meeko = {};
@@ -1206,7 +1207,6 @@ function BindingRule(selector, bindingDefn) {
 
 var bindingRules = sprockets.rules = [];
 
-// FIXME BIG BALL OF MUD
 function applyRuleToEnteredElement(rule, element, callback) { // FIXME compare current and new CSS specifities
 	var binding = Binding.getInterface(element);
 	if (binding && binding.definition !== rule.definition) {
@@ -1309,7 +1309,7 @@ nodeRemoved: function(node) { // NOTE called AFTER node removed document
 	if (!started) throw Error('sprockets management has not started yet');
 
 	// TODO leftComponentCallback. Might be hard to implement *after* node is removed
-	
+	// FIXME the following logic maybe completely wrong
 	Binding.leftDocumentCallback(node);
 	_.forEach(DOM.findAll('*', node), Binding.leftDocumentCallback);
 }
@@ -1473,7 +1473,7 @@ getPropertyDescriptor: function(sprocket, prop) {
 	return sprocket.prototype.__properties__[prop];
 },
 
-_matches: function(element, sprocket, rule) {
+_matches: function(element, sprocket, rule) { // internal utility method which is passed a "cached" rule
 	var binding = Binding.getInterface(element);
 	if (binding) return prototypeMatchesSprocket(binding.object, sprocket);
 	if (rule && DOM.matches(element, rule.selector)) return true; // TODO should make rules scoped by rule.composite
