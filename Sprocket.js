@@ -36,6 +36,7 @@ var vendorPrefix = 'meeko';
 
 if (!Meeko.stuff) Meeko.stuff = (function() {
 
+// TODO do string utils needs to sanity check args?
 var uc = function(str) { return str ? str.toUpperCase() : ''; }
 var lc = function(str) { return str ? str.toLowerCase() : ''; }
 
@@ -604,7 +605,7 @@ var matchesSelector;
 _.some(_.words('moz webkit ms o'), function(prefix) {
 	var method = prefix + 'MatchesSelector';
 	if (document.documentElement[method]) {
-		matchesSelector = function(element, selector) { return element[method](selector); }
+		matchesSelector = function(element, selector) { return (element && element.nodeType === 1) ? element[method](selector) : false; }
 		return true;
 	}
 	return false;
@@ -656,6 +657,7 @@ var findId = function(id, doc) {
 var findAll = document.querySelectorAll ?
 function(selector, node, scope) {
 	if (!node) node = document;
+	if (!node.querySelectorAll) return [];
 	if (scope) {
 		if (!scope.nodeType) scope = node; // `true` but not the scope element
 		selector = absolutizeSelector(selector, scope);
@@ -667,6 +669,7 @@ function() { throw Error('findAll() not supported'); };
 var find = document.querySelector ?
 function(selector, node, scope) {
 	if (!node) node = document;
+	if (!node.querySelector) return null;
 	if (scope) {
 		if (!scope.nodeType) scope = node; // `true` but not the scope element
 		selector = absolutizeSelector(selector, scope);
@@ -1307,6 +1310,7 @@ nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 
 nodeRemoved: function(node) { // NOTE called AFTER node removed document
 	if (!started) throw Error('sprockets management has not started yet');
+	if (node.nodeType !== 1) return;
 
 	// TODO leftComponentCallback. Might be hard to implement *after* node is removed
 	// FIXME the following logic maybe completely wrong
@@ -1706,6 +1710,19 @@ toggleClass: function(token, force) {
 		return true;
 	}
 },
+css: function(name, value) {
+	var element = this.element;
+	var isKebabCase = (name.indexOf('-') >= 0);
+	if (typeof value === 'undefined') return isKebabCase ? element.style.getPropertyValue(name) : element.style[name];
+	if (value == null || value === '') {
+		if (isKebabCase) element.style.removeProperty(name);
+		else element.style[name] = '';
+	}
+	else {
+		if (isKebabCase) element.style.setProperty(name, value);
+		else element.style[name] = value;
+	}
+},
 
 trigger: function(type, params) {
 	return sprockets.trigger(this.element, type, params);
@@ -1713,6 +1730,11 @@ trigger: function(type, params) {
 
 
 });
+
+function ucFirst(str) { return str ? str.charAt(0).toUpperCase() + str.substr(1) : ''; }
+function camelCase(str) { return str ? _.map(str.split('-'), function(part, i) { return i === 0 ? part : ucFirst(part); }).join('') : ''; }
+function kebabCase(str) { return str ? _.map(str.split(/(?=[A-Z])/), function(part, i) { return i === 0 ? part : _.lc(part); }).join('-') : ''; }
+
 
 // Element.prototype.hidden and visibilitychange event
 var Element = window.Element || window.HTMLElement;
