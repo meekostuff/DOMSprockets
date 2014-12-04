@@ -114,7 +114,7 @@ activedescendant: {
 },
 
 initialize: function() {
-	this.setView();
+	this.ariaSet('activedescendant', this.ariaGet('owns')[0]);
 }
 
 });
