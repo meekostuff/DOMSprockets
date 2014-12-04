@@ -1508,10 +1508,12 @@ closest: function(element, sprocket, inComposite) {
 },
 
 findAll: function(element, sprocket) { // FIXME this search is blocked by descendant composites (scopes). Is this appropriate?
+	var nodeList = [];
 	var rule = getMatchingSprocketRule(element, sprocket);
+	if (!rule) return nodeList;
 	var walker = createCompositeWalker(element, true); // skipRoot
 	
-	var node, nodeList = [];
+	var node;
 	while (node = walker.nextNode()) {
 		if (DOM.matches(node, rule.selector)) nodeList.push(node);
 	}
@@ -1520,12 +1522,14 @@ findAll: function(element, sprocket) { // FIXME this search is blocked by descen
 
 find: function(element, sprocket) { // FIXME this search is blocked by descendant composites (scopes). Is this appropriate?
 	var rule = getMatchingSprocketRule(element, sprocket);
+	if (!rule) return null;
 	var walker = createCompositeWalker(element, true); // skipRoot
 	
 	var node;
 	while (node = walker.nextNode()) {
 		if (DOM.matches(node, rule.selector)) return node;
 	}
+	return null;
 },
 
 cast: function(element, sprocket) {
