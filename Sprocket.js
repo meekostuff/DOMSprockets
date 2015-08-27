@@ -1332,19 +1332,23 @@ function() {
 			_.forEach(record.removedNodes, sprockets.nodeRemoved, sprockets);
 		});
 	});
-	observer.observe(document, { childList: true, subtree: true });
+	observer.observe(document.body, { childList: true, subtree: true });
 	
 	// FIXME when to call observer.disconnect() ??
 } :
 function() { // otherwise assume MutationEvents. TODO is this assumption safe?
-	document.addEventListener('DOMNodeInserted', function(e) {
+	document.body.addEventListener('DOMNodeInserted', function(e) {
 		e.stopPropagation();
 		if (!started) return;
+ 		// NOTE IE sends event for every descendant of the inserted node
+		if (e.target.parentNode !== e.relatedNode) return;
 		Task.asap(function() { sprockets.nodeInserted(e.target); });
 	}, true);
 	document.body.addEventListener('DOMNodeRemoved', function(e) {
 		e.stopPropagation();
 		if (!started) return;
+ 		// NOTE IE sends event for every descendant of the inserted node
+		if (e.target.parentNode !== e.relatedNode) return;
 		Task.asap(function() { sprockets.nodeRemoved(e.target); });
 		// FIXME
 	}, true);
