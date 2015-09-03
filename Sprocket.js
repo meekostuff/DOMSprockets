@@ -147,6 +147,49 @@ var Task = Meeko.Task = (function() {
 // NOTE Task.asap could use window.setImmediate, except for
 // IE10 CPU contention bugs http://codeforhire.com/2013/09/21/setimmediate-and-messagechannel-broken-on-internet-explorer-10/
 
+var frameRate = 60; // FIXME make this a boot-option??
+var frameInterval = 1000 / frameRate;
+var frameExecutionRatio = 0.75; // FIXME another boot-option??
+var frameExecutionTimeout = frameInterval * frameExecutionRatio;
+
+var performance = window.performance || {
+
+now: function() { return (new Date).getTime(); }
+
+}
+
+var schedule = (function() { 
+	// See http://creativejs.com/resources/requestanimationframe/
+	var fn = window.requestAnimationFrame;
+	if (fn) return fn;
+
+	_.some(_.words('moz ms o webkit'), function(vendor) {
+		var name = vendor + 'RequestAnimationFrame';
+		if (!window[name]) return false;
+		fn = window[name];
+		return true;
+	});
+	if (fn) return fn;
+
+	var lastTime = 0;
+	var callback;
+	fn = function(cb, element) {
+		if (callback) throw 'requestFrame only allows one callback at a time';
+		callback = cb;
+		var currTime = performance.now();
+		var timeToCall = Math.max(0, frameInterval - (currTime - lastTime));
+		var id = window.setTimeout(function() { 
+			lastTime = performance.now();
+			callback(lastTime, element); 
+			callback = undefined;
+		}, timeToCall);
+		return id;
+	};
+	
+	return fn;
+})();
+
+
 var asapQueue = [];
 var deferQueue = [];
 var errorQueue = [];
@@ -182,10 +225,7 @@ function delay(fn, timeout) {
 	}, timeout);
 }
 
-// NOTE schedule used to be approx: setImmediate || postMessage || setTimeout
-var schedule = window.setTimeout;
-
-function processTasks() {
+function processTasks(startTime) {
 	processing = true;
 	var fn;
 	while (asapQueue.length) {
@@ -193,11 +233,12 @@ function processTasks() {
 		if (typeof fn !== 'function') continue;
 		try { fn(); }
 		catch (error) { postError(error); }
+		if (performance.now() - startTime > frameExecutionTimeout) break;
 	}
 	scheduled = false;
 	processing = false;
 	
-	asapQueue = deferQueue;
+	asapQueue = asapQueue.concat(deferQueue);
 	deferQueue = [];
 	if (asapQueue.length) {
 		schedule(processTasks);
@@ -207,7 +248,6 @@ function processTasks() {
 	throwErrors();
 	
 }
-
 
 function postError(error) {
 	errorQueue.push(error);
