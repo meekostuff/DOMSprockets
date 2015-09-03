@@ -274,6 +274,14 @@ var Promise = function(init) { // `init` is called as init(resolve, reject)
 	var promise = this;
 	promise._initialize();
 
+	if (promise._willCatch == null) promise._willCatch = false;
+	try { init(resolve, reject); }
+	catch(error) { reject(error); }
+
+	// NOTE promise is returned by `new` invocation but anyway
+	return promise;
+
+	// The following are hoisted
 	function resolve(result) {
 		if (typeof result !== 'function') {
 			promise._resolve(result);
@@ -290,22 +298,26 @@ var Promise = function(init) { // `init` is called as init(resolve, reject)
 		try { promise._reject(error()); }
 		catch (err) { promise._reject(err); }
 	}
+}
 
-	var resolver;
-	if (typeof init !== 'function') { // if `init` is not a function then assign resolve() / reject() elsewhere
-		resolver = (typeof init === 'object' && init !== null) ? init : promise;
+_.defaults(Promise, {
+
+applyTo: function(object) {
+	var resolver = {}
+	var promise = new Promise(function(resolve, reject) {
 		resolver.resolve = resolve;
 		resolver.reject = reject;
-	}
-	
-	Task.asap(function() {
-		if (promise._willCatch == null) promise._willCatch = false;
-		if (resolver) return;
-		try { init(resolve, reject); }
-		catch(error) { reject(error); }
 	});
-	// NOTE promise is returned by `new` invocation
+	if (!object) object = promise;
+	_.assign(object, resolver);
+	return promise;
+},
+
+isPromise: function(value) {
+	return value instanceof Promise; // TODO or typeof value.then === 'function' ??
 }
+
+});
 
 _.defaults(Promise.prototype, {
 
@@ -333,8 +345,8 @@ _resolve: function(value, sync) { // NOTE equivalent to 'resolve algorithm'. Ext
 	if (value != null && typeof value.then === 'function') {
 		try {
 			value.then(
-				function(result) { promise._resolve(result); },
-				function(error) { promise._reject(error); }
+				function(result) { promise._resolve(result, true); },
+				function(error) { promise._reject(error, true); }
 			);
 		}
 		catch(error) {
@@ -438,6 +450,7 @@ function wrapResolve(callback, resolve, reject) {
 _.defaults(Promise, {
 
 resolve: function(value) {
+if (Promise.isPromise(value)) return value;
 return new Promise(function(resolve, reject) {
 	resolve(value);
 });
@@ -464,10 +477,10 @@ var wait = (function() { // TODO wait() isn't used much. Can it be simpler?
 var tests = [];
 
 function wait(fn) {
-return new Promise(function(resolve, reject) {
-	var test = { fn: fn, resolve: resolve, reject: reject };
+	var test = { fn: fn };
+	var promise = Promise.applyTo(test);
 	asapTest(test);
-});
+	return promise;
 }
 
 function asapTest(test) {
@@ -500,10 +513,10 @@ return wait;
 var asap = function(fn) { return Promise.resolve().then(fn); }
 
 function delay(timeout) {
-return new Promise(function(resolve, reject) {
-	if (timeout <= 0 || timeout == null) Task.defer(resolve);
-	else Task.delay(resolve, timeout);
-});
+	return new Promise(function(resolve, reject) {
+		if (timeout <= 0 || timeout == null) Task.defer(resolve);
+		else Task.delay(resolve, timeout);
+	});
 }
 
 function pipe(startValue, fnList) {
