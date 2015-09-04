@@ -368,8 +368,12 @@ _.defaults(Promise.prototype, {
 _initialize: function() {
 	var promise = this;
 	_.defaults(promise, {
-		_fulfilCallbacks: [],
-		_rejectCallbacks: [],
+		/* 
+			use lazy creation for callback lists - 
+			with synchronous inspection they may never be called
+		// _fulfilCallbacks: [],
+		// _rejectCallbacks: [],
+		*/
 		isPending: true,
 		isFulfilled: false,
 		isRejected: false,
@@ -454,15 +458,17 @@ _process: function() { // NOTE process a promises callbacks
 	var callbacks, cb;
 	if (promise.isFulfilled) {
 		result = promise.value;
-		promise._rejectCallbacks.length = 0;
 		callbacks = promise._fulfilCallbacks;
 	}
 	else {
 		result = promise.reason;
-		promise._fulfilCallbacks.length = 0;
 		callbacks = promise._rejectCallbacks;
 	}
-	while (callbacks.length) {
+
+	// NOTE callbacks may not exist
+	delete promise._fulfilCallbacks;
+	delete promise._rejectCallbacks;
+	if (callbacks) while (callbacks.length) {
 		cb = callbacks.shift();
 		if (typeof cb === 'function') cb(result);
 	}
@@ -479,6 +485,9 @@ then: function(fulfilCallback, rejectCallback) {
 			wrapResolve(rejectCallback, resolve, reject) :
 			function(error) { reject(error); }
 	
+		if (!promise._fulfilCallbacks) promise._fulfilCallbacks = [];
+		if (!promise._rejectCallbacks) promise._rejectCallbacks = [];
+		
 		promise._fulfilCallbacks.push(fulfilWrapper);
 		promise._rejectCallbacks.push(rejectWrapper);
 	
