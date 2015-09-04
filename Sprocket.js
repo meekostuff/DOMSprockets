@@ -282,8 +282,8 @@ function createThrowers(list) {
 	return _.map(list, function(error) {
 		return function() {
 			if (logger.LOG_LEVEL >= logger.levels.indexOf('debug')) {
-				if (error.stack) logger.error(error.stack);
-				// TODO else ??
+				if (error && error.stack) logger.error(error.stack);
+				else logger.error('Untraceable error: ' + error); // FIXME why
 			}
 			throw error;
 		};
@@ -354,7 +354,11 @@ applyTo: function(object) {
 },
 
 isPromise: function(value) {
-	return value instanceof Promise; // TODO or typeof value.then === 'function' ??
+	return value instanceof Promise;
+},
+
+isThenable: function(value) {
+	return value != null && typeof value.then === 'function';
 }
 
 });
@@ -363,26 +367,41 @@ _.defaults(Promise.prototype, {
 
 _initialize: function() {
 	var promise = this;
-	promise._acceptCallbacks = [];
-	promise._rejectCallbacks = [];
-	promise._accepted = null;
-	promise._result = null;
-	promise._willCatch = null;
-	promise._processing = false;
+	_.defaults(promise, {
+		_fulfilCallbacks: [],
+		_rejectCallbacks: [],
+		isPending: true,
+		isFulfilled: false,
+		isRejected: false,
+		value: undefined,
+		reason: undefined,
+		_willCatch: null,
+		_processing: false
+	});
 },
 
-_accept: function(result, sync) { // NOTE equivalent to 'accept algorithm'. External calls MUST NOT use sync
+/*
+See https://github.com/promises-aplus/synchronous-inspection-spec/issues/6 and
+https://github.com/petkaantonov/bluebird/blob/master/API.md#synchronous-inspection
+*/
+inspectState: function() { 
+	return this;
+},
+
+_fulfil: function(result, sync) { // NOTE equivalent to 'fulfil algorithm'. External calls MUST NOT use sync
 	var promise = this;
-	if (promise._accepted != null) return;
-	promise._accepted = true;
-	promise._result = result;
+	if (!promise.isPending) return;
+	promise.isPending = false;
+	promise.isRejected = false;
+	promise.isFulfilled = true;
+	promise.value = result;
 	promise._requestProcessing(sync);
 },
 
 _resolve: function(value, sync) { // NOTE equivalent to 'resolve algorithm'. External calls MUST NOT use sync
 	var promise = this;
-	if (promise._accepted != null) return;
-	if (value != null && typeof value.then === 'function') {
+	if (!promise.isPending) return;
+	if (Promise.isThenable(value)) {
 		try {
 			value.then(
 				function(result) { promise._resolve(result, true); },
@@ -395,14 +414,16 @@ _resolve: function(value, sync) { // NOTE equivalent to 'resolve algorithm'. Ext
 		return;
 	}
 	// else
-	promise._accept(value, sync);
+	promise._fulfil(value, sync);
 },
 
 _reject: function(error, sync) { // NOTE equivalent to 'reject algorithm'. External calls MUST NOT use sync
 	var promise = this;
-	if (promise._accepted != null) return;
-	promise._accepted = false;
-	promise._result = error;
+	if (!promise.isPending) return;
+	promise.isPending = false;
+	promise.isFulfilled = false;
+	promise.isRejected = true;
+	promise.reason = error;
 	if (!promise._willCatch) {
 		Task.postError(error);
 	}
@@ -411,7 +432,7 @@ _reject: function(error, sync) { // NOTE equivalent to 'reject algorithm'. Exter
 
 _requestProcessing: function(sync) { // NOTE schedule callback processing. TODO may want to disable sync option
 	var promise = this;
-	if (promise._accepted == null) return;
+	if (promise.isPending) return;
 	if (promise._processing) return;
 	if (sync) {
 		promise._processing = true;
@@ -429,14 +450,16 @@ _requestProcessing: function(sync) { // NOTE schedule callback processing. TODO 
 
 _process: function() { // NOTE process a promises callbacks
 	var promise = this;
-	var result = promise._result;
+	var result;
 	var callbacks, cb;
-	if (promise._accepted) {
+	if (promise.isFulfilled) {
+		result = promise.value;
 		promise._rejectCallbacks.length = 0;
-		callbacks = promise._acceptCallbacks;
+		callbacks = promise._fulfilCallbacks;
 	}
 	else {
-		promise._acceptCallbacks.length = 0;
+		result = promise.reason;
+		promise._fulfilCallbacks.length = 0;
 		callbacks = promise._rejectCallbacks;
 	}
 	while (callbacks.length) {
@@ -445,18 +468,18 @@ _process: function() { // NOTE process a promises callbacks
 	}
 },
 
-then: function(acceptCallback, rejectCallback) {
+then: function(fulfilCallback, rejectCallback) {
 	var promise = this;
 	return new Promise(function(resolve, reject) {
-		var acceptWrapper = acceptCallback ?
-			wrapResolve(acceptCallback, resolve, reject) :
+		var fulfilWrapper = fulfilCallback ?
+			wrapResolve(fulfilCallback, resolve, reject) :
 			function(value) { resolve(value); }
 	
 		var rejectWrapper = rejectCallback ? 
 			wrapResolve(rejectCallback, resolve, reject) :
 			function(error) { reject(error); }
 	
-		promise._acceptCallbacks.push(acceptWrapper);
+		promise._fulfilCallbacks.push(fulfilWrapper);
 		promise._rejectCallbacks.push(rejectWrapper);
 	
 		if (promise._willCatch == null) promise._willCatch = true;
