@@ -23,8 +23,7 @@ if (!this.Meeko) this.Meeko = {};
 var document = window.document;
 
 var defaultOptions = {
-	'log_level': 'warn',
-	'polling_interval': 50
+	'log_level': 'warn'
 }
 
 var vendorPrefix = 'meeko';
@@ -569,7 +568,7 @@ function asapTest(test) {
 function deferTest(test) {
 	var started = tests.length > 0;
 	tests.push(test);
-	if (!started) Task.delay(poller, Promise.pollingInterval); // NOTE polling-interval is configured below
+	if (!started) Task.defer(poller);
 }
 
 function poller() {
@@ -599,8 +598,6 @@ function pipe(startValue, fnList) {
 	}
 	return promise;
 }
-
-Promise.pollingInterval = defaultOptions['polling_interval'];
 
 _.defaults(Promise, {
 	asap: asap, delay: delay, wait: wait, pipe: pipe
