@@ -151,11 +151,13 @@ var frameInterval = 1000 / frameRate;
 var frameExecutionRatio = 0.75; // FIXME another boot-option??
 var frameExecutionTimeout = frameInterval * frameExecutionRatio;
 
-var performance = window.performance || {
-
-now: function() { return (new Date).getTime(); }
-
+var startTime;
+var performance = window.performance || 
+Date.now ? Date :
+{
+	now: function() { return (new Date).getTime(); }
 }
+
 
 var schedule = (function() { 
 	// See http://creativejs.com/resources/requestanimationframe/
@@ -224,7 +226,15 @@ function delay(fn, timeout) {
 	}, timeout);
 }
 
-function processTasks(startTime) {
+var lastStartTime = performance.now();
+function getTime(bRemaining) {
+	var delta = performance.now() - lastStartTime;
+	if (!bRemaining) return delta;
+	return frameExecutionTimeout - delta;
+}
+
+function processTasks() {
+	lastStartTime = performance.now();
 	processing = true;
 	var fn;
 	while (asapQueue.length) {
@@ -232,7 +242,7 @@ function processTasks(startTime) {
 		if (typeof fn !== 'function') continue;
 		try { fn(); }
 		catch (error) { postError(error); }
-		if (performance.now() - startTime > frameExecutionTimeout) break;
+		if (getTime(true) <= 0) break;
 	}
 	scheduled = false;
 	processing = false;
@@ -296,6 +306,7 @@ return {
 	asap: asap,
 	defer: defer,
 	delay: delay,
+	getTime: getTime,
 	postError: postError
 };
 
@@ -527,7 +538,7 @@ return new Promise(function(resolve, reject) {
 });
 },
 
-reject: function(error) {
+reject: function(error) { // TODO what if `error` is a Promise / thenable??
 return new Promise(function(resolve, reject) {
 	reject(error);
 });
@@ -590,17 +601,58 @@ function delay(timeout) {
 	});
 }
 
-function pipe(startValue, fnList) {
+function pipe(startValue, fnList) { // TODO make more efficient with sync introspection
 	var promise = Promise.resolve(startValue);
-	while (fnList.length) { 
-		var fn = fnList.shift();
+	for (var n=fnList.length, i=0; i<n; i++) {
+		var fn = fnList[i];
 		promise = promise.then(fn);
 	}
 	return promise;
 }
 
+function reduce(a, accumulator, fn, context) {
+return new Promise(function(resolve, reject) {
+	var n = a.length;
+	var i = 0;
+
+	process(accumulator);
+	return;
+
+	function process(acc) {
+		while (i < n) {
+			var result;
+			try {
+				result = fn.call(context, acc, a[i], i++, a);
+			}
+			catch (error) {
+				reject(error);
+				return;
+			}
+			if (Promise.isPromise(result)) {
+				if (result.isRejected) {
+					reject(result.reason);
+					return;
+				}
+				if (result.isPending) {
+					result.then(process, reject);
+					return;
+				}
+				acc = result.value;
+			}
+			else if (Promise.isThenable(result)) {
+				result.then(process, reject);
+				return;
+			}
+			acc = result;
+			if (Task.getTime(true) <= 0) Promise.resolve(acc).then(process);
+		}
+		resolve(acc);
+	}
+});
+}
+
 _.defaults(Promise, {
-	asap: asap, delay: delay, wait: wait, pipe: pipe
+	asap: asap, delay: delay, wait: wait, pipe: pipe, reduce: reduce
 });
 
 return Promise;
