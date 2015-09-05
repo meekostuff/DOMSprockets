@@ -629,7 +629,7 @@ return new Promise(function(resolve, reject) {
 				acc.then(process, reject);
 				return;
 			}
-			/* else */ acc = acc.value;
+			/* else */ process(acc.value);
 		}
 		else if (Promise.isThenable(acc)) {
 			acc.then(process, reject);
