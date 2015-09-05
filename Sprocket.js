@@ -324,7 +324,6 @@ var Promise = function(init) { // `init` is called as init(resolve, reject)
 	var promise = this;
 	promise._initialize();
 
-	if (promise._willCatch == null) promise._willCatch = false;
 	try { init(resolve, reject); }
 	catch(error) { reject(error); }
 
@@ -389,7 +388,7 @@ _initialize: function() {
 		isRejected: false,
 		value: undefined,
 		reason: undefined,
-		_willCatch: null,
+		_willCatch: false,
 		_processing: false
 	});
 },
@@ -415,7 +414,12 @@ _fulfil: function(result, sync) { // NOTE equivalent to 'fulfil algorithm'. Exte
 _resolve: function(value, sync) { // NOTE equivalent to 'resolve algorithm'. External calls MUST NOT use sync
 	var promise = this;
 	if (!promise.isPending) return;
-	if (Promise.isThenable(value)) {
+	if (Promise.isPromise(value) && !value.isPending) {
+		if (value.isFulfilled) promise._fulfil(value.value, sync);
+		else /* if (value.isRejected) */ promise._reject(value.reason, sync);
+		return;
+	}
+	/* else */ if (Promise.isThenable(value)) {
 		try {
 			value.then(
 				function(result) { promise._resolve(result, true); },
@@ -427,8 +431,7 @@ _resolve: function(value, sync) { // NOTE equivalent to 'resolve algorithm'. Ext
 		}
 		return;
 	}
-	// else
-	promise._fulfil(value, sync);
+	/* else */ promise._fulfil(value, sync);
 },
 
 _reject: function(error, sync) { // NOTE equivalent to 'reject algorithm'. External calls MUST NOT use sync
@@ -447,6 +450,7 @@ _reject: function(error, sync) { // NOTE equivalent to 'reject algorithm'. Exter
 _requestProcessing: function(sync) { // NOTE schedule callback processing. TODO may want to disable sync option
 	var promise = this;
 	if (promise.isPending) return;
+	if (!promise._willCatch) return;
 	if (promise._processing) return;
 	if (sync) {
 		promise._processing = true;
@@ -501,7 +505,7 @@ then: function(fulfilCallback, rejectCallback) {
 		promise._fulfilCallbacks.push(fulfilWrapper);
 		promise._rejectCallbacks.push(rejectWrapper);
 	
-		if (promise._willCatch == null) promise._willCatch = true;
+		promise._willCatch = true;
 	
 		promise._requestProcessing();
 		
@@ -510,7 +514,7 @@ then: function(fulfilCallback, rejectCallback) {
 
 'catch': function(rejectCallback) { // WARN 'catch' is unexpected identifier in IE8-
 	var promise = this;
-	return promise.then(null, rejectCallback);
+	return promise.then(undefined, rejectCallback);
 }
 
 });
@@ -522,7 +526,7 @@ function wrapResolve(callback, resolve, reject) {
 		try {
 			var value = callback.apply(undefined, arguments); 
 			resolve(value);
-		} catch(error) {
+		} catch (error) {
 			reject(error);
 		}
 	}
@@ -532,13 +536,14 @@ function wrapResolve(callback, resolve, reject) {
 _.defaults(Promise, {
 
 resolve: function(value) {
-if (Promise.isPromise(value)) return value;
-return new Promise(function(resolve, reject) {
-	resolve(value);
-});
+	if (Promise.isPromise(value)) return value;
+	var promise = Object.create(Promise.prototype);
+	promise._initialize();
+	promise._resolve(value);
+	return promise;
 },
 
-reject: function(error) { // TODO what if `error` is a Promise / thenable??
+reject: function(error) { // FIXME should never be used
 return new Promise(function(resolve, reject) {
 	reject(error);
 });
@@ -615,47 +620,34 @@ return new Promise(function(resolve, reject) {
 	var n = a.length;
 	var i = 0;
 
-	process(accumulator);
+	preprocess(accumulator);
 	return;
 
-	function process(acc) {
-		while (i < n) {
-			var result;
-			try {
-				result = fn.call(context, acc, a[i], i++, a);
-			}
-			catch (error) {
-				reject(error);
+	function preprocess(acc) {
+		if (Promise.isPromise(acc)) {
+			if (!acc.isFulfilled) {
+				acc.then(process, reject);
 				return;
 			}
-			var spareTime = Task.getTime(true);
-			if (Promise.isPromise(result)) {
-				if (result.isRejected) {
-					reject(result.reason);
-					return;
-				}
-				if (result.isPending) {
-					result.then(process, reject);
-					return;
-				}
-				if (spareTime <= 0) {
-					result.then(process);
-					return;
-				}
-				acc = result.value;
-				continue;
-			}
-			else if (Promise.isThenable(result)) {
-				result.then(process, reject);
-				return;
-			}
-			acc = result;
-			if (spareTime <= 0) {
-				Promise.resolve(acc).then(process);
-				return;
-			}
+			/* else */ acc = acc.value;
 		}
-		resolve(acc);
+		else if (Promise.isThenable(acc)) {
+			acc.then(process, reject);
+			return;
+		}
+		/* else */ process(acc);
+	}
+
+	function process(acc) {
+		if (i >= n) resolve(acc);
+		try {
+			acc = fn.call(context, acc, a[i], i++, a);
+		}
+		catch (error) {
+			reject(error);
+			return;
+		}
+		preprocess(acc);
 	}
 });
 }
