@@ -153,10 +153,10 @@ var frameExecutionTimeout = frameInterval * frameExecutionRatio;
 
 var startTime;
 var performance = window.performance || 
-Date.now ? Date :
+(Date.now ? Date :
 {
 	now: function() { return (new Date).getTime(); }
-}
+});
 
 
 var schedule = (function() { 
@@ -628,6 +628,7 @@ return new Promise(function(resolve, reject) {
 				reject(error);
 				return;
 			}
+			var spareTime = Task.getTime(true);
 			if (Promise.isPromise(result)) {
 				if (result.isRejected) {
 					reject(result.reason);
@@ -637,18 +638,19 @@ return new Promise(function(resolve, reject) {
 					result.then(process, reject);
 					return;
 				}
-				if (Task.getTime(true) <= 0) {
+				if (spareTime <= 0) {
 					result.then(process);
 					return;
 				}
 				acc = result.value;
+				continue;
 			}
 			else if (Promise.isThenable(result)) {
 				result.then(process, reject);
 				return;
 			}
-			else acc = result;
-			if (Task.getTime(true) <= 0) {
+			acc = result;
+			if (spareTime <= 0) {
 				Promise.resolve(acc).then(process);
 				return;
 			}
