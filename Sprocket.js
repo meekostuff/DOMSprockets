@@ -637,14 +637,21 @@ return new Promise(function(resolve, reject) {
 					result.then(process, reject);
 					return;
 				}
+				if (Task.getTime(true) <= 0) {
+					result.then(process);
+					return;
+				}
 				acc = result.value;
 			}
 			else if (Promise.isThenable(result)) {
 				result.then(process, reject);
 				return;
 			}
-			acc = result;
-			if (Task.getTime(true) <= 0) Promise.resolve(acc).then(process);
+			else acc = result;
+			if (Task.getTime(true) <= 0) {
+				Promise.resolve(acc).then(process);
+				return;
+			}
 		}
 		resolve(acc);
 	}
