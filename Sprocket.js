@@ -597,7 +597,18 @@ return wait;
 
 })();
 
-var asap = function(fn) { return Promise.resolve().then(fn); }
+var asap = function(value) { 
+	if (typeof value === 'function') return Promise.resolve().then(value); // will defer
+	if (Promise.isPromise(value)) {
+		if (value.isPending) return value; // already deferred
+		if (Task.getTime(true) <= 0) return value.then(function(val) { return val; }); // will defer
+		return value; // not-deferred
+	}
+	if (Promise.isThenable(value)) return Promise.resolve(value); // will defer
+	// NOTE otherwise we have a non-thenable, non-function something
+	if (Task.getTime(true) <= 0) return Promise.resolve(value).then(function(val) { return val; }); // will defer
+	return Promise.resolve(value); // not-deferred
+}
 
 function delay(timeout) {
 	return new Promise(function(resolve, reject) {
@@ -620,34 +631,31 @@ return new Promise(function(resolve, reject) {
 	var n = a.length;
 	var i = 0;
 
-	preprocess(accumulator);
+	process(accumulator);
 	return;
 
-	function preprocess(acc) {
-		if (Promise.isPromise(acc)) {
-			if (!acc.isFulfilled) {
+	function process(acc) {
+		while (i < n) {
+			if (Promise.isPromise(acc)) {
+				if (!acc.isFulfilled) { 
+					acc.then(process, reject);
+					return;
+				}
+				/* else */ acc = acc.value;
+			}
+			else if (Promise.isThenable(acc)) {
 				acc.then(process, reject);
 				return;
 			}
-			/* else */ process(acc.value);
+			try {
+				acc = fn.call(context, acc, a[i], i++, a);
+			}
+			catch (error) {
+				reject(error);
+				return;
+			}
 		}
-		else if (Promise.isThenable(acc)) {
-			acc.then(process, reject);
-			return;
-		}
-		/* else */ process(acc);
-	}
-
-	function process(acc) {
-		if (i >= n) resolve(acc);
-		try {
-			acc = fn.call(context, acc, a[i], i++, a);
-		}
-		catch (error) {
-			reject(error);
-			return;
-		}
-		preprocess(acc);
+		resolve(acc);
 	}
 });
 }
