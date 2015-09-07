@@ -654,6 +654,7 @@ return new Promise(function(resolve, reject) {
 				reject(error);
 				return;
 			}
+			if (Task.getTime(true) <= 0) return Promise.resolve(acc).then(process, reject);
 		}
 		resolve(acc);
 	}
