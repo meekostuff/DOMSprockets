@@ -654,7 +654,12 @@ return new Promise(function(resolve, reject) {
 				reject(error);
 				return;
 			}
-			if (Task.getTime(true) <= 0) return Promise.resolve(acc).then(process, reject);
+			if (Task.getTime(true) <= 0) {
+				// Could use Promise.resolve(acc).then(process, reject)
+				// ... but this is considerably quicker
+				Task.asap(function() { process(acc); });
+				return;
+			}
 		}
 		resolve(acc);
 	}
