@@ -83,9 +83,6 @@ var words = function(text) { return text.split(/\s+/); }
 
 var forOwn = function(object, fn, context) {
 	var keys = Object.keys(object);
-	if (typeof object === 'function' && object.hasOwnProperty('prototype') && keys.indexOf('prototype' < 0)) {
-		fn.call(context, object.prototype, 'prototype', object);
-	}
 	for (var i=0, n=keys.length; i<n; i++) {
 		var key = keys[i];
 		fn.call(context, object[key], key, object);
@@ -99,27 +96,17 @@ var isEmpty = function(o) { // NOTE lodash supports arrays and strings too
 
 
 var defaults = function(dest, src) {
-	var keys = Object.keys(src);
-	if (dest.prototype == null && typeof src === 'function' && src.hasOwnProperty('prototype') && keys.indexOf('prototype' < 0)) {
-		dest.prototype = src.prototype;
-	}
-	for (var i=0, n=keys.length; i<n; i++) {
-		var key = keys[i];
-		if (typeof dest[key] !== 'undefined') continue;
-		Object.defineProperty(dest, key, Object.getOwnPropertyDescriptor(src, key));
-	}
+	forOwn(src, function(val, key, object) {
+		if (typeof this[key] !== 'undefined') return;
+		this[key] = object[key];
+	}, dest);
 	return dest;
 }
 
 var assign = function(dest, src) {
-	var keys = Object.keys(src);
-	if (typeof src === 'function' && src.hasOwnProperty('prototype') && keys.indexOf('prototype' < 0)) {
-		dest.prototype = src.prototype;
-	}
-	for (var i=0, n=keys.length; i<n; i++) {
-		var key = keys[i];
-		Object.defineProperty(dest, key, Object.getOwnPropertyDescriptor(src, key));
-	}
+	forOwn(src, function(val, key, object) {
+		this[key] = object[key];
+	}, dest);
 	return dest;
 }
 
@@ -1348,6 +1335,10 @@ function(prototype, object) {
 
 function BindingDefinition(desc) {
 	_.assign(this, desc);
+	if (!this.prototype) {
+		if (desc.prototype) this.prototype = desc.prototype;
+		else this.prototype = null;
+	}
 	if (!this.handlers) this.handlers = [];
 }
 
