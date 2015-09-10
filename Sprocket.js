@@ -654,6 +654,7 @@ return new Promise(function(resolve, reject) {
 			if (currTime <= 0) {
 				// Could use Promise.resolve(acc).then(process, reject)
 				// ... but this is considerably quicker
+				// FIXME ... although with TimeoutPredictor maybe it doesn't matter
 				Task.asap(function() { process(acc); });
 				return;
 			}
