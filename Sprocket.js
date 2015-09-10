@@ -615,27 +615,28 @@ function pipe(startValue, fnList) { // TODO make more efficient with sync intros
 
 function reduce(a, accumulator, fn, context) {
 return new Promise(function(resolve, reject) {
-	var n = a.length;
+	var length = a.length;
 	var i = 0;
-	var timecheckCount = 8;
 
+	var predictor = new TimeoutPredictor(256, 2);
 	process(accumulator);
 	return;
 
 	function process(acc) {
+		var prevTime;
 		var j = 0;
+		var timeoutCount = 1;
 
-		while (i < n) {
-			if (Promise.isPromise(acc)) {
-				if (!acc.isFulfilled) { 
+		while (i < length) {
+			if (Promise.isThenable(acc)) {
+				if (!Promise.isPromise(acc) || !acc.isFulfilled) { 
 					acc.then(process, reject);
+					if (j <= 0 || !prevTime || i >= length) return;
+					var currTime = Task.getTime(true);
+					predictor.update(j, prevTime - currTime);
 					return;
 				}
 				/* else */ acc = acc.value;
-			}
-			else if (Promise.isThenable(acc)) {
-				acc.then(process, reject);
-				return;
 			}
 			try {
 				acc = fn.call(context, acc, a[i], i++, a);
@@ -644,19 +645,66 @@ return new Promise(function(resolve, reject) {
 				reject(error);
 				return;
 			}
-			if (++j < timecheckCount) continue;
-			j = 0;
-			if (Task.getTime(true) <= 0) {
+			if (++j < timeoutCount) continue;
+			if (i >= length) continue; // effectively `break`
+
+			// update timeout counter data
+			var currTime = Task.getTime(true); // NOTE *remaining* time
+			if (prevTime) predictor.update(j, prevTime - currTime); // NOTE based on *remaining* time
+			if (currTime <= 0) {
 				// Could use Promise.resolve(acc).then(process, reject)
 				// ... but this is considerably quicker
 				Task.asap(function() { process(acc); });
 				return;
 			}
+			j = 0;
+			timeoutCount = predictor.getTimeoutCount(currTime);
+			prevTime = currTime;
 		}
 		resolve(acc);
 	}
 });
 }
+
+function TimeoutPredictor(max, mult) { // FIXME test args are valid
+	if (!(this instanceof TimeoutPredictor)) return new TimeoutPredictor(max, mult);
+	var predictor = this;
+	_.assign(predictor, {
+		count: 0,
+		totalTime: 0,
+		currLimit: 1,
+		absLimit: max || 256,
+		multiplier: mult || 2
+	});
+}
+
+_.assign(TimeoutPredictor.prototype, {
+
+update: function(count, delta) {
+	var predictor = this;
+	predictor.count += count;
+	predictor.totalTime += delta;
+},
+
+getTimeoutCount: function(remainingTime) {
+	var predictor = this;
+	if (predictor.count <= 0) return 1;
+	var avgTime = predictor.totalTime / predictor.count;
+	var n = Math.floor( remainingTime / avgTime );
+	if (n <= 0) return 1;
+	if (n < predictor.currLimit) return n;
+	n = predictor.currLimit;
+	if (predictor.currLimit >= predictor.absLimit) return n;
+	predictor.currLimit = predictor.multiplier * predictor.currLimit;
+	if (predictor.currLimit < predictor.absLimit) return n;
+	predictor.currLimit = predictor.absLimit;
+	// FIXME do methods other than reduce() use TimeoutPredictor??
+	logger.debug('Promise.reduce() hit absLimit: ', predictor.absLimit);
+	return n;
+}
+
+
+});
 
 _.defaults(Promise, {
 	asap: asap, delay: delay, wait: wait, pipe: pipe, reduce: reduce
