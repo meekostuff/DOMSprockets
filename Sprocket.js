@@ -139,11 +139,11 @@ var frameExecutionRatio = 0.75; // FIXME another boot-option??
 var frameExecutionTimeout = frameInterval * frameExecutionRatio;
 
 var startTime;
-var performance = window.performance || 
-(Date.now ? Date :
-{
-	now: function() { return (new Date).getTime(); }
-});
+var performance = window.performance && window.performance.now ? window.performance :
+	Date.now ? Date :
+	{
+		now: function() { return (new Date).getTime(); }
+	};
 
 
 var schedule = (function() { 
@@ -617,11 +617,14 @@ function reduce(a, accumulator, fn, context) {
 return new Promise(function(resolve, reject) {
 	var n = a.length;
 	var i = 0;
+	var timecheckCount = 8;
 
 	process(accumulator);
 	return;
 
 	function process(acc) {
+		var j = 0;
+
 		while (i < n) {
 			if (Promise.isPromise(acc)) {
 				if (!acc.isFulfilled) { 
@@ -641,6 +644,8 @@ return new Promise(function(resolve, reject) {
 				reject(error);
 				return;
 			}
+			if (++j < timecheckCount) continue;
+			j = 0;
 			if (Task.getTime(true) <= 0) {
 				// Could use Promise.resolve(acc).then(process, reject)
 				// ... but this is considerably quicker
