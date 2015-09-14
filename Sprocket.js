@@ -39,15 +39,16 @@ if (!Meeko.stuff) Meeko.stuff = (function() {
 var uc = function(str) { return str ? str.toUpperCase() : ''; }
 var lc = function(str) { return str ? str.toLowerCase() : ''; }
 
-var trim = ''.trim ?
+var trim = ''.trim ? // FIXME not needed on supported browsers IE9+, etc
 function(str) { return str.trim(); } :
 function(str) { return str.replace(/^\s+/, '').replace(/\s+$/, ''); }
 
-var contains = function(a, item) {
+var contains = function(a, item) { // TODO Array#includes ??
 	for (var n=a.length, i=0; i<n; i++) if (a[i] === item) return true;
 	return false;
 }
 
+// FIXME Array.from()
 var toArray = function(coll) { var a = []; for (var n=coll.length, i=0; i<n; i++) a[i] = coll[i]; return a; }
 
 var forEach = function(a, fn, context) { for (var n=a.length, i=0; i<n; i++) fn.call(context, a[i], i, a); }
@@ -110,7 +111,7 @@ var assign = function(dest, src) {
 	return dest;
 }
 
-var createObject = Object.create;
+var createObject = Object.create; // FIXME remove
 
 return {
 	uc: uc, lc: lc, trim: trim, words: words, // string
@@ -132,6 +133,8 @@ var Task = Meeko.Task = (function() {
 
 // NOTE Task.asap could use window.setImmediate, except for
 // IE10 CPU contention bugs http://codeforhire.com/2013/09/21/setimmediate-and-messagechannel-broken-on-internet-explorer-10/
+
+// FIXME record Task statistics
 
 var frameRate = 60; // FIXME make this a boot-option??
 var frameInterval = 1000 / frameRate;
@@ -584,7 +587,7 @@ return wait;
 
 })();
 
-var asap = function(value) { 
+var asap = function(value) { // FIXME asap(fn) should execute immediately
 	if (typeof value === 'function') return Promise.resolve().then(value); // will defer
 	if (Promise.isPromise(value)) {
 		if (value.isPending) return value; // already deferred
@@ -597,7 +600,10 @@ var asap = function(value) {
 	return Promise.resolve(value); // not-deferred
 }
 
-function delay(timeout) {
+// FIXME implement Promise.defer(value_or_fn_or_promise)
+
+
+function delay(timeout) { // FIXME delay(value_or_fn_or_promise, timeout)
 	return new Promise(function(resolve, reject) {
 		if (timeout <= 0 || timeout == null) Task.defer(resolve);
 		else Task.delay(resolve, timeout);
@@ -639,14 +645,15 @@ return new Promise(function(resolve, reject) {
 				/* else */ acc = acc.value;
 			}
 			try {
-				acc = fn.call(context, acc, a[i], i++, a);
+				acc = fn.call(context, acc, a[i], i, a);
+				i++; j++;
 			}
 			catch (error) {
 				reject(error);
 				return;
 			}
-			if (++j < timeoutCount) continue;
-			if (i >= length) continue; // effectively `break`
+			if (i >= length) break;
+			if (j < timeoutCount) continue;
 
 			// update timeout counter data
 			var currTime = Task.getTime(true); // NOTE *remaining* time
@@ -722,6 +729,7 @@ return Promise;
 
 var DOM = Meeko.DOM = (function() {
 
+// FIXME *Specificity() aren't used - remove it.
 // WARN getSpecificity is for selectors, **but not** for selector-chains
 var getSpecificity = function(selector) { // NOTE this fn is small but extremely naive (and wrongly counts attrs and pseudo-attrs with element-type)
 	if (selector.indexOf(',') >= 0) throw Error('getSpecificity does not support selectors that contain COMMA (,)');
@@ -748,6 +756,8 @@ var cmpSpecificty = function(s1, s2) { // WARN no sanity checks
 
 // TODO all this node manager stuff assumes that nodes are only released on unload
 // This might need revising
+
+// TODO A node-manager API would be useful elsewhere
 
 var nodeIdProperty = vendorPrefix + 'ID';
 var nodeCount = 0; // used to generated node IDs
@@ -878,11 +888,11 @@ document.documentElement.contains && function(node, otherNode) {
 document.documentElement.compareDocumentPosition && function(node, otherNode) { return (node === otherNode) || !!(node.compareDocumentPosition(otherNode) & 16); } ||
 function(node, otherNode) { throw Error('contains not supported'); };
 
-var addEventListener =
+var addEventListener = // FIXME remove
 document.addEventListener && function(node, type, listener, capture) { return node.addEventListener(type, listener, capture); } ||
 function(node, type, listener, capture) { throw Error('addEventListener not supported'); };
 
-var removeEventListener =
+var removeEventListener = // FIXME remove
 document.removeEventListener && function(node, type, listener, capture) { return node.removeEventListener(type, listener, capture); } ||
 function(node, type, listener, capture) { throw Eror('removeEventListener not supported'); };
 
@@ -924,6 +934,11 @@ return logger;
 var logger = Meeko.logger;
 
 this.Meeko.sprockets = (function() {
+/* FIXME
+	- auto DOM monitoring for node insertion / removal should be a start() option
+	- manual control must allow attached, enteredView, leftView lifecycle management
+	- binding registration must be blocked after sprockets.start()
+*/
 
 var sprockets = {};
 
@@ -2002,7 +2017,8 @@ else if (SUPPORTS_ATTRMODIFIED) {
 }
 else logger.warn('element.visibilitychange event will not be supported');
 
-function triggerVisibilityChangeEvent(target) { // FIXME this should be asynchronous
+// FIXME this should use observers, not events
+function triggerVisibilityChangeEvent(target) {
 	var visibilityState = target.hidden ? 'hidden' : 'visible';
 	sprockets.trigger(target, 'visibilitychange', { bubbles: false, cancelable: false, detail: visibilityState }); // NOTE doesn't bubble to avoid clash with same event on document
 }
