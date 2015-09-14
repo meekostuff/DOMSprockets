@@ -130,7 +130,7 @@ getSelectedItem: function() { // FIXME this only searches the top List, not the 
 selectItem: function(item) {
 
 	var items = this.getItems();
-	if (!_.contains(items, item)) throw "Element doesn't exist in list";
+	if (!_.includes(items, item)) throw "Element doesn't exist in list";
 	var n = items.length;
 	for (var i=0; i<n; i++) {
 		var node = items[i];
@@ -245,7 +245,7 @@ setView: function(item) {
 	
 	var element = this.element;
 	var panels = this.getPanels();
-	if (!_.contains(panels, item)) throw "setView failed: item is not child of SwitchBox";
+	if (!_.includes(panels, item)) throw "setView failed: item is not child of SwitchBox";
 	_.forEach(panels, function(child) {
 		var binding = Panel(child);
 		if (item == child) binding.setHidden(false);

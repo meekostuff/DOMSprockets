@@ -104,7 +104,7 @@ activedescendant: {
 		
 		var element = this.element;
 		var panels = this.ariaGet('owns');
-		if (!_.contains(panels, item)) throw Error('set activedescendant failed: item is not child of SwitchBox');
+		if (!_.includes(panels, item)) throw Error('set activedescendant failed: item is not child of SwitchBox');
 		_.forEach(panels, function(child) {
 			if (child === item) child.ariaToggle('hidden', false);
 			else child.ariaToggle('hidden', true);

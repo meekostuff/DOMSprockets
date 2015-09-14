@@ -41,7 +41,7 @@ if (!Meeko.stuff) Meeko.stuff = (function() {
 var uc = function(str) { return str ? str.toUpperCase() : ''; }
 var lc = function(str) { return str ? str.toLowerCase() : ''; }
 
-var contains = function(a, item) { // TODO Array#includes ??
+var includes = function(a, item) {
 	for (var n=a.length, i=0; i<n; i++) if (a[i] === item) return true;
 	return false;
 }
@@ -113,7 +113,8 @@ var assign = function(dest, src) {
 
 return {
 	uc: uc, lc: lc, words: words, // string
-	contains: contains, forEach: forEach, some: some, every: every, map: map, filter: filter, find: find, // array
+	contains: includes, // FIXME deprecated
+	includes: includes, forEach: forEach, some: some, every: every, map: map, filter: filter, find: find, // array
 	forOwn: forOwn, isEmpty: isEmpty, defaults: defaults, assign: assign, extend: assign // object
 }
 
@@ -971,7 +972,7 @@ leftDocumentCallback: function(element) {
 managedEvents: [],
 
 manageEvent: function(type) {
-	if (_.contains(this.managedEvents, type)) return;
+	if (_.includes(this.managedEvents, type)) return;
 	this.managedEvents.push(type);
 	window.addEventListener(type, function(event) {
 		// NOTE stopPropagation() prevents custom default-handlers from running. DOMSprockets nullifies it.
@@ -1073,7 +1074,7 @@ removeListener: function(fn) {
 	var element = object.element;
 	var type = fn.type;
 	var capture = fn.capture;
-	var target = (element === document.documentElement && _.contains(redirectedWindowEvents, type)) ? window : element; 
+	var target = (element === document.documentElement && _.includes(redirectedWindowEvents, type)) ? window : element; 
 	target.removeEventListener(type, fn, capture);	
 },
 
@@ -1273,13 +1274,13 @@ var matchesEvent = function(handler, event, ignorePhase) {
 	// MouseEvents
 	if (evType in xblMouseEvents) { // FIXME needs testing. Bound to be cross-platform issues still
 		if (handler.button && handler.button.length) {
-			if (!_.contains(handler.button, event.button) == -1) return false;
+			if (!_.includes(handler.button, event.button) == -1) return false;
 		}
 		if (handler.clickCount && handler.clickCount.length) { 
 			var count = 1;
 			// if ('dblclick' == event.type) count = 2;
 			if ('click' == event.type) count = (event.detail) ? event.detail : 1;
-			if (!_.contains(handler.clickCount, count)) return false;
+			if (!_.includes(handler.clickCount, count)) return false;
 		}
 		if (handler.modifiers) {
 			if (!modifiersMatchEvent(handler.modifiers, event)) return false;
@@ -1869,7 +1870,7 @@ hasClass: function(token) {
 	var element = this.element;
 	var text = element.getAttribute('class');
 	if (!text) return false;
-	return _.contains(_.words(text), token);
+	return _.includes(_.words(text), token);
 },
 addClass: function(token) {
 	var element = this.element;
@@ -1878,7 +1879,7 @@ addClass: function(token) {
 		element.setAttribute('class', token);
 		return;
 	}
-	if (_.contains(_.words(text), token)) return;
+	if (_.includes(_.words(text), token)) return;
 	var n = text.length,
 		space = (n && text.charAt(n-1) !== ' ') ? ' ' : '';
 	text += space + token;
