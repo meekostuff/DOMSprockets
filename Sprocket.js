@@ -39,10 +39,6 @@ if (!Meeko.stuff) Meeko.stuff = (function() {
 var uc = function(str) { return str ? str.toUpperCase() : ''; }
 var lc = function(str) { return str ? str.toLowerCase() : ''; }
 
-var trim = ''.trim ? // FIXME not needed on supported browsers IE9+, etc
-function(str) { return str.trim(); } :
-function(str) { return str.replace(/^\s+/, '').replace(/\s+$/, ''); }
-
 var contains = function(a, item) { // TODO Array#includes ??
 	for (var n=a.length, i=0; i<n; i++) if (a[i] === item) return true;
 	return false;
@@ -114,7 +110,7 @@ var assign = function(dest, src) {
 var createObject = Object.create; // FIXME remove
 
 return {
-	uc: uc, lc: lc, trim: trim, words: words, // string
+	uc: uc, lc: lc, words: words, // string
 	contains: contains, toArray: toArray, forEach: forEach, some: some, every: every, map: map, filter: filter, find: find, // array
 	forOwn: forOwn, isEmpty: isEmpty, defaults: defaults, assign: assign, extend: assign, // object
 	create: createObject
