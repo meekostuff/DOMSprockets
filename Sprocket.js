@@ -44,9 +44,6 @@ var contains = function(a, item) { // TODO Array#includes ??
 	return false;
 }
 
-// FIXME Array.from()
-var toArray = function(coll) { var a = []; for (var n=coll.length, i=0; i<n; i++) a[i] = coll[i]; return a; }
-
 var forEach = function(a, fn, context) { for (var n=a.length, i=0; i<n; i++) fn.call(context, a[i], i, a); }
 
 var some = function(a, fn, context) { for (var n=a.length, i=0; i<n; i++) { if (fn.call(context, a[i], i, a)) return true; } return false; }
@@ -55,7 +52,12 @@ var every = function(a, fn, context) { for (var n=a.length, i=0; i<n; i++) { if 
 
 var map = function(a, fn, context) {
 	var output = [];
-	for (var n=a.length, i=0; i<n; i++) output[i] = fn.call(context, a[i], i, a);
+	for (var n=a.length, i=0; i<n; i++) {
+		var value = a[i];
+		output[i] = fn ? 
+			fn.call(context, value, i, a) :
+			value;
+	}
 	return output;
 }
 
@@ -109,7 +111,7 @@ var assign = function(dest, src) {
 
 return {
 	uc: uc, lc: lc, words: words, // string
-	contains: contains, toArray: toArray, forEach: forEach, some: some, every: every, map: map, filter: filter, find: find, // array
+	contains: contains, forEach: forEach, some: some, every: every, map: map, filter: filter, find: find, // array
 	forOwn: forOwn, isEmpty: isEmpty, defaults: defaults, assign: assign, extend: assign // object
 }
 
@@ -855,7 +857,7 @@ function(selector, node, scope) {
 		if (!scope.nodeType) scope = node; // `true` but not the scope element
 		selector = absolutizeSelector(selector, scope);
 	}
-	return _.toArray(node.querySelectorAll(selector));
+	return _.map(node.querySelectorAll(selector));
 } :
 function() { throw Error('findAll() not supported'); };
 
