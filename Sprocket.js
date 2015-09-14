@@ -1374,7 +1374,7 @@ function BindingRule(selector, bindingDefn) {
 
 var bindingRules = sprockets.rules = [];
 
-function applyRuleToEnteredElement(rule, element, callback) { // FIXME compare current and new CSS specifities
+function applyRuleToEnteredElement(rule, element, callback) {
 	var binding = Binding.getInterface(element);
 	if (binding && binding.definition !== rule.definition) {
 		logger.warn('Binding rule applied when binding already present');
@@ -1391,23 +1391,20 @@ function applyRuleToEnteredTree(rule, root, callback) {
 	_.forEach(DOM.findAll(rule.selector, root), function(el) { applyRuleToEnteredElement(rule, el, callback); });
 }
 
+
+var started = false;
+
 _.assign(sprockets, {
 
 registerElement: function(tagName, defn) { // FIXME test tagName
+	if (started) throw Error('sprockets management already started');
 	if (defn.rules) logger.warn('registerElement() does not support rules. Try registerComposite()');
 	var bindingDefn = new BindingDefinition(defn);
 	var selector = tagName + ', [is=' + tagName + ']'; // TODO why should @is be supported??
 	var rule = new BindingRule(selector, bindingDefn);
 	bindingRules.push(rule);
 	return rule;
-}
-
-});
-
-
-var started = false;
-
-_.assign(sprockets, {
+},
 
 start: function() { // FIXME find a way to allow progressive binding application
 	if (started) throw Error('sprockets management has already started');
@@ -1526,6 +1523,7 @@ var SprocketDefinition = function(prototype) {
 	constructor.prototype = prototype;
 	return constructor;
 }
+
 
 _.assign(sprockets, {
 
