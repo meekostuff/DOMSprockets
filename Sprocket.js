@@ -888,20 +888,11 @@ document.documentElement.contains && function(node, otherNode) {
 document.documentElement.compareDocumentPosition && function(node, otherNode) { return (node === otherNode) || !!(node.compareDocumentPosition(otherNode) & 16); } ||
 function(node, otherNode) { throw Error('contains not supported'); };
 
-var addEventListener = // FIXME remove
-document.addEventListener && function(node, type, listener, capture) { return node.addEventListener(type, listener, capture); } ||
-function(node, type, listener, capture) { throw Error('addEventListener not supported'); };
-
-var removeEventListener = // FIXME remove
-document.removeEventListener && function(node, type, listener, capture) { return node.removeEventListener(type, listener, capture); } ||
-function(node, type, listener, capture) { throw Eror('removeEventListener not supported'); };
-
 return {
 	getSpecificity: getSpecificity, cmpSpecificty: cmpSpecificty,
 	uniqueId: uniqueId, setData: setData, getData: getData, hasData: hasData, // FIXME releaseNodes
 	findId: findId, find: find, findAll: findAll, matches: matches, closest: closest,
-	contains: contains,
-	addEventListener: addEventListener, removeEventListener: removeEventListener
+	contains: contains
 }
 
 })();
@@ -1083,7 +1074,7 @@ addHandler: function(handler) {
 	}
 	fn.type = type;
 	fn.capture = capture;
-	DOM.addEventListener(element, type, fn, capture);
+	element.addEventListener(type, fn, capture);
 	return fn;
 },
 
@@ -1094,7 +1085,7 @@ removeListener: function(fn) {
 	var type = fn.type;
 	var capture = fn.capture;
 	var target = (element === document.documentElement && _.contains(redirectedWindowEvents, type)) ? window : element; 
-	DOM.removeEventListener(target, type, fn, capture);	
+	target.removeEventListener(type, fn, capture);	
 },
 
 });
