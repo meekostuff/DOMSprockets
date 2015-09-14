@@ -9,6 +9,8 @@ Requires some features not implemented on older browsers:
 element.matchesSelector (or prefixed equivalent) - IE9+
 element.querySelectorAll - IE8+
 element.addEventListener - IE9+
+element.dispatchEvent - IE9+
+Object.create - IE9+
 */
 
 /* FIXME
@@ -247,11 +249,10 @@ function postError(error) {
 	errorQueue.push(error);
 }
 
-var throwErrors = (function() { // TODO maybe it isn't worth isolating on platforms that don't have dispatchEvent()
+var throwErrors = (function() {
 
 var evType = vendorPrefix + '-error';
-var throwErrors = (window.dispatchEvent) ?
-function() {
+function throwErrors() {
 	var handlers = createThrowers(errorQueue);
 	_.forEach(handlers, function(handler) {
 		window.addEventListener(evType, handler, false);
@@ -261,13 +262,6 @@ function() {
 	window.dispatchEvent(e);
 	_.forEach(handlers, function(handler) {
 		window.removeEventListener(evType, handler, false);
-	});
-	errorQueue = [];
-} :
-function() { // FIXME shouldn't need this
-	var handlers = createThrowers(errorQueue);
-	_.forEach(handlers, function(handler) {
-		setTimeout(handler);
 	});
 	errorQueue = [];
 }
