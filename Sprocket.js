@@ -107,13 +107,10 @@ var assign = function(dest, src) {
 	return dest;
 }
 
-var createObject = Object.create; // FIXME remove
-
 return {
 	uc: uc, lc: lc, words: words, // string
 	contains: contains, toArray: toArray, forEach: forEach, some: some, every: every, map: map, filter: filter, find: find, // array
-	forOwn: forOwn, isEmpty: isEmpty, defaults: defaults, assign: assign, extend: assign, // object
-	create: createObject
+	forOwn: forOwn, isEmpty: isEmpty, defaults: defaults, assign: assign, extend: assign // object
 }
 
 })();
@@ -951,7 +948,7 @@ function detachBinding(definition, element) {
 var Binding = function(definition) {
 	var binding = this;
 	binding.definition = definition;
-	binding.object = _.create(definition.prototype);
+	binding.object = Object.create(definition.prototype);
 	binding.listeners = [];
 	binding.inDocument = null; // TODO state assertions in attach/onenter/leftDocumentCallback/detach
 }
@@ -1642,12 +1639,12 @@ registerComponent: function(tagName, sprocket, extras) {
 },
 
 evolve: function(base, properties) {
-	var prototype = _.create(base.prototype);
+	var prototype = Object.create(base.prototype);
 	var sub = new SprocketDefinition(prototype);
 	var baseProperties = base.prototype.__properties__ || {};
 	var subProperties = prototype.__properties__ = {};
 	_.forOwn(baseProperties, function(desc, name) {
-		subProperties[name] = _.create(desc);
+		subProperties[name] = Object.create(desc);
 	});
 	if (properties) sprockets.defineProperties(sub, properties);
 	return sub;
