@@ -272,7 +272,7 @@ function createThrowers(list) {
 		return function() {
 			if (logger.LOG_LEVEL >= logger.levels.indexOf('debug')) {
 				if (error && error.stack) logger.error(error.stack);
-				else logger.error('Untraceable error: ' + error); // FIXME why
+				else logger.error('Untraceable error: ' + error); // FIXME why are these occuring??
 			}
 			throw error;
 		};
@@ -1406,7 +1406,7 @@ registerElement: function(tagName, defn) { // FIXME test tagName
 	return rule;
 },
 
-start: function() { // FIXME find a way to allow progressive binding application
+start: function() {
 	if (started) throw Error('sprockets management has already started');
 	started = true;
 	this.nodeInserted(document.documentElement);
@@ -1973,7 +1973,7 @@ else logger.warn('element.visibilitychange event will not be supported');
 // FIXME this should use observers, not events
 function triggerVisibilityChangeEvent(target) {
 	var visibilityState = target.hidden ? 'hidden' : 'visible';
-	sprockets.trigger(target, 'visibilitychange', { bubbles: false, cancelable: false, detail: visibilityState }); // NOTE doesn't bubble to avoid clash with same event on document
+	sprockets.trigger(target, 'visibilitychange', { bubbles: false, cancelable: false, detail: visibilityState }); // NOTE doesn't bubble to avoid clash with same event on document (and also performance)
 }
 
 })();
