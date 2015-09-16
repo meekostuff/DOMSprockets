@@ -137,6 +137,39 @@ return {
 var _ = window._ || Meeko.stuff; // WARN this could potentially use underscore.js / lodash.js but HAS NOT BEEN TESTED!!!
 
 /*
+ ### Logger (minimal implementation - can be over-ridden)
+ */
+if (!Meeko.logger) Meeko.logger = (function() {
+
+var logger = {};
+
+var levels = logger.levels = _.words('none error warn info debug');
+
+_.forEach(levels, function(name, num) {
+	
+levels[name] = num;
+logger[name] = window.console ?
+	console[name] ? 
+		console[name].apply ?
+			function() { if (num <= logger.LOG_LEVEL) console[name].apply(console, arguments); } :
+			function(arg0) { if (num <= logger.LOG_LEVEL) console[name](arg0); } // IE9
+
+		: function(text) { console.log(text); }
+	: function() {}; 
+
+}, this);
+
+logger.LOG_LEVEL = levels[defaultOptions['log_level']]; // DEFAULT
+
+return logger;
+
+})(); // end logger definition
+
+var logger = Meeko.logger;
+
+
+
+/*
  ### Task queuing and isolation
 	TODO Only intended for use by Promise. Should this be externally available?
  */
@@ -979,32 +1012,6 @@ return {
 
 })();
 
-
-/*
- ### Logger (minimal implementation - can be over-ridden)
- */
-if (!Meeko.logger) Meeko.logger = (function() {
-
-var logger = {};
-
-var levels = logger.levels = _.words('none error warn info debug');
-
-_.forEach(levels, function(name, num) {
-	
-levels[name] = num;
-logger[name] = !window.console && function() {} ||
-	console[name] && function() { if (num <= logger.LOG_LEVEL) console[name].apply(console, arguments); } ||
-	function() { if (num <= logger.LOG_LEVEL) console.log.apply(console, arguments); }
-
-}, this);
-
-logger.LOG_LEVEL = levels[defaultOptions['log_level']]; // DEFAULT
-
-return logger;
-
-})(); // end logger definition
-
-var logger = Meeko.logger;
 
 this.Meeko.sprockets = (function() {
 /* FIXME
