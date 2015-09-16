@@ -640,7 +640,7 @@ var asap = function(value) { // FIXME asap(fn) should execute immediately
 // FIXME implement Promise.defer(value_or_fn_or_promise)
 
 
-function delay(timeout) { // FIXME delay(value_or_fn_or_promise, timeout)
+function delay(timeout) { // FIXME delay(timeout, value_or_fn_or_promise)
 	return new Promise(function(resolve, reject) {
 		if (timeout <= 0 || timeout == null) Task.defer(resolve);
 		else Task.delay(resolve, timeout);
@@ -1616,6 +1616,7 @@ function findAllBindees(root, bExcludeRoot) {
 }
 
 var started = false;
+var manualDOM = false;
 
 _.assign(sprockets, {
 
@@ -1629,14 +1630,45 @@ registerElement: function(tagName, defn) { // FIXME test tagName
 	return rule;
 },
 
-start: function() {
+start: function(options) {
 	if (started) throw Error('sprockets management has already started');
 	started = true;
-	this.nodeInserted(document.body);
-	observe();
+	if (options && options.manual) manualDOM = true;
+	nodeInserted(document.body);
+	if (!manualDOM) observe(nodeInserted, nodeRemoved);
 },
 
-nodeInserted: function(node) { // NOTE called AFTER node inserted into document
+insertNode: function(conf, refNode, node) {
+	if (!started) throw Error('sprockets management has not started yet');
+	if (!manualDOM) throw Error('Must not use sprockets.insertNode: auto DOM monitoring');
+	var doc = refNode.ownerDocument;
+	if (doc !== document || !DOM.contains(document, refNode)) throw Error('sprockets.insertNode must insert into `document`');
+	if (doc.adoptNode) node = doc.adoptNode(node); // Safari 5 was throwing because imported nodes had been added to a document node
+	switch(conf) {
+	case 'beforebegin': refNode.parentNode.insertBefore(node, refNode); break;
+	case 'afterend': refNode.parentNode.insertBefore(node, refNode.nextSibling); break;
+	case 'afterbegin': refNode.insertBefore(node, refNode.firstChild); break;
+	case 'beforeend': refNode.appendChild(node); break;
+	default: throw Error('Unsupported configuration in sprockets.insertNode: ' + conf);
+	// TODO maybe case 'replace' which will call sprockets.removeNode() first
+	}
+	nodeInserted(node);
+	return node;
+},
+
+removeNode: function(node) {
+	if (!started) throw Error('sprockets management has not started yet');
+	if (!manualDOM) throw Error('Must not use sprockets.insertNode: auto DOM monitoring');
+	var doc = node.ownerDocument;
+	if (doc !== document || !DOM.contains(document, node)) throw Error('sprockets.removeNode must remove from `document`');
+	node.parentNode.removeChild(node);
+	return node;
+}
+
+
+});
+
+var nodeInserted = function(node) { // NOTE called AFTER node inserted into document
 	if (!started) throw Error('sprockets management has not started yet');
 	if (node.nodeType !== 1) return;
 
@@ -1692,9 +1724,9 @@ nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 		return rules;
 	}
 	
-},
+}
 
-nodeRemoved: function(node) { // NOTE called AFTER node removed document
+var nodeRemoved = function(node) { // NOTE called AFTER node removed document
 	if (!started) throw Error('sprockets management has not started yet');
 	if (node.nodeType !== 1) return;
 
@@ -1704,38 +1736,36 @@ nodeRemoved: function(node) { // NOTE called AFTER node removed document
 	_.forEach(DOM.findAll('*', node), Binding.leftDocumentCallback);
 }
 
-});
-
 // FIXME this auto DOM Monitoring could have horrible performance for DOM sorting operations
 // It would be nice to have a list of moved nodes that could potentially be ignored
 var observe = (window.MutationObserver) ?
-function() {
+function(onInserted, onRemoved) {
 	var observer = new MutationObserver(function(mutations, observer) {
 		if (!started) return;
 		_.forEach(mutations, function(record) {
 			if (record.type !== 'childList') return;
-			_.forEach(record.addedNodes, sprockets.nodeInserted, sprockets);
-			_.forEach(record.removedNodes, sprockets.nodeRemoved, sprockets);
+			_.forEach(record.addedNodes, onInserted, sprockets);
+			_.forEach(record.removedNodes, onRemoved, sprockets);
 		});
 	});
 	observer.observe(document.body, { childList: true, subtree: true });
 	
 	// FIXME when to call observer.disconnect() ??
 } :
-function() { // otherwise assume MutationEvents. TODO is this assumption safe?
+function(onInserted, onRemoved) { // otherwise assume MutationEvents. TODO is this assumption safe?
 	document.body.addEventListener('DOMNodeInserted', function(e) {
 		e.stopPropagation();
 		if (!started) return;
  		// NOTE IE sends event for every descendant of the inserted node
 		if (e.target.parentNode !== e.relatedNode) return;
-		Task.asap(function() { sprockets.nodeInserted(e.target); });
+		Task.asap(function() { onInserted(e.target); });
 	}, true);
 	document.body.addEventListener('DOMNodeRemoved', function(e) {
 		e.stopPropagation();
 		if (!started) return;
  		// NOTE IE sends event for every descendant of the inserted node
 		if (e.target.parentNode !== e.relatedNode) return;
-		Task.asap(function() { sprockets.nodeRemoved(e.target); });
+		Task.asap(function() { onRemoved(e.target); });
 		// FIXME
 	}, true);
 };
