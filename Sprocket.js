@@ -812,6 +812,9 @@ var releaseNodes = function(callback, context) { // FIXME this is never called
 	nodeTable.length = 0;
 }
 
+var getTagName = function(el) {
+	return el && el.nodeType === 1 ? _.lc(el.tagName) : '';
+}
 
 var matchesSelector;
 _.some(_.words('moz webkit ms o'), function(prefix) {
@@ -889,6 +892,37 @@ function(selector, node, scope) {
 	return node.querySelector(selector);
 } :
 function() { throw Error('find() not supported'); };
+
+var siblings = function(conf, refNode, conf2, refNode2) {
+	
+	conf = _.lc(conf);
+	if (conf2) {
+		conf2 = _.lc(conf2);
+		if (conf === 'ending' || conf === 'before') throw Error('siblings() startNode looks like stopNode');
+		if (conf2 === 'starting' || conf2 === 'after') throw Error('siblings() stopNode looks like startNode');
+		if (!refNode2 || refNode2.parentNode !== refNode.parentNode) throw Error('siblings() startNode and stopNode are not siblings');
+	}
+	
+	var nodeList = [];
+	if (!refNode || !refNode.parentNode) return nodeList;
+	var node, stopNode, first = refNode.parentNode.firstChild;
+
+	switch (conf) {
+	case 'starting': node = refNode; break;
+	case 'after': node = refNode.nextSibling; break;
+	case 'ending': node = first; stopNode = refNode.nextSibling; break;
+	case 'before': node = first; stopNode = refNode; break;
+	default: throw Error(conf + ' is not a valid configuration in siblings()');
+	}
+	if (conf2) switch (conf2) {
+	case 'ending': stopNode = refNode2.nextSibling; break;
+	case 'before': stopNode = refNode2; break;
+	}
+	
+	if (!node) return nodeList; // FIXME is this an error??
+	for (;node && node!==stopNode; node=node.nextSibling) nodeList.push(node);
+	return nodeList;
+}
 
 var contains = // WARN `contains()` means contains-or-isSameNode
 document.documentElement.contains && function(node, otherNode) {
@@ -1000,14 +1034,29 @@ function whenVisible(element) { // FIXME this quite possibly causes leaks if clo
 	});
 }
 
+var insertNode = function(conf, refNode, node) { // like imsertAdjacentHTML but with a node and auto-adoption
+	var doc = refNode.ownerDocument;
+	if (doc.adoptNode) node = doc.adoptNode(node); // Safari 5 was throwing because imported nodes had been added to a document node
+	switch(conf) {
+	case 'beforebegin': refNode.parentNode.insertBefore(node, refNode); break;
+	case 'afterend': refNode.parentNode.insertBefore(node, refNode.nextSibling); break;
+	case 'afterbegin': refNode.insertBefore(node, refNode.firstChild); break;
+	case 'beforeend': refNode.appendChild(node); break;
+	case 'replace': refNode.parentNode.replaceChild(node, refNode);
+	}
+	return refNode;
+}
+
 
 return {
 	uniqueId: uniqueId, setData: setData, getData: getData, hasData: hasData, // FIXME releaseNodes
-	findId: findId, find: find, findAll: findAll, matches: matches, closest: closest,
-	contains: contains,
+	getTagName: getTagName,
+	contains: contains, matches: matches,
+	findId: findId, find: find, findAll: findAll, closest: closest, siblings: siblings,
 	SUPPORTS_ATTRMODIFIED: SUPPORTS_ATTRMODIFIED, 
 	dispatchEvent: dispatchEvent,
-	isVisible: isVisible, whenVisible: whenVisible
+	isVisible: isVisible, whenVisible: whenVisible,
+	insertNode: insertNode
 }
 
 })();
