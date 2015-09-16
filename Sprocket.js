@@ -41,6 +41,20 @@ if (!Meeko.stuff) Meeko.stuff = (function() {
 var uc = function(str) { return str ? str.toUpperCase() : ''; }
 var lc = function(str) { return str ? str.toLowerCase() : ''; }
 
+function ucFirst(str) {
+	return str ? str.charAt(0).toUpperCase() + str.substr(1) : '';
+}
+function camelCase(str) {
+	return str ?
+		_.map(str.split('-'), function(part, i) { return i === 0 ? part :
+		ucFirst(part); }).join('') : ''; 
+}
+function kebabCase(str) {
+	return str ?
+	_.map(str.split(/(?=[A-Z])/), function(part, i) { return i === 0 ? part :
+	_.lc(part); }).join('-') : '';
+}
+
 var includes = function(a, item) {
 	for (var n=a.length, i=0; i<n; i++) if (a[i] === item) return true;
 	return false;
@@ -112,7 +126,7 @@ var assign = function(dest, src) {
 }
 
 return {
-	uc: uc, lc: lc, words: words, // string
+	uc: uc, lc: lc, ucFirst: ucFirst, camelCase: camelCase, kebabCase: kebabCase, words: words, // string
 	contains: includes, // FIXME deprecated
 	includes: includes, forEach: forEach, some: some, every: every, map: map, filter: filter, find: find, // array
 	forOwn: forOwn, isEmpty: isEmpty, defaults: defaults, assign: assign, extend: assign // object
@@ -853,10 +867,114 @@ document.documentElement.contains && function(node, otherNode) {
 document.documentElement.compareDocumentPosition && function(node, otherNode) { return (node === otherNode) || !!(node.compareDocumentPosition(otherNode) & 16); } ||
 function(node, otherNode) { throw Error('contains not supported'); };
 
+function dispatchEvent(target, type, params) { // NOTE every JS initiated event is a custom-event
+	if (typeof type === 'object') {
+		params = type;
+		type = params.type;
+	}
+	var bubbles = 'bubbles' in params ? !!params.bubbles : true;
+	var cancelable = 'cancelable' in params ? !!params.cancelable : true;
+	if (typeof type !== 'string') throw Error('trigger() called with invalid event type');
+	var detail = params && params.detail;
+	var event = document.createEvent('CustomEvent');
+	event.initCustomEvent(type, bubbles, cancelable, detail);
+	if (params) _.defaults(event, params);
+	return target.dispatchEvent(event);
+}
+
+
+var SUPPORTS_ATTRMODIFIED = (function() {
+	var supported = false;
+	var div = document.createElement('div');
+	div.addEventListener('DOMAttrModified', function(e) { supported = true; }, false);
+	div.setAttribute('hidden', '');
+	return supported;
+})();
+
+// DOM node visibilitychange implementation and monitoring
+if (!('hidden' in document.documentElement)) { // implement 'hidden' for older browsers
+
+	var head = document.head;
+	// NOTE on <=IE8 this needs a styleSheet work-around
+	var style = document.createElement('style');
+	
+	var cssText = '*[hidden] { display: none; }\n';
+	style.textContent = cssText;
+	
+	head.insertBefore(style, head.firstChild);
+
+	Object.defineProperty(Element.prototype, 'hidden', {
+		get: function() { return this.hasAttribute('hidden'); },
+		set: function(value) {
+			if (!!value) this.setAttribute('hidden', '');
+			else this.removeAttribute('hidden');
+			
+			// IE9 has a reflow bug. The following forces a reflow. FIXME can we stop suporting IE9
+			var elementDisplayStyle = this.style.display;
+			var computedDisplayStyle = window.getComputedStyle(this, null);
+			this.style.display = computedDisplayStyle;
+			this.style.display = elementDisplayStyle;
+		}
+	});
+}
+
+if (window.MutationObserver) {
+
+	var observer = new MutationObserver(function(mutations, observer) {
+		_.forEach(mutations, function(entry) {
+			triggerVisibilityChangeEvent(entry.target);
+		});
+	});
+	observer.observe(document, { attributes: true, attributeFilter: ['hidden'], subtree: true });
+	
+}
+else if (SUPPORTS_ATTRMODIFIED) {
+	
+	document.addEventListener('DOMAttrModified', function(e) {
+		e.stopPropagation();
+		if (e.attrName !== 'hidden') return;
+		triggerVisibilityChangeEvent(e.target);
+	}, true);
+	
+}
+else logger.warn('element.visibilitychange event will not be supported');
+
+// FIXME this should use observers, not events
+function triggerVisibilityChangeEvent(target) {
+	var visibilityState = target.hidden ? 'hidden' : 'visible';
+	DOM.dispatchEvent(target, 'visibilitychange', { bubbles: false, cancelable: false, detail: visibilityState }); // NOTE doesn't bubble to avoid clash with same event on document (and also performance)
+}
+
+function isVisible(element) {
+	var closestHidden = DOM.closest(element, '[hidden]');
+	return (!closestHidden);
+}
+
+
+function whenVisible(element) { // FIXME this quite possibly causes leaks if closestHidden is removed from document before removeEventListener
+	return new Promise(function(resolve, reject) {	
+		var closestHidden = DOM.closest(element, '[hidden]');
+		if (!closestHidden) {
+			resolve();
+			return;
+		}
+		var listener = function(e) {
+			if (e.target.hidden) return;
+			closestHidden.removeEventListener('visibilitychange', listener, false);
+			whenVisible(element).then(resolve);
+		}
+		closestHidden.addEventListener('visibilitychange', listener, false);
+	});
+}
+
+
 return {
 	uniqueId: uniqueId, setData: setData, getData: getData, hasData: hasData, // FIXME releaseNodes
 	findId: findId, find: find, findAll: findAll, matches: matches, closest: closest,
-	contains: contains
+	contains: contains,
+	SUPPORTS_ATTRMODIFIED: SUPPORTS_ATTRMODIFIED, 
+	dispatchEvent: dispatchEvent,
+	isVisible: isVisible, whenVisible: whenVisible
 }
 
 })();
@@ -1791,22 +1909,6 @@ function createCompositeWalker(root, skipRoot) {
 	}
 }
 
-sprockets.trigger = function(target, type, params) { // NOTE every JS initiated event is a custom-event
-	if (typeof type === 'object') {
-		params = type;
-		type = params.type;
-	}
-	var bubbles = 'bubbles' in params ? !!params.bubbles : true;
-	var cancelable = 'cancelable' in params ? !!params.cancelable : true;
-	if (typeof type !== 'string') throw Error('trigger() called with invalid event type');
-	var detail = params && params.detail;
-	var event = document.createEvent('CustomEvent');
-	event.initCustomEvent(type, bubbles, cancelable, detail);
-	if (params) _.defaults(event, params);
-	return target.dispatchEvent(event);
-}
-
-
 var basePrototype = {};
 sprockets.Base = new SprocketDefinition(basePrototype); // NOTE now we can extend basePrototype
 
@@ -1895,16 +1997,11 @@ css: function(name, value) {
 },
 
 trigger: function(type, params) {
-	return sprockets.trigger(this.element, type, params);
+	return DOM.dispatchEvent(this.element, type, params);
 }
 
 
 });
-
-function ucFirst(str) { return str ? str.charAt(0).toUpperCase() + str.substr(1) : ''; }
-function camelCase(str) { return str ? _.map(str.split('-'), function(part, i) { return i === 0 ? part : ucFirst(part); }).join('') : ''; }
-function kebabCase(str) { return str ? _.map(str.split(/(?=[A-Z])/), function(part, i) { return i === 0 ? part : _.lc(part); }).join('-') : ''; }
-
 
 // Element.prototype.hidden and visibilitychange event
 var Element = window.Element || window.HTMLElement;
@@ -1912,69 +2009,6 @@ var Element = window.Element || window.HTMLElement;
 Object.defineProperty(Element.prototype, '$', {
 	get: function() { return sprockets.getInterface(this); }
 });
-
-
-if (!('hidden' in document.documentElement)) {
-
-	var head = document.head;
-	// NOTE on <=IE8 this needs a styleSheet work-around
-	var style = document.createElement('style');
-	
-	var cssText = '*[hidden] { display: none; }\n';
-	style.textContent = cssText;
-	
-	head.insertBefore(style, head.firstChild);
-
-	Object.defineProperty(Element.prototype, 'hidden', {
-		get: function() { return this.hasAttribute('hidden'); },
-		set: function(value) {
-			if (!!value) this.setAttribute('hidden', '');
-			else this.removeAttribute('hidden');
-			
-			// IE9 has a reflow bug. The following forces a reflow. TODO surely there's another work-around??
-			var elementDisplayStyle = this.style.display;
-			var computedDisplayStyle = window.getComputedStyle(this, null);
-			this.style.display = computedDisplayStyle;
-			this.style.display = elementDisplayStyle;
-		}
-	});
-
-}
-
-var SUPPORTS_ATTRMODIFIED = (function() {
-	var supported = false;
-	var div = document.createElement('div');
-	div.addEventListener('DOMAttrModified', function(e) { supported = true; }, false);
-	div.setAttribute('hidden', '');
-	return supported;
-})();
-
-if (window.MutationObserver) {
-
-	var observer = new MutationObserver(function(mutations, observer) {
-		_.forEach(mutations, function(entry) {
-			triggerVisibilityChangeEvent(entry.target);
-		});
-	});
-	observer.observe(document, { attributes: true, attributeFilter: ['hidden'], subtree: true });
-	
-}
-else if (SUPPORTS_ATTRMODIFIED) {
-	
-	document.addEventListener('DOMAttrModified', function(e) {
-		e.stopPropagation();
-		if (e.attrName !== 'hidden') return;
-		triggerVisibilityChangeEvent(e.target);
-	}, true);
-	
-}
-else logger.warn('element.visibilitychange event will not be supported');
-
-// FIXME this should use observers, not events
-function triggerVisibilityChangeEvent(target) {
-	var visibilityState = target.hidden ? 'hidden' : 'visible';
-	sprockets.trigger(target, 'visibilitychange', { bubbles: false, cancelable: false, detail: visibilityState }); // NOTE doesn't bubble to avoid clash with same event on document (and also performance)
-}
 
 })();
 
