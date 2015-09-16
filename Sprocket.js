@@ -152,9 +152,9 @@ logger[name] = window.console ?
 	console[name] ? 
 		console[name].apply ?
 			function() { if (num <= logger.LOG_LEVEL) console[name].apply(console, arguments); } :
-			function(arg0) { if (num <= logger.LOG_LEVEL) console[name](arg0); } // IE9
+			function() { if (num <= logger.LOG_LEVEL) console[name](arguments.join(' ')); } // IE9
 
-		: function(text) { console.log(text); }
+		: function() { console.log(arguments.join(' ')); }
 	: function() {}; 
 
 }, this);
