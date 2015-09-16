@@ -152,9 +152,9 @@ logger[name] = window.console ?
 	console[name] ? 
 		console[name].apply ?
 			function() { if (num <= logger.LOG_LEVEL) console[name].apply(console, arguments); } :
-			function() { if (num <= logger.LOG_LEVEL) console[name](arguments.join(' ')); } // IE9
+			function() { if (num <= logger.LOG_LEVEL) console[name](_.map(arguments).join(' ')); } // IE9
 
-		: function() { console.log(arguments.join(' ')); }
+		: function() { console.log(_.map(arguments).join(' ')); }
 	: function() {}; 
 
 }, this);
@@ -1025,16 +1025,30 @@ var sprockets = {};
 var activeListeners = {};
 
 function attachBinding(definition, element) {
-	var binding = new Binding(definition);
+	var binding;
+	if (DOM.hasData(element)) {
+		binding = DOM.getData(element);
+		if (binding.definition !== rule.definition) throw Error('Mismatch between definition and binding already present');
+		logger.warn('Binding definition applied when binding already present');
+		return binding;
+	}
+	binding = new Binding(definition);
 	DOM.setData(element, binding);
 	binding.attach(element);
 	return binding;
 }
 
-function detachBinding(definition, element) {
+function enableBinding(element) {
 	if (!DOM.hasData(element)) throw Error('No binding attached to element');
 	var binding = DOM.getData(element);
-	if (definition !== binding.definition) throw Error('Mismatch between binding and the definition');
+	if (!binding.inDocument) binding.enteredDocumentCallback();
+}
+
+// TODO disableBinding() ??
+
+function detachBinding(element) {
+	if (!DOM.hasData(element)) throw Error('No binding attached to element');
+	var binding = DOM.getData(element);
 	if (binding.inDocument) binding.leftDocumentCallback();
 	binding.detach();
 	DOM.setData(element, null);
@@ -1499,23 +1513,13 @@ function BindingRule(selector, bindingDefn) {
 
 var bindingRules = sprockets.rules = [];
 
-function applyRuleToEnteredElement(rule, element, callback) {
-	var binding = Binding.getInterface(element);
-	if (binding && binding.definition !== rule.definition) {
-		logger.warn('Binding rule applied when binding already present');
-		return;
-	}
-	if (!binding) binding = attachBinding(rule.definition, element);
-	if (!binding.inDocument) binding.enteredDocumentCallback();
-	if (callback) callback(rule, element);
+function findAllBindees(root, bExcludeRoot) {
+	var selector = _.map(bindingRules, function(rule) { return rule.selector; })
+		.join(', ');
+	var result = DOM.findAll(selector, root);
+	if (!bExcludeRoot && DOM.matches(root, selector)) result.unshift(root);
+	return result;
 }
-
-function applyRuleToEnteredTree(rule, root, callback) {
-	if (!root || root === document) root = document.documentElement;
-	if (DOM.matches(root, rule.selector)) applyRuleToEnteredElement(rule, root, callback);
-	_.forEach(DOM.findAll(rule.selector, root), function(el) { applyRuleToEnteredElement(rule, el, callback); });
-}
-
 
 var started = false;
 
@@ -1534,7 +1538,7 @@ registerElement: function(tagName, defn) { // FIXME test tagName
 start: function() {
 	if (started) throw Error('sprockets management has already started');
 	started = true;
-	this.nodeInserted(document.documentElement);
+	this.nodeInserted(document.body);
 	observe();
 },
 
@@ -1542,10 +1546,21 @@ nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 	if (!started) throw Error('sprockets management has not started yet');
 	if (node.nodeType !== 1) return;
 
+	var bindees = findAllBindees(node);
 	var composites = [];
-	_.forEach(bindingRules, function(rule) {
-		applyRuleToEnteredTree(rule, node, componentCallback);
+	_.forEach(bindees, function(el) {
+		_.some(bindingRules, function(rule) {
+			if (!DOM.matches(el, rule.selector)) return false;
+			var binding = attachBinding(rule.definition, el);
+			if (binding && binding.rules) composites.push(el);
+			return true;
+		});
 	});
+
+	_.forEach(bindees, function(el) {
+		enableBinding(el);
+	});
+
 
 	var composite = sprockets.getComposite(node);
 	if (composite) applyCompositedRules(node, composite);
@@ -1554,17 +1569,6 @@ nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 	
 	return;
 		
-	function enteredComponentCallback(rule, el) {
-		var binding = DOM.getData(rule.composite);
-		rule.callback.call(binding.object, el);
-	}
-
-	function componentCallback(rule, el) {
-		var binding = DOM.getData(el);
-		if (!binding || !binding.rules) return;
-		composites.push(el);
-	}
-
 	function applyCompositedRules(node, composite) {
 		if (!composite) composite = node;
 		var rules = getRules(composite);
@@ -1575,7 +1579,9 @@ nodeInserted: function(node) { // NOTE called AFTER node inserted into document
 		while (el = walker.nextNode()) {
 			_.forEach(rules, function(rule) {
 				var selector = rule.selector; // FIXME absolutizeSelector??
-				if (DOM.matches(el, selector)) applyRuleToEnteredElement(rule, el, enteredComponentCallback);
+				if (!DOM.matches(el, selector)) return;
+				var binding = attachBinding(rule.definition, el);
+				rule.callback.call(binding.object, el);
 			});
 		}
 	}
