@@ -1662,6 +1662,7 @@ removeNode: function(node) {
 	var doc = node.ownerDocument;
 	if (doc !== document || !DOM.contains(document, node)) throw Error('sprockets.removeNode must remove from `document`');
 	node.parentNode.removeChild(node);
+	nodeRemoved(node);
 	return node;
 }
 
@@ -1732,8 +1733,9 @@ var nodeRemoved = function(node) { // NOTE called AFTER node removed document
 
 	// TODO leftComponentCallback. Might be hard to implement *after* node is removed
 	// FIXME the following logic maybe completely wrong
-	Binding.leftDocumentCallback(node);
-	_.forEach(DOM.findAll('*', node), Binding.leftDocumentCallback);
+	var nodes = DOM.findAll('*', node);
+	nodes.unshift(node);
+	_.forEach(nodes, Binding.leftDocumentCallback);
 }
 
 // FIXME this auto DOM Monitoring could have horrible performance for DOM sorting operations
