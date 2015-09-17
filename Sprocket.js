@@ -780,7 +780,8 @@ var uniqueId = function(node) {
 	var nodeId = node[nodeIdProperty];
 	if (nodeId) return nodeId;
 	nodeId = '__' + vendorPrefix + '_' + nodeCount++;
-	node[nodeIdProperty] = new String(nodeId); // NOTE so that node cloning in IE doesn't copy the node ID property
+	node[nodeIdProperty] = nodeId; // WARN would need `new String(nodeId)` in IE<=8
+			// so that node cloning doesn't copy the node ID property
 	nodeTable.push(node);
 	return nodeId;
 }
