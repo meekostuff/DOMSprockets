@@ -216,8 +216,9 @@ var schedule = (function() {
 		var timeToCall = Math.max(0, frameInterval - (currTime - lastTime));
 		var id = window.setTimeout(function() { 
 			lastTime = performance.now();
-			callback(lastTime, element); 
+			var cb = callback;
 			callback = undefined;
+			cb(lastTime, element); 
 		}, timeToCall);
 		return id;
 	};
