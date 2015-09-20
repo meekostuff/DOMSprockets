@@ -154,7 +154,7 @@ logger[name] = window.console ?
 			function() { if (num <= logger.LOG_LEVEL) console[name].apply(console, arguments); } :
 			function() { if (num <= logger.LOG_LEVEL) console[name](_.map(arguments).join(' ')); } // IE9
 
-		: function() { console.log(_.map(arguments).join(' ')); }
+		: function() { if (num <= logger.LOG_LEVEL) console.log(_.map(arguments).join(' ')); }
 	: function() {}; 
 
 }, this);
@@ -210,7 +210,7 @@ var schedule = (function() {
 	var lastTime = 0;
 	var callback;
 	fn = function(cb, element) {
-		if (callback) throw 'requestFrame only allows one callback at a time';
+		if (callback) throw 'schedule() only allows one callback at a time';
 		callback = cb;
 		var currTime = performance.now();
 		var timeToCall = Math.max(0, frameInterval - (currTime - lastTime));
@@ -719,8 +719,8 @@ function TimeoutPredictor(max, mult) { // FIXME test args are valid
 		count: 0,
 		totalTime: 0,
 		currLimit: 1,
-		absLimit: max || 256,
-		multiplier: mult || 2
+		absLimit: !max ? 256 : max < 1 ? 1 : max,
+		multiplier: !mult ? 2 : mult < 1 ? 1 : mult
 	});
 }
 
