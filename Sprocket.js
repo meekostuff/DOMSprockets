@@ -186,13 +186,11 @@ var frameInterval = 1000 / frameRate;
 var frameExecutionRatio = 0.75; // FIXME another boot-option??
 var frameExecutionTimeout = frameInterval * frameExecutionRatio;
 
-var startTime;
 var performance = window.performance && window.performance.now ? window.performance :
 	Date.now ? Date :
 	{
 		now: function() { return (new Date).getTime(); }
 	};
-
 
 var schedule = (function() { 
 	// See http://creativejs.com/resources/requestanimationframe/
@@ -262,6 +260,40 @@ function delay(fn, timeout) {
 	}, timeout);
 }
 
+var execStats = {};
+var frameStats = {};
+
+function resetStats() {
+	_.forEach([execStats, frameStats], function(stats) {
+		_.assign(stats, {
+			count: 0,
+			totalTime: 0,
+			minTime: Infinity,
+			maxTime: 0,
+			avgTime: 0
+		});
+	});
+}
+resetStats();
+
+function updateStats(stats, currTime) {
+	stats.count++;
+	stats.totalTime += currTime;
+	if (currTime < stats.minTime) stats.minTime = currTime;
+	if (currTime > stats.maxTime) stats.maxTime = currTime;
+}
+
+function getStats() {
+	var exec = _.assign({}, execStats);
+	var frame = _.assign({}, frameStats);
+	exec.avgTime = exec.totalTime / exec.count;
+	frame.avgTime = frame.totalTime / frame.count;
+	return {
+		exec: exec,
+		frame: frame
+	}
+}
+
 var lastStartTime = performance.now();
 function getTime(bRemaining) {
 	var delta = performance.now() - lastStartTime;
@@ -269,26 +301,34 @@ function getTime(bRemaining) {
 	return frameExecutionTimeout - delta;
 }
 
+var idle = true;
 function processTasks() {
-	lastStartTime = performance.now();
+	var startTime = performance.now();
+	if (!idle) updateStats(frameStats, startTime - lastStartTime);
+	lastStartTime = startTime;
 	processing = true;
 	var fn;
+	var currTime;
 	while (asapQueue.length) {
 		fn = asapQueue.shift();
 		if (typeof fn !== 'function') continue;
 		try { fn(); }
 		catch (error) { postError(error); }
-		if (getTime(true) <= 0) break;
+		currTime = getTime();
+		if (currTime >= frameExecutionTimeout) break;
 	}
 	scheduled = false;
 	processing = false;
+	if (currTime) updateStats(execStats, currTime);
 	
 	asapQueue = asapQueue.concat(deferQueue);
 	deferQueue = [];
 	if (asapQueue.length) {
 		schedule(processTasks);
 		scheduled = true;
+		idle = false;
 	}
+	else idle = true;
 	
 	throwErrors();
 	
@@ -335,6 +375,8 @@ return {
 	defer: defer,
 	delay: delay,
 	getTime: getTime,
+	getStats: getStats,
+	resetStats: resetStats,
 	postError: postError
 };
 
