@@ -1197,6 +1197,7 @@ var Binding = function(definition) {
 	var binding = this;
 	binding.definition = definition;
 	binding.object = Object.create(definition.prototype);
+	binding.handlers = definition.handlers ? _.map(definition.handlers) : [];
 	binding.listeners = [];
 	binding.inDocument = null; // TODO state assertions in attach/onenter/leftDocumentCallback/detach
 }
@@ -1242,12 +1243,12 @@ attach: function(element) {
 	var object = binding.object;
 
 	object.element = element; 
-	if (definition.handlers) _.forEach(definition.handlers, function(handler) {
+	binding.attachedCallback();
+
+	_.forEach(binding.handlers, function(handler) {
 		var listener = binding.addHandler(handler); // handler might be ignored ...
 		if (listener) binding.listeners.push(listener);// ... resulting in an undefined listener
 	});
-	
-	binding.attachedCallback();
 },
 
 attachedCallback: function() {
@@ -1256,7 +1257,7 @@ attachedCallback: function() {
 	var object = binding.object;
 
 	binding.inDocument = false;
-	if (definition.attached) definition.attached.call(object); // FIXME try/catch
+	if (definition.attached) definition.attached.call(object, binding.handlers); // FIXME try/catch
 },
 
 enteredDocumentCallback: function() {
