@@ -699,7 +699,7 @@ function pipe(startValue, fnList) { // TODO make more efficient with sync intros
 	return promise;
 }
 
-function reduce(a, accumulator, fn, context) {
+function reduce(accumulator, a, fn, context) {
 return new Promise(function(resolve, reject) {
 	var length = a.length;
 	var i = 0;
