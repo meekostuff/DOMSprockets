@@ -668,20 +668,30 @@ return wait;
 })();
 
 var asap = function(value) { // FIXME asap(fn) should execute immediately
-	if (typeof value === 'function') return Promise.resolve().then(value); // will defer
 	if (Promise.isPromise(value)) {
 		if (value.isPending) return value; // already deferred
-		if (Task.getTime(true) <= 0) return value.then(function(val) { return val; }); // will defer
+		if (Task.getTime(true) <= 0) return value.then(); // will defer
 		return value; // not-deferred
 	}
 	if (Promise.isThenable(value)) return Promise.resolve(value); // will defer
+	if (typeof value === 'function') {
+		if (Task.getTime(true) <= 0) return Promise.resolve().then(value);
+		return new Promise(function(resolve) { resolve(value); }); // WARN relies on Meeko.Promise behavior
+	}
 	// NOTE otherwise we have a non-thenable, non-function something
-	if (Task.getTime(true) <= 0) return Promise.resolve(value).then(function(val) { return val; }); // will defer
+	if (Task.getTime(true) <= 0) return Promise.resolve(value).then(); // will defer
 	return Promise.resolve(value); // not-deferred
 }
 
-// FIXME implement Promise.defer(value_or_fn_or_promise)
-
+var defer = function(value) {
+	if (Promise.isPromise(value)) {
+		if (value.isPending) return value; // already deferred
+		return value.then();
+	}
+	if (Promise.isThenable(value)) return Promise.resolve(value);
+	if (typeof value === 'function') return Promise.resolve().then(value);
+	return Promise.resolve(value).then();
+}
 
 function delay(timeout) { // FIXME delay(timeout, value_or_fn_or_promise)
 	return new Promise(function(resolve, reject) {
@@ -795,7 +805,7 @@ getTimeoutCount: function(remainingTime) {
 });
 
 _.defaults(Promise, {
-	asap: asap, delay: delay, wait: wait, pipe: pipe, reduce: reduce
+	asap: asap, defer: defer, delay: delay, wait: wait, pipe: pipe, reduce: reduce
 });
 
 return Promise;
