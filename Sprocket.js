@@ -359,8 +359,8 @@ function createThrowers(list) {
 	return _.map(list, function(error) {
 		return function() {
 			if (logger.LOG_LEVEL >= logger.levels.indexOf('debug')) {
-				if (error && error.stack) logger.error(error.stack);
-				else logger.error('Untraceable error: ' + error); // FIXME why are these occuring??
+				if (error && error.stack) logger.debug(error.stack);
+				else logger.debug('Untraceable error: ' + error); // FIXME why are these occuring??
 			}
 			throw error;
 		};
@@ -1238,8 +1238,8 @@ manageEvent: function(type) {
 	this.managedEvents.push(type);
 	window.addEventListener(type, function(event) {
 		// NOTE stopPropagation() prevents custom default-handlers from running. DOMSprockets nullifies it.
-		event.stopPropagation = function() { logger.warn('event.stopPropagation() is a no-op'); }
-		event.stopImmediatePropagation = function() { logger.warn('event.stopImmediatePropagation() is a no-op'); }
+		event.stopPropagation = function() { logger.debug('event.stopPropagation() is a no-op'); }
+		event.stopImmediatePropagation = function() { logger.debug('event.stopImmediatePropagation() is a no-op'); }
 	}, true);
 }
 
