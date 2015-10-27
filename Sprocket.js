@@ -1322,7 +1322,13 @@ addHandler: function(handler) {
 	Binding.manageEvent(type);
 	var fn = function(event) {
 		if (fn.normalize) event = fn.normalize(event);
-		return handleEvent.call(object, event, handler);
+		try {
+			return handleEvent.call(object, event, handler);
+		}
+		catch (error) {
+			Task.postError(error);
+			throw error;
+		}
 	}
 	fn.type = type;
 	fn.capture = capture;
