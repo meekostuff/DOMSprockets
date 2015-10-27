@@ -17,7 +17,7 @@ var Group = sprockets.evolve(RoleType, {
 
 role: 'group'
 
-})
+});
 
 var TreeItem = sprockets.evolve(RoleType, {
 
